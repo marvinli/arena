@@ -8,7 +8,9 @@
   "scripts": {
     "front-end": "npm run dev --workspace=@arena/front-end",
     "poker-api": "npm run dev --workspace=@arena/poker-api",
+    "proctor-api": "npm run dev --workspace=@arena/proctor-api",
     "test:poker-api": "npm test --workspace=@arena/poker-api",
+    "test:proctor-api": "npm test --workspace=@arena/proctor-api",
     "check": "biome check .",
     "check:fix": "biome check --write ."
   },
