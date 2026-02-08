@@ -1,6 +1,6 @@
-import type { RenderInstruction } from "./gql/resolverTypes.js";
-import type { PokerGameState } from "./poker-api-client.js";
-import { InstructionType } from "./types.js";
+import type { RenderInstruction } from "../../../gql/resolverTypes.js";
+import type { GameState } from "../../../types.js";
+import { InstructionType } from "../../../types.js";
 
 function base(
   type: InstructionType,
@@ -13,7 +13,7 @@ function base(
 }
 
 function toPlayerInfos(
-  players: PokerGameState["players"],
+  players: GameState["players"],
 ): RenderInstruction["gameStart"] extends infer T
   ? T extends { players: infer P }
     ? P
@@ -28,20 +28,20 @@ function toPlayerInfos(
   }));
 }
 
-function toPotInfos(pots: PokerGameState["pots"]) {
+function toPotInfos(pots: GameState["pots"]) {
   return pots.map((p) => ({
     size: p.size,
     eligiblePlayerIds: p.eligiblePlayerIds,
   }));
 }
 
-function toCardInfos(cards: PokerGameState["communityCards"]) {
+function toCardInfos(cards: GameState["communityCards"]) {
   return cards.map((c) => ({ rank: c.rank, suit: c.suit }));
 }
 
 export function buildGameStart(
   gameId: string,
-  players: PokerGameState["players"],
+  players: GameState["players"],
   config: { smallBlind: number; bigBlind: number },
 ): RenderInstruction {
   return {
@@ -57,7 +57,7 @@ export function buildGameStart(
 
 export function buildDealHands(
   handNumber: number,
-  gameState: PokerGameState,
+  gameState: GameState,
 ): RenderInstruction {
   return {
     ...base(InstructionType.DealHands),
@@ -72,7 +72,7 @@ export function buildDealHands(
 
 export function buildDealCommunity(
   phase: string,
-  gameState: PokerGameState,
+  gameState: GameState,
 ): RenderInstruction {
   return {
     ...base(InstructionType.DealCommunity),
@@ -90,7 +90,7 @@ export function buildPlayerAction(
   action: string,
   amount: number | undefined,
   analysis: string | undefined,
-  gameState: PokerGameState,
+  gameState: GameState,
 ): RenderInstruction {
   return {
     ...base(InstructionType.PlayerAction),
@@ -108,7 +108,7 @@ export function buildPlayerAction(
 
 export function buildHandResult(
   winners: Array<{ playerId: string; amount: number; hand?: string | null }>,
-  gameState: PokerGameState,
+  gameState: GameState,
 ): RenderInstruction {
   return {
     ...base(InstructionType.HandResult),
@@ -126,7 +126,7 @@ export function buildHandResult(
 }
 
 export function buildLeaderboard(
-  players: PokerGameState["players"],
+  players: GameState["players"],
   handsPlayed: number,
 ): RenderInstruction {
   return {
@@ -141,7 +141,7 @@ export function buildLeaderboard(
 export function buildGameOver(
   winnerId: string,
   winnerName: string,
-  players: PokerGameState["players"],
+  players: GameState["players"],
   handsPlayed: number,
 ): RenderInstruction {
   return {

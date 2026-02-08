@@ -1,4 +1,7 @@
-import type { RenderInstruction, SessionConfig } from "./gql/resolverTypes.js";
+import type {
+  RenderInstruction,
+  SessionConfig,
+} from "../../gql/resolverTypes.js";
 
 export interface SessionPlayer {
   id: string;

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _resetPubSub } from "../src/pubsub.js";
-import { _resetSessions } from "../src/session-manager.js";
+import { _resetGames } from "../src/services/games/poker/poker-engine.js";
+import { _resetPubSub } from "../src/services/session/pubsub.js";
+import { _resetSessions } from "../src/services/session/session-manager.js";
 import { gql } from "./yoga-helper.js";
 
 const SESSION_CONFIG = {
@@ -27,6 +28,7 @@ describe("proctor-api GraphQL", () => {
   beforeEach(() => {
     _resetSessions();
     _resetPubSub();
+    _resetGames();
   });
 
   describe("startSession", () => {
@@ -181,12 +183,12 @@ describe("proctor-api GraphQL", () => {
     });
   });
 
-  describe("getGameState", () => {
+  describe("getChannelState", () => {
     it("returns empty state for non-existent channel", async () => {
       const result = await gql(
         /* GraphQL */ `
-          query GetGameState($channelKey: String!) {
-            getGameState(channelKey: $channelKey) {
+          query GetChannelState($channelKey: String!) {
+            getChannelState(channelKey: $channelKey) {
               channelKey
               handNumber
               players {
@@ -205,9 +207,9 @@ describe("proctor-api GraphQL", () => {
       );
 
       expect(result.errors).toBeUndefined();
-      expect(result.data!.getGameState.channelKey).toBe("nope");
-      expect(result.data!.getGameState.handNumber).toBe(0);
-      expect(result.data!.getGameState.players).toEqual([]);
+      expect(result.data!.getChannelState.channelKey).toBe("nope");
+      expect(result.data!.getChannelState.handNumber).toBe(0);
+      expect(result.data!.getChannelState.players).toEqual([]);
     });
   });
 

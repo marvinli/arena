@@ -10,11 +10,7 @@
     }
   },
   "files": {
-    "includes": [
-      "**",
-      "!packages/poker-api/src/gql/resolverTypes.ts",
-      "!packages/proctor-api/src/gql/resolverTypes.ts"
-    ]
+    "includes": ["**", "!packages/proctor-api/src/gql/resolverTypes.ts"]
   },
   "overrides": [
     {

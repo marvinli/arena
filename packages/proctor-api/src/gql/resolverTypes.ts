@@ -17,6 +17,21 @@ export type Scalars = {
   Float: { input: number; output: number; }
 };
 
+export type ActionRecord = {
+  __typename?: 'ActionRecord';
+  action: Scalars['String']['output'];
+  amount?: Maybe<Scalars['Int']['output']>;
+  playerId: Scalars['ID']['output'];
+};
+
+export enum ActionType {
+  Bet = 'BET',
+  Call = 'CALL',
+  Check = 'CHECK',
+  Fold = 'FOLD',
+  Raise = 'RAISE'
+}
+
 export type AgentConfig = {
   model: Scalars['String']['input'];
   name: Scalars['String']['input'];
@@ -25,10 +40,22 @@ export type AgentConfig = {
   temperature?: InputMaybe<Scalars['Float']['input']>;
 };
 
+export type Card = {
+  __typename?: 'Card';
+  rank: Scalars['String']['output'];
+  suit: Scalars['String']['output'];
+};
+
 export type CardInfo = {
   __typename?: 'CardInfo';
   rank: Scalars['String']['output'];
   suit: Scalars['String']['output'];
+};
+
+export type CreateGameInput = {
+  bigBlind: Scalars['Int']['input'];
+  players: Array<PlayerInput>;
+  smallBlind: Scalars['Int']['input'];
 };
 
 export type DealCommunityPayload = {
@@ -54,6 +81,15 @@ export type GameOverPayload = {
   winnerName: Scalars['String']['output'];
 };
 
+export enum GamePhase {
+  Flop = 'FLOP',
+  Preflop = 'PREFLOP',
+  River = 'RIVER',
+  Showdown = 'SHOWDOWN',
+  Turn = 'TURN',
+  Waiting = 'WAITING'
+}
+
 export type GameStartPayload = {
   __typename?: 'GameStartPayload';
   bigBlind: Scalars['Int']['output'];
@@ -62,12 +98,48 @@ export type GameStartPayload = {
   smallBlind: Scalars['Int']['output'];
 };
 
+export type GameState = {
+  __typename?: 'GameState';
+  button?: Maybe<Scalars['Int']['output']>;
+  communityCards: Array<Card>;
+  currentPlayerId?: Maybe<Scalars['ID']['output']>;
+  gameId: Scalars['ID']['output'];
+  handNumber: Scalars['Int']['output'];
+  phase: GamePhase;
+  players: Array<Player>;
+  pots: Array<Pot>;
+};
+
+export type HandRecord = {
+  __typename?: 'HandRecord';
+  actions: Array<PhaseActions>;
+  communityCards: Array<Card>;
+  handNumber: Scalars['Int']['output'];
+  players: Array<HandRecordPlayer>;
+  pots: Array<Pot>;
+  winners: Array<HandWinner>;
+};
+
+export type HandRecordPlayer = {
+  __typename?: 'HandRecordPlayer';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  startingChips: Scalars['Int']['output'];
+};
+
 export type HandResultPayload = {
   __typename?: 'HandResultPayload';
   communityCards: Array<CardInfo>;
   players: Array<PlayerInfo>;
   pots: Array<PotInfo>;
   winners: Array<WinnerInfo>;
+};
+
+export type HandWinner = {
+  __typename?: 'HandWinner';
+  amount: Scalars['Int']['output'];
+  hand?: Maybe<Scalars['String']['output']>;
+  playerId: Scalars['ID']['output'];
 };
 
 export enum InstructionType {
@@ -89,15 +161,34 @@ export type LeaderboardPayload = {
 export type Mutation = {
   __typename?: 'Mutation';
   _empty?: Maybe<Scalars['String']['output']>;
+  advanceGame: GameState;
+  createGame: GameState;
   renderComplete: Scalars['Boolean']['output'];
+  startHand: GameState;
   startSession: Session;
   stopSession: Scalars['Boolean']['output'];
+  submitAction: GameState;
+};
+
+
+export type MutationAdvanceGameArgs = {
+  gameId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateGameArgs = {
+  input: CreateGameInput;
 };
 
 
 export type MutationRenderCompleteArgs = {
   channelKey: Scalars['String']['input'];
   instructionId: Scalars['ID']['input'];
+};
+
+
+export type MutationStartHandArgs = {
+  gameId: Scalars['ID']['input'];
 };
 
 
@@ -109,6 +200,35 @@ export type MutationStartSessionArgs = {
 
 export type MutationStopSessionArgs = {
   channelKey: Scalars['String']['input'];
+};
+
+
+export type MutationSubmitActionArgs = {
+  action: SubmitActionInput;
+  gameId: Scalars['ID']['input'];
+};
+
+export type MyTurnResponse = {
+  __typename?: 'MyTurnResponse';
+  gameState: GameState;
+  myHand: Array<Card>;
+  validActions: Array<ValidAction>;
+};
+
+export type PhaseActions = {
+  __typename?: 'PhaseActions';
+  actions: Array<ActionRecord>;
+  phase: Scalars['String']['output'];
+};
+
+export type Player = {
+  __typename?: 'Player';
+  bet: Scalars['Int']['output'];
+  chips: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  seatIndex: Scalars['Int']['output'];
+  status: PlayerStatus;
 };
 
 export type PlayerActionPayload = {
@@ -129,6 +249,25 @@ export type PlayerInfo = {
   name: Scalars['String']['output'];
   seatIndex: Scalars['Int']['output'];
   status: Scalars['String']['output'];
+};
+
+export type PlayerInput = {
+  chips: Scalars['Int']['input'];
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+export enum PlayerStatus {
+  Active = 'ACTIVE',
+  AllIn = 'ALL_IN',
+  Busted = 'BUSTED',
+  Folded = 'FOLDED'
+}
+
+export type Pot = {
+  __typename?: 'Pot';
+  eligiblePlayerIds: Array<Scalars['ID']['output']>;
+  size: Scalars['Int']['output'];
 };
 
 export type PotInfo = {
@@ -152,13 +291,32 @@ export type ProctorGameState = {
 export type Query = {
   __typename?: 'Query';
   _empty?: Maybe<Scalars['String']['output']>;
-  getGameState: ProctorGameState;
+  getChannelState: ProctorGameState;
+  getGameState: GameState;
+  getHistory: Array<HandRecord>;
+  getMyTurn: MyTurnResponse;
   getSession?: Maybe<Session>;
 };
 
 
-export type QueryGetGameStateArgs = {
+export type QueryGetChannelStateArgs = {
   channelKey: Scalars['String']['input'];
+};
+
+
+export type QueryGetGameStateArgs = {
+  gameId: Scalars['ID']['input'];
+};
+
+
+export type QueryGetHistoryArgs = {
+  gameId: Scalars['ID']['input'];
+  lastN?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryGetMyTurnArgs = {
+  gameId: Scalars['ID']['input'];
 };
 
 
@@ -193,7 +351,6 @@ export type SessionConfig = {
   bigBlind: Scalars['Int']['input'];
   handsPerGame?: InputMaybe<Scalars['Int']['input']>;
   players: Array<AgentConfig>;
-  pokerApiUrl?: InputMaybe<Scalars['String']['input']>;
   smallBlind: Scalars['Int']['input'];
   startingChips: Scalars['Int']['input'];
 };
@@ -212,6 +369,11 @@ export enum SessionStatus {
   Stopped = 'STOPPED'
 }
 
+export type SubmitActionInput = {
+  amount?: InputMaybe<Scalars['Int']['input']>;
+  type: ActionType;
+};
+
 export type Subscription = {
   __typename?: 'Subscription';
   _empty?: Maybe<Scalars['String']['output']>;
@@ -221,6 +383,14 @@ export type Subscription = {
 
 export type SubscriptionRenderInstructionsArgs = {
   channelKey: Scalars['String']['input'];
+};
+
+export type ValidAction = {
+  __typename?: 'ValidAction';
+  amount?: Maybe<Scalars['Int']['output']>;
+  max?: Maybe<Scalars['Int']['output']>;
+  min?: Maybe<Scalars['Int']['output']>;
+  type: ActionType;
 };
 
 export type WinnerInfo = {
@@ -301,22 +471,37 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
+  ActionRecord: ResolverTypeWrapper<ActionRecord>;
+  ActionType: ActionType;
   AgentConfig: AgentConfig;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  Card: ResolverTypeWrapper<Card>;
   CardInfo: ResolverTypeWrapper<CardInfo>;
+  CreateGameInput: CreateGameInput;
   DealCommunityPayload: ResolverTypeWrapper<DealCommunityPayload>;
   DealHandsPayload: ResolverTypeWrapper<DealHandsPayload>;
   Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   GameOverPayload: ResolverTypeWrapper<GameOverPayload>;
+  GamePhase: GamePhase;
   GameStartPayload: ResolverTypeWrapper<GameStartPayload>;
+  GameState: ResolverTypeWrapper<GameState>;
+  HandRecord: ResolverTypeWrapper<HandRecord>;
+  HandRecordPlayer: ResolverTypeWrapper<HandRecordPlayer>;
   HandResultPayload: ResolverTypeWrapper<HandResultPayload>;
+  HandWinner: ResolverTypeWrapper<HandWinner>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   InstructionType: InstructionType;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   LeaderboardPayload: ResolverTypeWrapper<LeaderboardPayload>;
   Mutation: ResolverTypeWrapper<{}>;
+  MyTurnResponse: ResolverTypeWrapper<MyTurnResponse>;
+  PhaseActions: ResolverTypeWrapper<PhaseActions>;
+  Player: ResolverTypeWrapper<Player>;
   PlayerActionPayload: ResolverTypeWrapper<PlayerActionPayload>;
   PlayerInfo: ResolverTypeWrapper<PlayerInfo>;
+  PlayerInput: PlayerInput;
+  PlayerStatus: PlayerStatus;
+  Pot: ResolverTypeWrapper<Pot>;
   PotInfo: ResolverTypeWrapper<PotInfo>;
   ProctorGameState: ResolverTypeWrapper<ProctorGameState>;
   Query: ResolverTypeWrapper<{}>;
@@ -326,27 +511,41 @@ export type ResolversTypes = {
   SessionPlayer: ResolverTypeWrapper<SessionPlayer>;
   SessionStatus: SessionStatus;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
+  SubmitActionInput: SubmitActionInput;
   Subscription: ResolverTypeWrapper<{}>;
+  ValidAction: ResolverTypeWrapper<ValidAction>;
   WinnerInfo: ResolverTypeWrapper<WinnerInfo>;
 };
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
+  ActionRecord: ActionRecord;
   AgentConfig: AgentConfig;
   Boolean: Scalars['Boolean']['output'];
+  Card: Card;
   CardInfo: CardInfo;
+  CreateGameInput: CreateGameInput;
   DealCommunityPayload: DealCommunityPayload;
   DealHandsPayload: DealHandsPayload;
   Float: Scalars['Float']['output'];
   GameOverPayload: GameOverPayload;
   GameStartPayload: GameStartPayload;
+  GameState: GameState;
+  HandRecord: HandRecord;
+  HandRecordPlayer: HandRecordPlayer;
   HandResultPayload: HandResultPayload;
+  HandWinner: HandWinner;
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
   LeaderboardPayload: LeaderboardPayload;
   Mutation: {};
+  MyTurnResponse: MyTurnResponse;
+  PhaseActions: PhaseActions;
+  Player: Player;
   PlayerActionPayload: PlayerActionPayload;
   PlayerInfo: PlayerInfo;
+  PlayerInput: PlayerInput;
+  Pot: Pot;
   PotInfo: PotInfo;
   ProctorGameState: ProctorGameState;
   Query: {};
@@ -355,8 +554,23 @@ export type ResolversParentTypes = {
   SessionConfig: SessionConfig;
   SessionPlayer: SessionPlayer;
   String: Scalars['String']['output'];
+  SubmitActionInput: SubmitActionInput;
   Subscription: {};
+  ValidAction: ValidAction;
   WinnerInfo: WinnerInfo;
+};
+
+export type ActionRecordResolvers<ContextType = Context, ParentType extends ResolversParentTypes['ActionRecord'] = ResolversParentTypes['ActionRecord']> = {
+  action?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  amount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type CardResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Card'] = ResolversParentTypes['Card']> = {
+  rank?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  suit?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
 export type CardInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['CardInfo'] = ResolversParentTypes['CardInfo']> = {
@@ -396,11 +610,47 @@ export type GameStartPayloadResolvers<ContextType = Context, ParentType extends 
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type GameStateResolvers<ContextType = Context, ParentType extends ResolversParentTypes['GameState'] = ResolversParentTypes['GameState']> = {
+  button?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  communityCards?: Resolver<Array<ResolversTypes['Card']>, ParentType, ContextType>;
+  currentPlayerId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  gameId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  handNumber?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  phase?: Resolver<ResolversTypes['GamePhase'], ParentType, ContextType>;
+  players?: Resolver<Array<ResolversTypes['Player']>, ParentType, ContextType>;
+  pots?: Resolver<Array<ResolversTypes['Pot']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type HandRecordResolvers<ContextType = Context, ParentType extends ResolversParentTypes['HandRecord'] = ResolversParentTypes['HandRecord']> = {
+  actions?: Resolver<Array<ResolversTypes['PhaseActions']>, ParentType, ContextType>;
+  communityCards?: Resolver<Array<ResolversTypes['Card']>, ParentType, ContextType>;
+  handNumber?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  players?: Resolver<Array<ResolversTypes['HandRecordPlayer']>, ParentType, ContextType>;
+  pots?: Resolver<Array<ResolversTypes['Pot']>, ParentType, ContextType>;
+  winners?: Resolver<Array<ResolversTypes['HandWinner']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type HandRecordPlayerResolvers<ContextType = Context, ParentType extends ResolversParentTypes['HandRecordPlayer'] = ResolversParentTypes['HandRecordPlayer']> = {
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  startingChips?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type HandResultPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['HandResultPayload'] = ResolversParentTypes['HandResultPayload']> = {
   communityCards?: Resolver<Array<ResolversTypes['CardInfo']>, ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
   pots?: Resolver<Array<ResolversTypes['PotInfo']>, ParentType, ContextType>;
   winners?: Resolver<Array<ResolversTypes['WinnerInfo']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type HandWinnerResolvers<ContextType = Context, ParentType extends ResolversParentTypes['HandWinner'] = ResolversParentTypes['HandWinner']> = {
+  amount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  hand?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -412,9 +662,36 @@ export type LeaderboardPayloadResolvers<ContextType = Context, ParentType extend
 
 export type MutationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  advanceGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationAdvanceGameArgs, 'gameId'>>;
+  createGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationCreateGameArgs, 'input'>>;
   renderComplete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRenderCompleteArgs, 'channelKey' | 'instructionId'>>;
+  startHand?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationStartHandArgs, 'gameId'>>;
   startSession?: Resolver<ResolversTypes['Session'], ParentType, ContextType, RequireFields<MutationStartSessionArgs, 'channelKey' | 'config'>>;
   stopSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStopSessionArgs, 'channelKey'>>;
+  submitAction?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationSubmitActionArgs, 'action' | 'gameId'>>;
+};
+
+export type MyTurnResponseResolvers<ContextType = Context, ParentType extends ResolversParentTypes['MyTurnResponse'] = ResolversParentTypes['MyTurnResponse']> = {
+  gameState?: Resolver<ResolversTypes['GameState'], ParentType, ContextType>;
+  myHand?: Resolver<Array<ResolversTypes['Card']>, ParentType, ContextType>;
+  validActions?: Resolver<Array<ResolversTypes['ValidAction']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type PhaseActionsResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PhaseActions'] = ResolversParentTypes['PhaseActions']> = {
+  actions?: Resolver<Array<ResolversTypes['ActionRecord']>, ParentType, ContextType>;
+  phase?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type PlayerResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Player'] = ResolversParentTypes['Player']> = {
+  bet?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  chips?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  seatIndex?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  status?: Resolver<ResolversTypes['PlayerStatus'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
 export type PlayerActionPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerActionPayload'] = ResolversParentTypes['PlayerActionPayload']> = {
@@ -434,6 +711,12 @@ export type PlayerInfoResolvers<ContextType = Context, ParentType extends Resolv
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   seatIndex?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   status?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type PotResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Pot'] = ResolversParentTypes['Pot']> = {
+  eligiblePlayerIds?: Resolver<Array<ResolversTypes['ID']>, ParentType, ContextType>;
+  size?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -457,7 +740,10 @@ export type ProctorGameStateResolvers<ContextType = Context, ParentType extends 
 
 export type QueryResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
-  getGameState?: Resolver<ResolversTypes['ProctorGameState'], ParentType, ContextType, RequireFields<QueryGetGameStateArgs, 'channelKey'>>;
+  getChannelState?: Resolver<ResolversTypes['ProctorGameState'], ParentType, ContextType, RequireFields<QueryGetChannelStateArgs, 'channelKey'>>;
+  getGameState?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<QueryGetGameStateArgs, 'gameId'>>;
+  getHistory?: Resolver<Array<ResolversTypes['HandRecord']>, ParentType, ContextType, RequireFields<QueryGetHistoryArgs, 'gameId'>>;
+  getMyTurn?: Resolver<ResolversTypes['MyTurnResponse'], ParentType, ContextType, RequireFields<QueryGetMyTurnArgs, 'gameId'>>;
   getSession?: Resolver<Maybe<ResolversTypes['Session']>, ParentType, ContextType, RequireFields<QueryGetSessionArgs, 'channelKey'>>;
 };
 
@@ -497,6 +783,14 @@ export type SubscriptionResolvers<ContextType = Context, ParentType extends Reso
   renderInstructions?: SubscriptionResolver<ResolversTypes['RenderInstruction'], "renderInstructions", ParentType, ContextType, RequireFields<SubscriptionRenderInstructionsArgs, 'channelKey'>>;
 };
 
+export type ValidActionResolvers<ContextType = Context, ParentType extends ResolversParentTypes['ValidAction'] = ResolversParentTypes['ValidAction']> = {
+  amount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  max?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  min?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  type?: Resolver<ResolversTypes['ActionType'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type WinnerInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['WinnerInfo'] = ResolversParentTypes['WinnerInfo']> = {
   amount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   hand?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
@@ -505,16 +799,26 @@ export type WinnerInfoResolvers<ContextType = Context, ParentType extends Resolv
 };
 
 export type Resolvers<ContextType = Context> = {
+  ActionRecord?: ActionRecordResolvers<ContextType>;
+  Card?: CardResolvers<ContextType>;
   CardInfo?: CardInfoResolvers<ContextType>;
   DealCommunityPayload?: DealCommunityPayloadResolvers<ContextType>;
   DealHandsPayload?: DealHandsPayloadResolvers<ContextType>;
   GameOverPayload?: GameOverPayloadResolvers<ContextType>;
   GameStartPayload?: GameStartPayloadResolvers<ContextType>;
+  GameState?: GameStateResolvers<ContextType>;
+  HandRecord?: HandRecordResolvers<ContextType>;
+  HandRecordPlayer?: HandRecordPlayerResolvers<ContextType>;
   HandResultPayload?: HandResultPayloadResolvers<ContextType>;
+  HandWinner?: HandWinnerResolvers<ContextType>;
   LeaderboardPayload?: LeaderboardPayloadResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
+  MyTurnResponse?: MyTurnResponseResolvers<ContextType>;
+  PhaseActions?: PhaseActionsResolvers<ContextType>;
+  Player?: PlayerResolvers<ContextType>;
   PlayerActionPayload?: PlayerActionPayloadResolvers<ContextType>;
   PlayerInfo?: PlayerInfoResolvers<ContextType>;
+  Pot?: PotResolvers<ContextType>;
   PotInfo?: PotInfoResolvers<ContextType>;
   ProctorGameState?: ProctorGameStateResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
@@ -522,6 +826,7 @@ export type Resolvers<ContextType = Context> = {
   Session?: SessionResolvers<ContextType>;
   SessionPlayer?: SessionPlayerResolvers<ContextType>;
   Subscription?: SubscriptionResolvers<ContextType>;
+  ValidAction?: ValidActionResolvers<ContextType>;
   WinnerInfo?: WinnerInfoResolvers<ContextType>;
 };
 

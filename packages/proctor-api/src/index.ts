@@ -9,6 +9,9 @@ const yoga = createYoga({
     typeDefs: mergedTypeDefs,
     resolvers: mergedResolvers,
   }),
+  context: ({ request }) => ({
+    playerId: request.headers.get("x-player-id"),
+  }),
   graphiql: true,
 });
 
@@ -16,7 +19,7 @@ export { yoga };
 
 const server = createServer(yoga);
 
-const PORT = process.env.PORT ?? 4002;
+const PORT = process.env.PORT ?? 4001;
 server.listen(PORT, () => {
   console.log(`proctor-api running at http://localhost:${PORT}/graphql`);
 });

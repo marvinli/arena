@@ -8,7 +8,6 @@ export const channelTypeDefs = /* GraphQL */ `
   }
 
   input SessionConfig {
-    pokerApiUrl: String
     players: [AgentConfig!]!
     startingChips: Int!
     smallBlind: Int!

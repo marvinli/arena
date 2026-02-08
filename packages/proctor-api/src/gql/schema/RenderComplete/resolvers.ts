@@ -1,4 +1,4 @@
-import { recordRenderComplete } from "../../../session-manager.js";
+import { recordRenderComplete } from "../../../services/session/session-manager.js";
 import type { MutationResolvers } from "../../resolverTypes.js";
 
 const renderComplete: MutationResolvers["renderComplete"] = (

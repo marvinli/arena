@@ -1,7 +1,7 @@
-import { getSession } from "../../../session-manager.js";
+import { getSession } from "../../../services/session/session-manager.js";
 import type { QueryResolvers } from "../../resolverTypes.js";
 
-const getGameState: QueryResolvers["getGameState"] = (
+const getChannelState: QueryResolvers["getChannelState"] = (
   _parent,
   { channelKey },
 ) => {
@@ -33,5 +33,5 @@ const getGameState: QueryResolvers["getGameState"] = (
 };
 
 export const gameStateResolvers = {
-  Query: { getGameState },
+  Query: { getChannelState },
 };

@@ -8,8 +8,8 @@ import {
   getMyTurn,
   startHand,
   submitAction,
-} from "../src/game-manager.js";
-import { ActionType, GamePhase } from "../src/types.js";
+} from "../../../../src/services/games/poker/poker-engine.js";
+import { ActionType, GamePhase } from "../../../../src/types.js";
 
 const TEST_PLAYERS = [
   { id: "p1", name: "Alice", chips: 1000 },
@@ -25,7 +25,7 @@ function createTestGame() {
   });
 }
 
-describe("game-manager", () => {
+describe("poker-engine", () => {
   beforeEach(() => {
     _resetGames();
   });

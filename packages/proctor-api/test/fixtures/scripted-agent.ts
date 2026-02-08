@@ -1,4 +1,7 @@
-import type { AgentRunner, AgentTurnResult } from "../../src/agent-runner.js";
+import type {
+  AgentRunner,
+  AgentTurnResult,
+} from "../../src/services/games/poker/agent-runner.js";
 
 export class ScriptedAgentRunner implements AgentRunner {
   private actions: AgentTurnResult[];

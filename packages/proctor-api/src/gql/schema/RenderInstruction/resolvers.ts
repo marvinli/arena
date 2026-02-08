@@ -1,5 +1,8 @@
-import { subscribe } from "../../../pubsub.js";
-import { registerClient, unregisterClient } from "../../../session-manager.js";
+import { subscribe } from "../../../services/session/pubsub.js";
+import {
+  registerClient,
+  unregisterClient,
+} from "../../../services/session/session-manager.js";
 import type { RenderInstruction } from "../../resolverTypes.js";
 
 const renderInstructions = {

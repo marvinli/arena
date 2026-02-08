@@ -10,4 +10,14 @@ export const baseTypeDefs = /* GraphQL */ `
   type Subscription {
     _empty: String
   }
+
+  type Card {
+    rank: String!
+    suit: String!
+  }
+
+  type Pot {
+    size: Int!
+    eligiblePlayerIds: [ID!]!
+  }
 `;

@@ -1,3 +1,7 @@
+import type { GameState } from "../../../types.js";
+import { publish } from "../../session/pubsub.js";
+import type { Session } from "../../session/session-manager.js";
+import { waitForRenderComplete } from "../../session/session-manager.js";
 import type { AgentRunner } from "./agent-runner.js";
 import {
   buildDealCommunity,
@@ -8,10 +12,7 @@ import {
   buildLeaderboard,
   buildPlayerAction,
 } from "./instruction-builder.js";
-import type { PokerApiClient, PokerGameState } from "./poker-api-client.js";
-import { publish } from "./pubsub.js";
-import type { Session } from "./session-manager.js";
-import { waitForRenderComplete } from "./session-manager.js";
+import * as poker from "./poker-engine.js";
 
 async function emit(
   session: Session,
@@ -27,7 +28,7 @@ async function emit(
   );
 }
 
-function updateGameState(session: Session, state: PokerGameState): void {
+function updateGameState(session: Session, state: GameState): void {
   session.gameId = state.gameId;
   session.lastGameState = {
     phase: state.phase,
@@ -60,7 +61,7 @@ function findAgentConfig(session: Session, playerId: string) {
 }
 
 function isGameOver(
-  state: PokerGameState,
+  state: GameState,
   handsPerGame: number | null | undefined,
   handNumber: number,
 ): boolean {
@@ -72,13 +73,12 @@ function isGameOver(
 
 export async function runSession(
   session: Session,
-  pokerApi: PokerApiClient,
   agentRunner: AgentRunner,
 ): Promise<void> {
   const signal = session.abortController.signal;
 
-  // Create game via poker-api
-  const createState = await pokerApi.createGame({
+  // Create game via poker engine
+  const gameId = poker.createGame({
     players: session.config.players.map((p) => ({
       id: p.playerId,
       name: p.name,
@@ -88,13 +88,14 @@ export async function runSession(
     bigBlind: session.config.bigBlind,
   });
 
-  session.gameId = createState.gameId;
+  const createState = poker.getGameState(gameId);
+  session.gameId = gameId;
   updateGameState(session, createState);
 
   // Emit GAME_START
   await emit(
     session,
-    buildGameStart(createState.gameId, createState.players, {
+    buildGameStart(gameId, createState.players, {
       smallBlind: session.config.smallBlind,
       bigBlind: session.config.bigBlind,
     }),
@@ -106,7 +107,7 @@ export async function runSession(
     session.handNumber++;
 
     // Start hand
-    const handState = await pokerApi.startHand(createState.gameId);
+    const handState = poker.startHand(gameId);
     updateGameState(session, handState);
 
     // Emit DEAL_HANDS
@@ -126,11 +127,11 @@ export async function runSession(
         const playerName =
           currentState.players.find((p) => p.id === playerId)?.name ?? playerId;
 
-        // Get turn data from poker-api
-        const turnData = await pokerApi.getMyTurn(createState.gameId, playerId);
+        // Get turn data from poker engine
+        const turnData = poker.getMyTurn(gameId, playerId);
 
         // Get history for agent context
-        const history = await pokerApi.getHistory(createState.gameId, 5);
+        const history = poker.getHistory(gameId, 5);
 
         // Call agent runner
         let result: {
@@ -140,7 +141,7 @@ export async function runSession(
         try {
           result = await agentRunner.runTurn(
             {
-              gameId: createState.gameId,
+              gameId,
               playerId,
               playerName,
               handNumber: session.handNumber,
@@ -167,11 +168,12 @@ export async function runSession(
           result = { action: { type: "FOLD" } };
         }
 
-        // Submit action to poker-api
-        currentState = await pokerApi.submitAction(
-          createState.gameId,
+        // Submit action to poker engine
+        currentState = poker.submitAction(
+          gameId,
           playerId,
-          result.action,
+          result.action.type,
+          result.action.amount,
         );
         updateGameState(session, currentState);
 
@@ -194,12 +196,12 @@ export async function runSession(
       }
 
       // No current player — try to advance
-      const advancedState = await pokerApi.advanceGame(createState.gameId);
+      const advancedState = poker.advanceGame(gameId);
       updateGameState(session, advancedState);
 
       if (advancedState.phase === "WAITING") {
         // Hand is over — get latest history for results
-        const history = await pokerApi.getHistory(createState.gameId, 1);
+        const history = poker.getHistory(gameId, 1);
         const lastHand = history[0];
         const winners = lastHand?.winners ?? [];
 
@@ -223,7 +225,7 @@ export async function runSession(
     if (signal.aborted) break;
 
     // Check if game is over
-    const postHandState = await pokerApi.getGameState(createState.gameId);
+    const postHandState = poker.getGameState(gameId);
     updateGameState(session, postHandState);
 
     if (

@@ -1,4 +1,4 @@
-import * as gm from "../../../game-manager.js";
+import * as gm from "../../../services/games/poker/poker-engine.js";
 import { requirePlayerId } from "../../context.js";
 import type { MutationResolvers, QueryResolvers } from "../../resolverTypes.js";
 

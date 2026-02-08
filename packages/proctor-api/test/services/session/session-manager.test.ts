@@ -8,7 +8,7 @@ import {
   stopSession,
   unregisterClient,
   waitForRenderComplete,
-} from "../src/session-manager.js";
+} from "../../../src/services/session/session-manager.js";
 
 const baseConfig = {
   players: [

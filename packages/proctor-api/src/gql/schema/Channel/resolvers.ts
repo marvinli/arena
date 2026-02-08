@@ -2,7 +2,7 @@ import {
   createSession,
   getSession,
   stopSession,
-} from "../../../session-manager.js";
+} from "../../../services/session/session-manager.js";
 import type {
   MutationResolvers,
   QueryResolvers,

@@ -11,6 +11,6 @@ export const gameStateTypeDefs = /* GraphQL */ `
   }
 
   extend type Query {
-    getGameState(channelKey: String!): ProctorGameState!
+    getChannelState(channelKey: String!): ProctorGameState!
   }
 `;

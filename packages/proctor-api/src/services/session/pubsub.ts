@@ -1,4 +1,4 @@
-import type { RenderInstruction } from "./gql/resolverTypes.js";
+import type { RenderInstruction } from "../../gql/resolverTypes.js";
 
 interface Subscriber {
   push: (value: RenderInstruction) => void;

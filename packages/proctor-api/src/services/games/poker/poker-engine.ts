@@ -13,7 +13,7 @@ import {
   PlayerStatus,
   type Pot,
   type ValidAction,
-} from "./types.js";
+} from "../../../types.js";
 
 interface PlayerMapping {
   id: string;
