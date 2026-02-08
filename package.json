@@ -1,0 +1,17 @@
+{
+  "name": "arena",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "front-end": "npm run dev --workspace=@arena/front-end",
+    "poker-api": "npm run dev --workspace=@arena/poker-api",
+    "test:poker-api": "npm test --workspace=@arena/poker-api"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
