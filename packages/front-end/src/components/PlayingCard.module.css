@@ -1,0 +1,49 @@
+.card {
+  width: 40px;
+  height: 56px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.front {
+  background: #fff;
+}
+
+.red {
+  color: #c0392b;
+}
+
+.black {
+  color: #1a1a1a;
+}
+
+.suit {
+  font-size: 14px;
+}
+
+.back {
+  background: linear-gradient(135deg, #1e3a5f 25%, #2c5282 50%, #1e3a5f 75%);
+  border: 2px solid #e8d5a3;
+  background-size: 8px 8px;
+}
+
+.backPattern {
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgba(232, 213, 163, 0.15) 3px,
+    rgba(232, 213, 163, 0.15) 4px
+  );
+}
