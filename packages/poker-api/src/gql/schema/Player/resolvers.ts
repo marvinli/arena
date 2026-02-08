@@ -22,19 +22,6 @@ const submitAction: MutationResolvers["submitAction"] = (
 };
 
 export const playerResolvers = {
-  PlayerStatus: {
-    ACTIVE: "active" as const,
-    FOLDED: "folded" as const,
-    ALL_IN: "all-in" as const,
-    BUSTED: "busted" as const,
-  },
-  ActionType: {
-    FOLD: "fold" as const,
-    CHECK: "check" as const,
-    CALL: "call" as const,
-    BET: "bet" as const,
-    RAISE: "raise" as const,
-  },
   Query: { getMyTurn },
   Mutation: { submitAction },
 };
