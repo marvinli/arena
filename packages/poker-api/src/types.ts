@@ -1,23 +1,22 @@
-export {
-  GamePhase,
-  PlayerStatus,
-  ActionType,
-} from "./gql/resolverTypes.js";
-
 export type {
+  ActionRecord,
   Card,
-  Player,
-  Pot,
-  ValidAction,
+  CreateGameInput,
   GameState,
-  MyTurnResponse,
   HandRecord,
   HandRecordPlayer,
   HandWinner,
-  ActionRecord,
+  MyTurnResponse,
   PhaseActions,
-  CreateGameInput,
+  Player,
+  Pot,
   SubmitActionInput,
+  ValidAction,
+} from "./gql/resolverTypes.js";
+export {
+  ActionType,
+  GamePhase,
+  PlayerStatus,
 } from "./gql/resolverTypes.js";
 
 // Internal types not in the GraphQL schema

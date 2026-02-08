@@ -1,18 +1,18 @@
-import Poker from "poker-ts";
 import { randomUUID } from "node:crypto";
+import Poker from "poker-ts";
 import {
-  type Card,
-  type Player,
-  type Pot,
-  type ValidAction,
-  type GameState,
-  type MyTurnResponse,
   type ActionRecord,
-  type HandRecord,
+  ActionType,
+  type Card,
   type CreateGameOptions,
   GamePhase,
+  type GameState,
+  type HandRecord,
+  type MyTurnResponse,
+  type Player,
   PlayerStatus,
-  ActionType,
+  type Pot,
+  type ValidAction,
 } from "./types.js";
 
 interface PlayerMapping {
@@ -99,7 +99,9 @@ function getPhase(
 
 function buildPlayers(game: Game): Player[] {
   const seats = game.table.seats();
-  let handPlayers: ReturnType<InstanceType<typeof Poker.Table>["handPlayers"]> | null = null;
+  let handPlayers: ReturnType<
+    InstanceType<typeof Poker.Table>["handPlayers"]
+  > | null = null;
   try {
     handPlayers = game.table.handPlayers();
   } catch {
@@ -120,14 +122,16 @@ function buildPlayers(game: Game): Player[] {
     }
 
     let status: PlayerStatus = PlayerStatus.Active;
-    if (seat.stack === 0 && seat.betSize === 0 && !game.table.isHandInProgress()) {
+    if (
+      seat.stack === 0 &&
+      seat.betSize === 0 &&
+      !game.table.isHandInProgress()
+    ) {
       status = PlayerStatus.Busted;
     } else if (game.folded.has(pm.seatIndex)) {
       status = PlayerStatus.Folded;
     } else if (
-      handPlayers &&
-      handPlayers[pm.seatIndex] &&
-      handPlayers[pm.seatIndex]!.stack === 0 &&
+      handPlayers?.[pm.seatIndex]?.stack === 0 &&
       game.table.isHandInProgress()
     ) {
       status = PlayerStatus.AllIn;
@@ -258,10 +262,7 @@ export function getGameState(gameId: string): GameState {
   return buildGameState(game, gameId);
 }
 
-export function getMyTurn(
-  gameId: string,
-  playerId: string,
-): MyTurnResponse {
+export function getMyTurn(gameId: string, playerId: string): MyTurnResponse {
   const game = getGame(gameId);
   const seatIndex = playerIdToSeat(game, playerId);
   if (seatIndex === undefined) {
@@ -291,7 +292,9 @@ export function getMyTurn(
     ) {
       const legal = game.table.legalActions();
       for (const action of legal.actions) {
-        const va: ValidAction = { type: actionToEnum[action]! };
+        const actionType = actionToEnum[action];
+        if (!actionType) continue;
+        const va: ValidAction = { type: actionType };
         if ((action === "bet" || action === "raise") && legal.chipRange) {
           va.min = legal.chipRange.min;
           va.max = legal.chipRange.max;

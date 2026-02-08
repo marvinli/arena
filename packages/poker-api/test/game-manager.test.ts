@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
-  createGame,
-  startHand,
-  getGameState,
-  getMyTurn,
-  submitAction,
-  advanceGame,
-  getHistory,
   _resetGames,
+  advanceGame,
+  createGame,
+  getGameState,
+  getHistory,
+  getMyTurn,
+  startHand,
+  submitAction,
 } from "../src/game-manager.js";
 import { ActionType, GamePhase } from "../src/types.js";
 
@@ -158,9 +158,9 @@ describe("game-manager", () => {
       const raiseAction = turn.validActions.find(
         (a) => a.type === ActionType.Raise,
       );
-      if (raiseAction && raiseAction.max) {
+      if (raiseAction?.max) {
         expect(() =>
-          submitAction(gameId, currentId, "raise", raiseAction.max! + 1),
+          submitAction(gameId, currentId, "raise", raiseAction.max + 1),
         ).toThrow("out of range");
       }
     });
@@ -214,10 +214,7 @@ describe("game-manager", () => {
       expect(state.phase).toBe(GamePhase.Preflop);
 
       // Have everyone call/check through preflop
-      while (
-        state.phase === GamePhase.Preflop &&
-        state.currentPlayerId
-      ) {
+      while (state.phase === GamePhase.Preflop && state.currentPlayerId) {
         const turn = getMyTurn(gameId, state.currentPlayerId);
         const canCheck = turn.validActions.some(
           (a) => a.type === ActionType.Check,

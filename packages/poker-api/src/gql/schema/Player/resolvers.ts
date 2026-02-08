@@ -13,7 +13,12 @@ const submitAction: MutationResolvers["submitAction"] = (
   ctx,
 ) => {
   const playerId = requirePlayerId(ctx);
-  return gm.submitAction(gameId, playerId, action.type, action.amount ?? undefined);
+  return gm.submitAction(
+    gameId,
+    playerId,
+    action.type,
+    action.amount ?? undefined,
+  );
 };
 
 export const playerResolvers = {

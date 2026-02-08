@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
-import { createYoga } from "graphql-yoga";
 import { makeExecutableSchema } from "@graphql-tools/schema";
-import { mergedTypeDefs } from "./gql/schema/mergedTypeDefs.js";
+import { createYoga } from "graphql-yoga";
 import { mergedResolvers } from "./gql/schema/mergedResolvers.js";
+import { mergedTypeDefs } from "./gql/schema/mergedTypeDefs.js";
 
 const yoga = createYoga({
   schema: makeExecutableSchema({

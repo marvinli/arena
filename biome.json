@@ -1,0 +1,27 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "linter": {
+    "rules": {
+      "recommended": true
+    }
+  },
+  "files": {
+    "includes": ["**", "!packages/poker-api/src/gql/resolverTypes.ts"]
+  },
+  "overrides": [
+    {
+      "includes": ["**/test/**", "**/*.test.*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
+    }
+  ]
+}
