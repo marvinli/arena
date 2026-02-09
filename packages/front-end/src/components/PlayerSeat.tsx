@@ -1,17 +1,9 @@
+import Claude from "@lobehub/icons/es/Claude";
 import { useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
 import { ChipStackDisplay } from "./ChipStack";
 import styles from "./PlayerSeat.module.css";
 import { PlayingCard } from "./PlayingCard";
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 export function PlayerSeat({
   player,
@@ -100,7 +92,7 @@ export function PlayerSeat({
                     }}
                   />
                 ) : (
-                  getInitials(player.name)
+                  <Claude.Color style={{ width: "60%", height: "60%" }} />
                 )}
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import { gqlFetch } from "../graphql/client";
 import {
+  GET_CHANNEL_STATE,
   RENDER_COMPLETE_MUT,
   RENDER_INSTRUCTIONS_SUB,
   RUN_SESSION_MUT,
@@ -100,6 +101,25 @@ interface GqlInstruction {
   } | null;
 }
 
+interface GqlChannelState {
+  status: string | null;
+  gameId: string | null;
+  handNumber: number;
+  phase: string | null;
+  button: number | null;
+  smallBlind: number;
+  bigBlind: number;
+  players: GqlPlayerInfo[];
+  communityCards: GqlCardInfo[];
+  pots: GqlPotInfo[];
+  hands: { playerId: string; cards: GqlCardInfo[] }[];
+  playerMeta: {
+    id: string;
+    ttsVoice: string | null;
+    avatarUrl: string | null;
+  }[];
+}
+
 // ── Session config ──────────────────────────────────────
 
 const CHANNEL_KEY = "poker-stream-1";
@@ -108,43 +128,19 @@ const DEFAULT_CONFIG = {
   players: [
     {
       playerId: "agent-1",
-      name: "Alice",
-      modelId: "claude-haiku-4-5-20251001",
-      modelName: "Claude Haiku",
+      name: "Opus 4.6",
+      modelId: "claude-opus-4-6",
+      modelName: "Claude Opus",
       provider: "anthropic",
       ttsVoice: "TX3LPaxmHKxFdv7VOQHJ", // Liam
     },
     {
       playerId: "agent-2",
-      name: "Bob",
+      name: "Haiku 4.5",
       modelId: "claude-haiku-4-5-20251001",
       modelName: "Claude Haiku",
       provider: "anthropic",
       ttsVoice: "t0jbNlBVZ17f02VDIeMI", // Jessica
-    },
-    {
-      playerId: "agent-3",
-      name: "Charlie",
-      modelId: "claude-haiku-4-5-20251001",
-      modelName: "Claude Haiku",
-      provider: "anthropic",
-      ttsVoice: "bVMeCyTHy58xNoL34h3p", // Jeremy
-    },
-    {
-      playerId: "agent-4",
-      name: "Diana",
-      modelId: "claude-haiku-4-5-20251001",
-      modelName: "Claude Haiku",
-      provider: "anthropic",
-      ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Sarah
-    },
-    {
-      playerId: "agent-5",
-      name: "Eve",
-      modelId: "claude-haiku-4-5-20251001",
-      modelName: "Claude Haiku",
-      provider: "anthropic",
-      ttsVoice: "iP95p4xoKVk53GoZ742B", // Chris
     },
   ],
   startingChips: 1000,
@@ -252,6 +248,15 @@ async function* sseSubscribe(
   }
 }
 
+// ── Channel state query helper ──────────────────────────
+
+async function fetchChannelState(): Promise<GqlChannelState> {
+  const result = await gqlFetch(GET_CHANNEL_STATE, {
+    channelKey: CHANNEL_KEY,
+  });
+  return (result as { getChannelState: GqlChannelState }).getChannelState;
+}
+
 // ── Helpers ─────────────────────────────────────────────
 
 function mapPots(gqlPots: GqlPotInfo[]): Pot[] {
@@ -304,6 +309,7 @@ type Action =
   | { type: "ERROR"; error: string }
   | { type: "RESET" }
   | { type: "INSTRUCTION"; instruction: GqlInstruction }
+  | { type: "RECONNECT"; channelState: GqlChannelState }
   | { type: "SPEAK_START"; playerId: string }
   | { type: "SPEAK_END" };
 
@@ -342,12 +348,57 @@ function reducer(state: GameState, action: Action): GameState {
     case "INSTRUCTION":
       return handleInstruction(state, action.instruction);
 
+    case "RECONNECT":
+      return handleReconnect(action.channelState);
+
     case "SPEAK_START":
       return { ...state, speakingPlayerId: action.playerId };
 
     case "SPEAK_END":
       return { ...state, speakingPlayerId: null };
   }
+}
+
+function handleReconnect(cs: GqlChannelState): GameState {
+  const avatarMap = new Map(
+    cs.playerMeta.map((m) => [m.id, m.avatarUrl ?? ""]),
+  );
+
+  const holeCards = new Map<string, [Card, Card]>();
+  for (const hand of cs.hands) {
+    if (hand.cards.length >= 2) {
+      holeCards.set(hand.playerId, [
+        mapCard(hand.cards[0]),
+        mapCard(hand.cards[1]),
+      ]);
+    }
+  }
+
+  const activePlayers = cs.players.filter((p) => p.status !== "BUSTED");
+  const players = mapPlayers(activePlayers, cs.button, []).map((p) => ({
+    ...p,
+    avatar: avatarMap.get(p.id) ?? "",
+    cards: holeCards.get(p.id) ?? null,
+  }));
+
+  const status = cs.status === "FINISHED" ? "finished" : "running";
+
+  return {
+    status,
+    channelKey: CHANNEL_KEY,
+    gameId: cs.gameId,
+    handNumber: cs.handNumber,
+    phase: (cs.phase as GamePhase) ?? "WAITING",
+    smallBlind: cs.smallBlind,
+    bigBlind: cs.bigBlind,
+    button: cs.button,
+    players,
+    communityCards: cs.communityCards.map(mapCard),
+    pots: mapPots(cs.pots),
+    holeCards,
+    speakingPlayerId: null,
+    error: null,
+  };
 }
 
 function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
@@ -529,19 +580,149 @@ export function useGameSession() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
 
+  /** Start SSE loop: subscribe, ack, and drain render queue. */
+  const startSSELoop = useCallback(function startSSELoop(
+    abort: AbortController,
+    voiceMap: Map<string, string>,
+    onConnected?: () => void,
+  ) {
+    let ttsGate: Promise<void> = Promise.resolve();
+
+    // ── Visual render queue ────────────────────────────
+    const renderQueue: GqlInstruction[] = [];
+    let draining = false;
+
+    function startDrain() {
+      if (draining) return;
+      draining = true;
+      void (async () => {
+        try {
+          while (renderQueue.length > 0) {
+            if (abort.signal.aborted) break;
+            const inst = renderQueue.shift();
+            if (!inst) continue;
+
+            // Wait for in-flight TTS before showing analysis or action
+            if (
+              inst.type === "PLAYER_ANALYSIS" ||
+              inst.type === "PLAYER_ACTION"
+            ) {
+              await ttsGate;
+            }
+
+            // Capture player metadata before dispatching
+            if (inst.gameStart?.playerMeta) {
+              for (const meta of inst.gameStart.playerMeta) {
+                if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+              }
+            }
+
+            dispatch({ type: "INSTRUCTION", instruction: inst });
+
+            const pauseMs = INSTRUCTION_DELAYS[inst.type] ?? 1000;
+            await delay(pauseMs, abort.signal);
+
+            // Fire-and-forget TTS after dispatching analysis
+            if (
+              inst.type === "PLAYER_ANALYSIS" &&
+              inst.playerAnalysis?.analysis
+            ) {
+              const { playerId, analysis } = inst.playerAnalysis;
+              const voiceId = voiceMap.get(playerId) ?? "";
+              dispatch({ type: "SPEAK_START", playerId });
+              ttsGate = speakAnalysis(analysis, voiceId).then(
+                () => dispatch({ type: "SPEAK_END" }),
+                () => dispatch({ type: "SPEAK_END" }),
+              );
+            }
+          }
+        } finally {
+          draining = false;
+        }
+      })();
+    }
+
+    // ── SSE consumer — acks immediately for pipelining ─
+    void (async () => {
+      try {
+        for await (const instruction of sseSubscribe(
+          RENDER_INSTRUCTIONS_SUB,
+          { channelKey: CHANNEL_KEY },
+          abort.signal,
+          onConnected,
+        )) {
+          renderQueue.push(instruction);
+          startDrain();
+
+          // Ack immediately so the proctor can pipeline the
+          // next LLM call while we render at our own pace.
+          await gqlFetch(RENDER_COMPLETE_MUT, {
+            channelKey: CHANNEL_KEY,
+            instructionId: instruction.instructionId,
+          });
+        }
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (abort.signal.aborted) return;
+
+        // SSE dropped — attempt to reconnect
+        console.warn("[useGameSession] SSE dropped, attempting reconnect…");
+        try {
+          await delay(1000, abort.signal);
+          if (abort.signal.aborted) return;
+
+          const cs = await fetchChannelState();
+          if (cs.status === "RUNNING") {
+            // Populate voice map from playerMeta
+            for (const meta of cs.playerMeta) {
+              if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+            }
+            dispatch({ type: "RECONNECT", channelState: cs });
+            // Restart SSE loop
+            startSSELoop(abort, voiceMap);
+          } else if (cs.status === "FINISHED") {
+            dispatch({ type: "RECONNECT", channelState: cs });
+          } else {
+            const message = err instanceof Error ? err.message : String(err);
+            dispatch({ type: "ERROR", error: message });
+          }
+        } catch {
+          const message = err instanceof Error ? err.message : String(err);
+          dispatch({ type: "ERROR", error: message });
+        }
+      }
+    })();
+  }, []);
+
   const startGame = useCallback(async () => {
     dispatch({ type: "START", channelKey: CHANNEL_KEY });
 
     try {
-      // 1. Create session (no game running yet)
+      // Check for an existing running session
+      const cs = await fetchChannelState();
+
+      const abort = new AbortController();
+      abortRef.current = abort;
+
+      if (cs.status === "RUNNING" || cs.status === "FINISHED") {
+        // ── Reconnect to existing session ──────────────
+        const voiceMap = new Map<string, string>();
+        for (const meta of cs.playerMeta) {
+          if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+        }
+        dispatch({ type: "RECONNECT", channelState: cs });
+
+        if (cs.status === "RUNNING") {
+          startSSELoop(abort, voiceMap);
+        }
+        return;
+      }
+
+      // ── No session — create a new one ──────────────
       await gqlFetch(START_SESSION_MUT, {
         channelKey: CHANNEL_KEY,
         config: DEFAULT_CONFIG,
       });
-
-      // 2. Subscribe via SSE (registers as a connected client on the server)
-      const abort = new AbortController();
-      abortRef.current = abort;
 
       // Wait for SSE connection to be established before starting the game
       let resolveConnected: () => void = () => {};
@@ -549,100 +730,17 @@ export function useGameSession() {
         resolveConnected = r;
       });
 
-      // Decouple SSE consumption (acks fast for pipelining) from visual
-      // rendering (dispatches with proper FIFO timing, gating on TTS).
-      void (async () => {
-        const voiceMap = new Map<string, string>();
-        let ttsGate: Promise<void> = Promise.resolve();
+      const voiceMap = new Map<string, string>();
+      startSSELoop(abort, voiceMap, resolveConnected);
 
-        // ── Visual render queue ────────────────────────────
-        // Instructions are pushed here by the SSE consumer and
-        // drained in order by the render loop.
-        const renderQueue: GqlInstruction[] = [];
-        let draining = false;
-
-        function startDrain() {
-          if (draining) return;
-          draining = true;
-          void (async () => {
-            try {
-              while (renderQueue.length > 0) {
-                if (abort.signal.aborted) break;
-                const inst = renderQueue.shift()!;
-
-                // Wait for in-flight TTS before showing analysis or action
-                if (
-                  inst.type === "PLAYER_ANALYSIS" ||
-                  inst.type === "PLAYER_ACTION"
-                ) {
-                  await ttsGate;
-                }
-
-                // Capture player metadata before dispatching
-                if (inst.gameStart?.playerMeta) {
-                  for (const meta of inst.gameStart.playerMeta) {
-                    if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
-                  }
-                }
-
-                dispatch({ type: "INSTRUCTION", instruction: inst });
-
-                const pauseMs = INSTRUCTION_DELAYS[inst.type] ?? 1000;
-                await delay(pauseMs, abort.signal);
-
-                // Fire-and-forget TTS after dispatching analysis
-                if (
-                  inst.type === "PLAYER_ANALYSIS" &&
-                  inst.playerAnalysis?.analysis
-                ) {
-                  const { playerId, analysis } = inst.playerAnalysis;
-                  const voiceId = voiceMap.get(playerId) ?? "";
-                  dispatch({ type: "SPEAK_START", playerId });
-                  ttsGate = speakAnalysis(analysis, voiceId).then(
-                    () => dispatch({ type: "SPEAK_END" }),
-                    () => dispatch({ type: "SPEAK_END" }),
-                  );
-                }
-              }
-            } finally {
-              draining = false;
-            }
-          })();
-        }
-
-        // ── SSE consumer — acks immediately for pipelining ─
-        try {
-          for await (const instruction of sseSubscribe(
-            RENDER_INSTRUCTIONS_SUB,
-            { channelKey: CHANNEL_KEY },
-            abort.signal,
-            resolveConnected,
-          )) {
-            renderQueue.push(instruction);
-            startDrain();
-
-            // Ack immediately so the proctor can pipeline the
-            // next LLM call while we render at our own pace.
-            await gqlFetch(RENDER_COMPLETE_MUT, {
-              channelKey: CHANNEL_KEY,
-              instructionId: instruction.instructionId,
-            });
-          }
-        } catch (err) {
-          if (err instanceof DOMException && err.name === "AbortError") return;
-          const message = err instanceof Error ? err.message : String(err);
-          dispatch({ type: "ERROR", error: message });
-        }
-      })();
-
-      // 3. Wait for SSE connection, then start the orchestrator
+      // Wait for SSE connection, then start the orchestrator
       await connected;
       await gqlFetch(RUN_SESSION_MUT, { channelKey: CHANNEL_KEY });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       dispatch({ type: "ERROR", error: message });
     }
-  }, []);
+  }, [startSSELoop]);
 
   const stopGame = useCallback(async () => {
     abortRef.current?.abort();

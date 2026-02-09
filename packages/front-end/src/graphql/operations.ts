@@ -28,6 +28,25 @@ export const RENDER_COMPLETE_MUT = `
   }
 `;
 
+export const GET_CHANNEL_STATE = `
+  query GetChannelState($channelKey: String!) {
+    getChannelState(channelKey: $channelKey) {
+      status
+      gameId
+      handNumber
+      phase
+      button
+      smallBlind
+      bigBlind
+      players { id name chips bet status seatIndex }
+      communityCards { rank suit }
+      pots { size eligiblePlayerIds }
+      hands { playerId cards { rank suit } }
+      playerMeta { id ttsVoice avatarUrl }
+    }
+  }
+`;
+
 export const RENDER_INSTRUCTIONS_SUB = `
   subscription RenderInstructions($channelKey: String!) {
     renderInstructions(channelKey: $channelKey) {
