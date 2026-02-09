@@ -204,7 +204,7 @@
 .thoughtBubble {
   position: absolute;
   bottom: 85%;
-  left: 70%;
+  right: 70%;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 1.2cqw;
   padding: 0.35cqw 0.6cqw;
@@ -218,7 +218,7 @@
 .bubbleTail1 {
   position: absolute;
   bottom: -0.55cqw;
-  left: 0.4cqw;
+  right: 0.4cqw;
   width: 0.7cqw;
   height: 0.7cqw;
   background: rgba(255, 255, 255, 0.95);
@@ -228,7 +228,7 @@
 .bubbleTail2 {
   position: absolute;
   bottom: -1cqw;
-  left: -0.05cqw;
+  right: -0.05cqw;
   width: 0.4cqw;
   height: 0.4cqw;
   background: rgba(255, 255, 255, 0.9);
