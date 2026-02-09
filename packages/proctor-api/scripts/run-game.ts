@@ -11,7 +11,7 @@ import * as pubsub from "../src/services/session/pubsub.js";
 import { createSession } from "../src/services/session/session-manager.js";
 
 const CHANNEL_KEY = "test-game";
-const HANDS_TO_PLAY = 3;
+const HANDS_TO_PLAY = null; // play until one player has all the chips
 
 const config = {
   players: [
@@ -29,11 +29,32 @@ const config = {
       modelName: "Claude Haiku",
       provider: "anthropic",
     },
+    {
+      playerId: "claude-3",
+      name: "Charlie",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
+    {
+      playerId: "claude-4",
+      name: "Diana",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
+    {
+      playerId: "claude-5",
+      name: "Eve",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
   ],
   startingChips: 1000,
   smallBlind: 10,
   bigBlind: 20,
-  handsPerGame: HANDS_TO_PLAY,
+  handsPerGame: HANDS_TO_PLAY as number | null,
 };
 
 async function main() {
@@ -42,7 +63,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Starting ${HANDS_TO_PLAY}-hand game with 2 Haiku agents...`);
+  console.log("Starting game with 5 Haiku agents (play until elimination)...");
   console.log();
 
   const session = createSession(CHANNEL_KEY, config);
