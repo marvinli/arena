@@ -235,34 +235,19 @@ describe("instruction-builder", () => {
 
   describe("buildPlayerAction", () => {
     it("returns correct type and has instructionId/timestamp", () => {
-      const result = buildPlayerAction(
-        "p1",
-        "Alice",
-        "bet",
-        50,
-        "Good luck!",
-        mockGameState,
-      );
+      const result = buildPlayerAction("p1", "Alice", "bet", 50, mockGameState);
 
       verifyBaseInstruction(result, InstructionType.PlayerAction);
     });
 
-    it("playerAction payload has playerId, playerName, action, amount (number), closing (string), pots, players", () => {
-      const result = buildPlayerAction(
-        "p1",
-        "Alice",
-        "bet",
-        50,
-        "Good luck!",
-        mockGameState,
-      );
+    it("playerAction payload has playerId, playerName, action, amount, pots, players", () => {
+      const result = buildPlayerAction("p1", "Alice", "bet", 50, mockGameState);
 
       expect(result.playerAction).toBeDefined();
       expect(result.playerAction?.playerId).toBe("p1");
       expect(result.playerAction?.playerName).toBe("Alice");
       expect(result.playerAction?.action).toBe("bet");
       expect(result.playerAction?.amount).toBe(50);
-      expect(result.playerAction?.closing).toBe("Good luck!");
       expect(result.playerAction?.pots).toEqual([
         { size: 100, eligiblePlayerIds: ["p1", "p2"] },
       ]);
@@ -283,24 +268,10 @@ describe("instruction-builder", () => {
         "Alice",
         "fold",
         undefined,
-        "Bad cards",
         mockGameState,
       );
 
       expect(result.playerAction?.amount).toBeNull();
-    });
-
-    it("playerAction payload converts undefined closing to null", () => {
-      const result = buildPlayerAction(
-        "p1",
-        "Alice",
-        "check",
-        undefined,
-        undefined,
-        mockGameState,
-      );
-
-      expect(result.playerAction?.closing).toBeNull();
     });
 
     it("generates unique instructionId for each call", () => {
@@ -309,7 +280,6 @@ describe("instruction-builder", () => {
         "Alice",
         "bet",
         50,
-        "Good luck!",
         mockGameState,
       );
       const result2 = buildPlayerAction(
@@ -317,7 +287,6 @@ describe("instruction-builder", () => {
         "Alice",
         "bet",
         50,
-        "Good luck!",
         mockGameState,
       );
 

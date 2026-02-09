@@ -115,11 +115,7 @@ async function resolveAction(
   ctx: SessionContext,
   playerId: string,
 ): Promise<{
-  result: {
-    action: { type: string; amount?: number };
-    analysis?: string;
-    closing?: string;
-  };
+  result: { action: { type: string; amount?: number }; analysis?: string };
   state: GameState;
 }> {
   const turnData = poker.getMyTurn(ctx.gameId, playerId);
@@ -225,7 +221,6 @@ async function playTurn(
       playerName,
       result.action.type,
       result.action.amount,
-      result.closing,
       state,
     ),
     ctx.signal,

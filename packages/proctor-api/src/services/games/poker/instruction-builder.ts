@@ -123,7 +123,6 @@ export function buildPlayerAction(
   playerName: string,
   action: string,
   amount: number | undefined,
-  closing: string | undefined,
   gameState: GameState,
 ): RenderInstruction {
   return {
@@ -133,7 +132,6 @@ export function buildPlayerAction(
       playerName,
       action,
       amount: amount ?? null,
-      closing: closing ?? null,
       pots: toPotInfos(gameState.pots),
       players: toPlayerInfos(gameState.players),
     },

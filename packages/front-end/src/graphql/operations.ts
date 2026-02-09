@@ -72,7 +72,6 @@ export const RENDER_INSTRUCTIONS_SUB = `
         playerName
         action
         amount
-        closing
         pots { size eligiblePlayerIds }
         players { id name chips bet status seatIndex }
       }

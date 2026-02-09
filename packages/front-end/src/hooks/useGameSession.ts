@@ -74,7 +74,6 @@ interface GqlInstruction {
     playerName: string;
     action: string;
     amount: number | null;
-    closing: string | null;
     pots: GqlPotInfo[];
     players: GqlPlayerInfo[];
   } | null;
@@ -563,18 +562,6 @@ export function useGameSession() {
               const voiceId = VOICE_IDS[playerId] ?? "";
               dispatch({ type: "SPEAK_START", playerId });
               await speakAnalysis(analysis, voiceId);
-              dispatch({ type: "SPEAK_END" });
-            }
-
-            // If player action with closing remark, play TTS after showing the action
-            if (
-              instruction.type === "PLAYER_ACTION" &&
-              instruction.playerAction?.closing
-            ) {
-              const { playerId, closing } = instruction.playerAction;
-              const voiceId = VOICE_IDS[playerId] ?? "";
-              dispatch({ type: "SPEAK_START", playerId });
-              await speakAnalysis(closing, voiceId);
               dispatch({ type: "SPEAK_END" });
             }
 

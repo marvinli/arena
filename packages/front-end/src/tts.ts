@@ -2,11 +2,13 @@ const ELEVENLABS_API_KEY = import.meta.env.ELEVENLABS_API_KEY as
   | string
   | undefined;
 
+const DISABLE_TTS = import.meta.env.VITE_DISABLE_TTS === "true";
+
 export async function speakAnalysis(
   text: string,
   voiceId: string,
 ): Promise<void> {
-  if (!ELEVENLABS_API_KEY || !voiceId) return;
+  if (DISABLE_TTS || !ELEVENLABS_API_KEY || !voiceId) return;
 
   const res = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,

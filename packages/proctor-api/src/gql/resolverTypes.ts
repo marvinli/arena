@@ -247,7 +247,6 @@ export type PlayerActionPayload = {
   __typename?: 'PlayerActionPayload';
   action: Scalars['String']['output'];
   amount?: Maybe<Scalars['Int']['output']>;
-  closing?: Maybe<Scalars['String']['output']>;
   playerId: Scalars['ID']['output'];
   playerName: Scalars['String']['output'];
   players: Array<PlayerInfo>;
@@ -741,7 +740,6 @@ export type PlayerResolvers<ContextType = Context, ParentType extends ResolversP
 export type PlayerActionPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerActionPayload'] = ResolversParentTypes['PlayerActionPayload']> = {
   action?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   amount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  closing?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;

@@ -14,7 +14,7 @@ describe("buildSystemPrompt", () => {
 
     const prompt = buildSystemPrompt(config);
 
-    expect(prompt).toContain("You are Alice, a poker player");
+    expect(prompt).toContain("You are Alice, a professional poker player");
     expect(prompt).toContain("powered by Claude Opus 4.6 from Anthropic");
   });
 
@@ -34,7 +34,6 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("your hole cards");
     expect(prompt).toContain("community cards");
     expect(prompt).toContain("speak your thoughts");
-    expect(prompt).toContain("closing remark");
   });
 
   it("does not contain any remaining placeholders after substitution", () => {
@@ -102,7 +101,6 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("You will receive game updates");
     expect(prompt).toContain("speak your thoughts aloud");
     expect(prompt).toContain("submit_action");
-    expect(prompt).toContain("closing remark");
     expect(prompt).toContain("Other players cannot hear your commentary");
   });
 });

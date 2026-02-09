@@ -41,7 +41,6 @@ function mockGenerateTextResult(
   action = "CALL",
   analysis = "I call because the odds are good.",
   toolCallId = "tc-123",
-  closing = "Let's see what happens.",
 ) {
   mockGenerateText.mockResolvedValue({
     text: analysis,
@@ -52,7 +51,7 @@ function mockGenerateTextResult(
       {
         toolName: "submit_action",
         toolCallId,
-        input: { action, amount: undefined, closing },
+        input: { action, amount: undefined },
       },
     ],
   } as never);
@@ -124,21 +123,15 @@ describe("LlmAgentRunner", () => {
     expect(callArgs.tools).toHaveProperty("submit_action");
   });
 
-  it("runTurn returns analysis from text and closing from tool call", async () => {
+  it("runTurn returns analysis from text before tool call", async () => {
     runner.initAgent("p1", config);
-    mockGenerateTextResult(
-      "CALL",
-      "Pot odds favor a call here.",
-      "tc-123",
-      "Here goes nothing.",
-    );
+    mockGenerateTextResult("CALL", "Pot odds favor a call here.");
 
     const result = await runner.runTurn("p1", context);
 
     expect(result).toEqual({
       action: { type: "CALL", amount: undefined },
       analysis: "Pot odds favor a call here.",
-      closing: "Here goes nothing.",
     });
   });
 
@@ -176,7 +169,6 @@ describe("LlmAgentRunner", () => {
     expect(result).toEqual({
       action: { type: "FOLD", amount: undefined },
       analysis: "Fine, I fold.",
-      closing: "Let's see what happens.",
     });
 
     // Verify the second generateText call has the error tool result.

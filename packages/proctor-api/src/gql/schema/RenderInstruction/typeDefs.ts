@@ -78,7 +78,6 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     playerName: String!
     action: String!
     amount: Int
-    closing: String
     pots: [PotInfo!]!
     players: [PlayerInfo!]!
   }

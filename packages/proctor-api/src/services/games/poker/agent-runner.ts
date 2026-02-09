@@ -34,7 +34,6 @@ export interface AgentTurnContext {
 export interface AgentTurnResult {
   action: { type: string; amount?: number };
   analysis?: string;
-  closing?: string;
 }
 
 export interface AgentRunner {
