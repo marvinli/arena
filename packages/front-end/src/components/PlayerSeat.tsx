@@ -37,6 +37,11 @@ export function PlayerSeat({
 
   return (
     <div className={seatClass}>
+      {player.lastAction && actionBadgeClass && (
+        <div className={actionBadgeClass}>
+          {player.lastAction.toUpperCase()}
+        </div>
+      )}
       <div className={styles.topRow}>
         <div className={styles.avatarColumn}>
           <div className={styles.avatarArea}>
@@ -83,11 +88,6 @@ export function PlayerSeat({
                 </div>
               </>
             )}
-          </div>
-        )}
-        {player.lastAction && actionBadgeClass && (
-          <div className={actionBadgeClass}>
-            {player.lastAction.toUpperCase()}
           </div>
         )}
         {player.isDealer && <div className={styles.dealerButton}>D</div>}
