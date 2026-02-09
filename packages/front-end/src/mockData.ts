@@ -1,4 +1,4 @@
-import type { Card, Player } from "./types";
+import type { Card, Player, Pot } from "./types";
 
 /** 3 flop cards dealt; turn and river not yet dealt. */
 export const mockCommunityCards: Card[] = [
@@ -7,7 +7,10 @@ export const mockCommunityCards: Card[] = [
   { rank: "7", suit: "diamonds" },
 ];
 
-export const mockPot = 4200;
+export const mockPots: Pot[] = [
+  { label: "Main Pot", amount: 9_500 },
+  { label: "Side Pot", amount: 4_800 },
+];
 
 export const mockPlayers: Player[] = [
   {
@@ -22,6 +25,9 @@ export const mockPlayers: Player[] = [
     isDealer: false,
     isFolded: false,
     isActive: true,
+    isAllIn: true,
+    lastAction: "raise",
+    currentBet: 12_450,
   },
   {
     id: "2",
@@ -32,6 +38,9 @@ export const mockPlayers: Player[] = [
     isDealer: false,
     isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 400,
   },
   {
     id: "3",
@@ -42,6 +51,9 @@ export const mockPlayers: Player[] = [
     isDealer: true,
     isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "raise",
+    currentBet: 800,
   },
   {
     id: "4",
@@ -50,8 +62,11 @@ export const mockPlayers: Player[] = [
     avatar: "",
     cards: null,
     isDealer: false,
-    isFolded: true,
+    isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 400,
   },
   {
     id: "5",
@@ -62,6 +77,9 @@ export const mockPlayers: Player[] = [
     isDealer: false,
     isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 400,
   },
   {
     id: "6",
@@ -72,6 +90,9 @@ export const mockPlayers: Player[] = [
     isDealer: false,
     isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 400,
   },
   {
     id: "7",
@@ -82,16 +103,22 @@ export const mockPlayers: Player[] = [
     isDealer: false,
     isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "bet",
+    currentBet: 400,
   },
   {
     id: "8",
     name: "Passive Pete",
-    chips: 950,
+    chips: 0,
     avatar: "",
     cards: null,
     isDealer: false,
-    isFolded: true,
+    isFolded: false,
     isActive: false,
+    isAllIn: true,
+    lastAction: "call",
+    currentBet: 950,
   },
   {
     id: "9",
@@ -102,6 +129,9 @@ export const mockPlayers: Player[] = [
     isDealer: false,
     isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 400,
   },
   {
     id: "10",
@@ -112,5 +142,8 @@ export const mockPlayers: Player[] = [
     isDealer: false,
     isFolded: false,
     isActive: false,
+    isAllIn: false,
+    lastAction: "raise",
+    currentBet: 1200,
   },
 ];

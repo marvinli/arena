@@ -1,78 +1,101 @@
 .scene {
   position: relative;
-  width: 1200px;
-  height: 700px;
-}
-
-/* ── Felt ─────────────────────────────────────────────── */
-
-.felt {
-  position: absolute;
-  top: 90px;
-  left: 100px;
-  right: 100px;
-  bottom: 90px;
-  background: #1c2033;
-  border-radius: 50%;
-  border: 2px solid #2a3050;
-  box-shadow:
-    inset 0 0 60px rgba(0, 0, 0, 0.4),
-    0 4px 20px rgba(0, 0, 0, 0.5);
-  overflow: hidden;
-}
-
-.feltTexture {
-  display: none;
-}
-
-/* ── Rail (hidden) ────────────────────────────────────── */
-
-.rail {
-  display: none;
-}
-
-.railPad {
-  display: none;
+  width: min(calc(100vw - 8vw), calc((100vh - 10vh) * 16 / 9));
+  height: min(calc(100vh - 10vh), calc((100vw - 8vw) * 9 / 16));
+  container-type: inline-size;
 }
 
 /* ── Community cards ──────────────────────────────────── */
 
 .communityArea {
   position: absolute;
-  top: 50%;
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 0.47cqw;
   z-index: 1;
 }
 
+.potLabels {
+  display: flex;
+  gap: 0.63cqw;
+}
+
 .potLabel {
-  font-size: 14px;
+  font-size: 0.94cqw;
   font-weight: 700;
   color: #e0e4ef;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-  letter-spacing: 0.5px;
+  text-shadow: 0 0.08cqw 0.47cqw rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.04cqw;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.16cqw 0.55cqw;
+  border-radius: 0.47cqw;
 }
 
 .communityCards {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 0.47cqw;
+}
+
+.streetGap {
+  width: 0.94cqw;
 }
 
 .emptySlot {
-  width: 50px;
-  height: 70px;
-  border-radius: 5px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  width: 5.0cqw;
+  height: 7.0cqw;
+  border-radius: 0.47cqw;
+  border: 0.12cqw dashed rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Bet indicators ──────────────────────────────────── */
+
+.betIndicator {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.23cqw;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 0.2cqw 0.5cqw;
+  border-radius: 0.47cqw;
+  border: 0.08cqw solid transparent;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.betChipIcon {
+  width: 1.1cqw;
+  height: 1.1cqw;
+  flex-shrink: 0;
+}
+
+.betAmount {
+  font-size: 0.86cqw;
+  font-weight: 700;
+  color: #e0e4ef;
+}
+
+.allIn {
+  background: rgba(220, 50, 50, 0.25);
+  border-color: #dc3232 !important;
+}
+
+.allInLabel {
+  font-size: 0.65cqw;
+  font-weight: 800;
+  color: #ff6b6b;
+  letter-spacing: 0.06cqw;
 }
 
 /* ── Hole-card overlap on second card ─────────────────── */
 
 .holeCardSecond {
-  margin-left: -6px;
+  margin-left: -0.47cqw;
   transform: rotate(4deg);
 }

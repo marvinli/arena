@@ -5,11 +5,18 @@
 }
 
 .label {
-  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 0.31cqw;
+  font-size: 0.82cqw;
   font-weight: 600;
-  color: #e0e4ef;
+  color: #a0a4b8;
   white-space: nowrap;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 2px 8px;
-  border-radius: 8px;
+}
+
+.icon {
+  width: 0.94cqw;
+  height: 0.94cqw;
+  flex-shrink: 0;
+  opacity: 0.45;
 }

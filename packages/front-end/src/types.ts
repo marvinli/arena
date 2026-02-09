@@ -3,6 +3,8 @@ export interface Card {
   suit: "clubs" | "diamonds" | "hearts" | "spades";
 }
 
+export type PlayerAction = "call" | "bet" | "raise" | "check" | "fold" | null;
+
 export interface Player {
   id: string;
   name: string;
@@ -12,6 +14,14 @@ export interface Player {
   isDealer: boolean;
   isFolded: boolean;
   isActive: boolean; // currently acting
+  isAllIn: boolean;
+  lastAction: PlayerAction;
+  currentBet: number; // amount bet this round (0 = none)
+}
+
+export interface Pot {
+  label: string;
+  amount: number;
 }
 
 /** Community cards dealt face-up on the board (0-5 cards). */

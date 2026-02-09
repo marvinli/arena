@@ -15,7 +15,7 @@ body,
 
 body {
   font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: #0f1118;
+  background: radial-gradient(ellipse at 50% 50%, #1a5c2a 0%, #0a2410 45%, #040e06 100%);
   color: #e0e4ef;
   overflow: hidden;
 }
@@ -26,4 +26,5 @@ body {
   justify-content: center;
   height: 100%;
   width: 100%;
+  padding: 5vh 4vw;
 }
