@@ -1,4 +1,4 @@
-import { mockCommunityCards, mockPlayers, mockPots } from "../mockData";
+import type { Card, Player, Pot } from "../types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./PlayingCard";
 import styles from "./PokerTable.module.css";
@@ -36,13 +36,21 @@ function formatChips(amount: number): string {
   return `$${amount.toLocaleString()}`;
 }
 
-export function PokerTable() {
+export function PokerTable({
+  players,
+  communityCards,
+  pots,
+}: {
+  players: Player[];
+  communityCards: Card[];
+  pots: Pot[];
+}) {
   return (
     <div className={styles.scene}>
       {/* Community cards + pot */}
       <div className={styles.communityArea}>
         <div className={styles.potLabels}>
-          {mockPots.map((pot) => (
+          {pots.map((pot) => (
             <div key={pot.label} className={styles.potLabel}>
               {pot.label}: {formatChips(pot.amount)}
             </div>
@@ -51,7 +59,7 @@ export function PokerTable() {
         <div className={styles.communityCards}>
           {/* All 5 slots: indices 0-2 = flop, 3 = turn, 4 = river */}
           {Array.from({ length: 5 }, (_, i) => {
-            const card = mockCommunityCards[i] ?? null;
+            const card = communityCards[i] ?? null;
             const needsGap = i === 3 || i === 4;
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: fixed-position card slots never reorder
@@ -68,8 +76,9 @@ export function PokerTable() {
         </div>
       </div>
 
-      {mockPlayers.map((player, i) => {
+      {players.map((player, i) => {
         const seat = SEAT_POSITIONS[i];
+        if (!seat) return null;
         // Position bet indicator toward center (50, 50)
         const cx = 50;
         const cy = 50;

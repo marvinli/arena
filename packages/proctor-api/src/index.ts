@@ -1,6 +1,11 @@
 import { createServer } from "node:http";
+import { join } from "node:path";
 import { makeExecutableSchema } from "@graphql-tools/schema";
+import dotenv from "dotenv";
 import { createYoga } from "graphql-yoga";
+
+dotenv.config({ path: join(import.meta.dirname, "../../../.env") });
+
 import { mergedResolvers } from "./gql/schema/mergedResolvers.js";
 import { mergedTypeDefs } from "./gql/schema/mergedTypeDefs.js";
 

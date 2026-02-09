@@ -168,6 +168,7 @@ export type Mutation = {
   advanceGame: GameState;
   createGame: GameState;
   renderComplete: Scalars['Boolean']['output'];
+  runSession: Scalars['Boolean']['output'];
   startHand: GameState;
   startSession: Session;
   stopSession: Scalars['Boolean']['output'];
@@ -188,6 +189,11 @@ export type MutationCreateGameArgs = {
 export type MutationRenderCompleteArgs = {
   channelKey: Scalars['String']['input'];
   instructionId: Scalars['ID']['input'];
+};
+
+
+export type MutationRunSessionArgs = {
+  channelKey: Scalars['String']['input'];
 };
 
 
@@ -680,6 +686,7 @@ export type MutationResolvers<ContextType = Context, ParentType extends Resolver
   advanceGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationAdvanceGameArgs, 'gameId'>>;
   createGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationCreateGameArgs, 'input'>>;
   renderComplete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRenderCompleteArgs, 'channelKey' | 'instructionId'>>;
+  runSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRunSessionArgs, 'channelKey'>>;
   startHand?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationStartHandArgs, 'gameId'>>;
   startSession?: Resolver<ResolversTypes['Session'], ParentType, ContextType, RequireFields<MutationStartSessionArgs, 'channelKey' | 'config'>>;
   stopSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStopSessionArgs, 'channelKey'>>;

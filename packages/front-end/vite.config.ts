@@ -3,4 +3,14 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  envDir: "../../",
+  envPrefix: ["VITE_", "ELEVENLABS_"],
+  server: {
+    proxy: {
+      "/graphql": {
+        target: "http://localhost:4001",
+        ws: true,
+      },
+    },
+  },
 });

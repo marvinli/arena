@@ -1,0 +1,579 @@
+import { useCallback, useEffect, useReducer, useRef } from "react";
+import { gqlFetch } from "../graphql/client";
+import {
+  RENDER_COMPLETE_MUT,
+  RENDER_INSTRUCTIONS_SUB,
+  RUN_SESSION_MUT,
+  START_SESSION_MUT,
+  STOP_SESSION_MUT,
+} from "../graphql/operations";
+import { speakAnalysis } from "../tts";
+import type {
+  Card,
+  GamePhase,
+  GameState,
+  Player,
+  PlayerAction,
+  Pot,
+} from "../types";
+
+// ── GraphQL response shapes ─────────────────────────────
+
+interface GqlPlayerInfo {
+  id: string;
+  name: string;
+  chips: number;
+  status: string;
+  seatIndex: number;
+}
+
+interface GqlCardInfo {
+  rank: string;
+  suit: string;
+}
+
+interface GqlPotInfo {
+  size: number;
+  eligiblePlayerIds: string[];
+}
+
+interface GqlInstruction {
+  instructionId: string;
+  type: string;
+  timestamp: string;
+  gameStart?: {
+    gameId: string;
+    players: GqlPlayerInfo[];
+    smallBlind: number;
+    bigBlind: number;
+  } | null;
+  dealHands?: {
+    handNumber: number;
+    players: GqlPlayerInfo[];
+    hands: { playerId: string; cards: GqlCardInfo[] }[];
+    button: number | null;
+    pots: GqlPotInfo[];
+  } | null;
+  dealCommunity?: {
+    phase: string;
+    communityCards: GqlCardInfo[];
+    pots: GqlPotInfo[];
+  } | null;
+  playerAction?: {
+    playerId: string;
+    playerName: string;
+    action: string;
+    amount: number | null;
+    analysis: string | null;
+    pots: GqlPotInfo[];
+    players: GqlPlayerInfo[];
+  } | null;
+  handResult?: {
+    winners: { playerId: string; amount: number; hand: string | null }[];
+    pots: GqlPotInfo[];
+    players: GqlPlayerInfo[];
+    communityCards: GqlCardInfo[];
+  } | null;
+  leaderboard?: {
+    players: GqlPlayerInfo[];
+    handsPlayed: number;
+  } | null;
+  gameOver?: {
+    winnerId: string;
+    winnerName: string;
+    players: GqlPlayerInfo[];
+    handsPlayed: number;
+  } | null;
+}
+
+// ── Session config ──────────────────────────────────────
+
+const CHANNEL_KEY = "poker-stream-1";
+
+const DEFAULT_CONFIG = {
+  players: [
+    {
+      playerId: "agent-1",
+      name: "Alice",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
+    {
+      playerId: "agent-2",
+      name: "Bob",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
+    {
+      playerId: "agent-3",
+      name: "Charlie",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
+    {
+      playerId: "agent-4",
+      name: "Diana",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
+    {
+      playerId: "agent-5",
+      name: "Eve",
+      modelId: "claude-haiku-4-5-20251001",
+      modelName: "Claude Haiku",
+      provider: "anthropic",
+    },
+  ],
+  startingChips: 1000,
+  smallBlind: 10,
+  bigBlind: 20,
+  handsPerGame: 5,
+};
+
+// ElevenLabs voice IDs per player (pre-made voices)
+const VOICE_IDS: Record<string, string> = {
+  "agent-1": "EXAVITQu4vr4xnSDxMaL", // Sarah
+  "agent-2": "ErXwobaYiN019PkySvjV", // Antoni
+  "agent-3": "IKne3meq5aSn9XLyUdCD", // Charlie
+  "agent-4": "21m00Tcm4TlvDq8ikWAM", // Rachel
+  "agent-5": "GBv7mTt0atIp3Br8iCZE", // Thomas
+};
+
+// ── Timing ──────────────────────────────────────────────
+
+const INSTRUCTION_DELAYS: Record<string, number> = {
+  GAME_START: 1500,
+  DEAL_HANDS: 2000,
+  PLAYER_ACTION: 1500,
+  DEAL_COMMUNITY: 1500,
+  HAND_RESULT: 3000,
+  LEADERBOARD: 2500,
+  GAME_OVER: 1000,
+};
+
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+// ── SSE subscription helper ─────────────────────────────
+
+async function* sseSubscribe(
+  query: string,
+  variables: Record<string, unknown>,
+  signal: AbortSignal,
+  onConnected?: () => void,
+): AsyncGenerator<GqlInstruction> {
+  const res = await fetch("/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
+    body: JSON.stringify({ query, variables }),
+    signal,
+  });
+
+  if (!res.ok) {
+    throw new Error(`SSE subscribe failed: ${res.status} ${res.statusText}`);
+  }
+
+  // Signal that the SSE connection is established (client is registered server-side)
+  onConnected?.();
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      // Keep incomplete last line in buffer
+      buffer = lines.pop() ?? "";
+
+      let eventType = "";
+      let dataLines: string[] = [];
+
+      for (const line of lines) {
+        if (line.startsWith("event:")) {
+          eventType = line.slice(6).trim();
+        } else if (line.startsWith("data:")) {
+          dataLines.push(line.slice(5).trim());
+        } else if (line === "") {
+          // End of event
+          if (eventType === "next" && dataLines.length > 0) {
+            const json = JSON.parse(dataLines.join("\n")) as {
+              data?: { renderInstructions: GqlInstruction };
+            };
+            if (json.data?.renderInstructions) {
+              yield json.data.renderInstructions;
+            }
+          } else if (eventType === "complete") {
+            return;
+          }
+          eventType = "";
+          dataLines = [];
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// ── Helpers ─────────────────────────────────────────────
+
+function mapPots(gqlPots: GqlPotInfo[]): Pot[] {
+  return gqlPots.map((p, i) => ({
+    label: i === 0 ? "Main Pot" : `Side Pot ${i}`,
+    amount: p.size,
+  }));
+}
+
+function mapCard(c: GqlCardInfo): Card {
+  return { rank: c.rank, suit: c.suit as Card["suit"] };
+}
+
+function mapPlayer(
+  info: GqlPlayerInfo,
+  button: number | null,
+  existing?: Player,
+): Player {
+  return {
+    id: info.id,
+    name: info.name,
+    chips: info.chips,
+    avatar: existing?.avatar ?? "",
+    cards: existing?.cards ?? null,
+    isDealer: info.seatIndex === button,
+    isFolded: info.status === "FOLDED",
+    isActive: existing?.isActive ?? false,
+    isAllIn: info.status === "ALL_IN",
+    lastAction: existing?.lastAction ?? null,
+    currentBet: existing?.currentBet ?? 0,
+  };
+}
+
+function mapPlayers(
+  infos: GqlPlayerInfo[],
+  button: number | null,
+  existingPlayers: Player[],
+): Player[] {
+  const existingMap = new Map(existingPlayers.map((p) => [p.id, p]));
+  const sorted = [...infos].sort((a, b) => a.seatIndex - b.seatIndex);
+  return sorted.map((info) =>
+    mapPlayer(info, button, existingMap.get(info.id)),
+  );
+}
+
+// ── Reducer ─────────────────────────────────────────────
+
+type Action =
+  | { type: "START"; channelKey: string }
+  | { type: "ERROR"; error: string }
+  | { type: "RESET" }
+  | { type: "INSTRUCTION"; instruction: GqlInstruction };
+
+const INITIAL_STATE: GameState = {
+  status: "idle",
+  channelKey: null,
+  gameId: null,
+  handNumber: 0,
+  phase: "WAITING",
+  smallBlind: 0,
+  bigBlind: 0,
+  button: null,
+  players: [],
+  communityCards: [],
+  pots: [],
+  holeCards: new Map(),
+  error: null,
+};
+
+function reducer(state: GameState, action: Action): GameState {
+  switch (action.type) {
+    case "START":
+      return {
+        ...INITIAL_STATE,
+        status: "connecting",
+        channelKey: action.channelKey,
+      };
+
+    case "ERROR":
+      return { ...state, status: "error", error: action.error };
+
+    case "RESET":
+      return INITIAL_STATE;
+
+    case "INSTRUCTION":
+      return handleInstruction(state, action.instruction);
+  }
+}
+
+function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
+  switch (inst.type) {
+    case "GAME_START": {
+      const gs = inst.gameStart;
+      if (!gs) return state;
+      return {
+        ...state,
+        status: "running",
+        gameId: gs.gameId,
+        smallBlind: gs.smallBlind,
+        bigBlind: gs.bigBlind,
+        players: mapPlayers(gs.players, null, []),
+      };
+    }
+
+    case "DEAL_HANDS": {
+      const dh = inst.dealHands;
+      if (!dh) return state;
+      const holeCards = new Map<string, [Card, Card]>();
+      for (const hand of dh.hands) {
+        if (hand.cards.length >= 2) {
+          holeCards.set(hand.playerId, [
+            mapCard(hand.cards[0]),
+            mapCard(hand.cards[1]),
+          ]);
+        }
+      }
+      const players = mapPlayers(dh.players, dh.button, state.players).map(
+        (p) => ({
+          ...p,
+          cards: null as [Card, Card] | null,
+          lastAction: null as PlayerAction,
+          currentBet: 0,
+          isActive: false,
+        }),
+      );
+      return {
+        ...state,
+        handNumber: dh.handNumber,
+        phase: "PREFLOP" as GamePhase,
+        button: dh.button,
+        players,
+        communityCards: [],
+        pots: mapPots(dh.pots),
+        holeCards,
+      };
+    }
+
+    case "DEAL_COMMUNITY": {
+      const dc = inst.dealCommunity;
+      if (!dc) return state;
+      const players = state.players.map((p) => ({
+        ...p,
+        lastAction: null as PlayerAction,
+        currentBet: 0,
+        isActive: false,
+      }));
+      return {
+        ...state,
+        phase: dc.phase as GamePhase,
+        communityCards: dc.communityCards.map(mapCard),
+        pots: mapPots(dc.pots),
+        players,
+      };
+    }
+
+    case "PLAYER_ACTION": {
+      const pa = inst.playerAction;
+      if (!pa) return state;
+      const players = mapPlayers(pa.players, state.button, state.players).map(
+        (p) => {
+          if (p.id === pa.playerId) {
+            return {
+              ...p,
+              lastAction: pa.action as PlayerAction,
+              currentBet: pa.amount ?? 0,
+              isActive: false,
+            };
+          }
+          return p;
+        },
+      );
+      return {
+        ...state,
+        players,
+        pots: mapPots(pa.pots),
+      };
+    }
+
+    case "HAND_RESULT": {
+      const hr = inst.handResult;
+      if (!hr) return state;
+      const players = mapPlayers(hr.players, state.button, state.players).map(
+        (p) => ({
+          ...p,
+          cards: state.holeCards.get(p.id) ?? null,
+          lastAction: null as PlayerAction,
+          currentBet: 0,
+          isActive: false,
+        }),
+      );
+      return {
+        ...state,
+        phase: "SHOWDOWN" as GamePhase,
+        players,
+        communityCards: hr.communityCards.map(mapCard),
+        pots: mapPots(hr.pots),
+      };
+    }
+
+    case "LEADERBOARD": {
+      const lb = inst.leaderboard;
+      if (!lb) return state;
+      const players = mapPlayers(lb.players, null, state.players).map((p) => ({
+        ...p,
+        cards: null as [Card, Card] | null,
+        lastAction: null as PlayerAction,
+        currentBet: 0,
+        isActive: false,
+        isDealer: false,
+      }));
+      return {
+        ...state,
+        phase: "WAITING" as GamePhase,
+        players,
+        communityCards: [],
+        pots: [],
+        button: null,
+        holeCards: new Map(),
+      };
+    }
+
+    case "GAME_OVER": {
+      const go = inst.gameOver;
+      if (!go) return state;
+      const players = mapPlayers(go.players, null, state.players).map((p) => ({
+        ...p,
+        cards: null as [Card, Card] | null,
+        lastAction: null as PlayerAction,
+        currentBet: 0,
+        isActive: false,
+      }));
+      return {
+        ...state,
+        status: "finished",
+        players,
+      };
+    }
+
+    default:
+      return state;
+  }
+}
+
+// ── Hook ────────────────────────────────────────────────
+
+export function useGameSession() {
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const startGame = useCallback(async () => {
+    dispatch({ type: "START", channelKey: CHANNEL_KEY });
+
+    try {
+      // 1. Create session (no game running yet)
+      await gqlFetch(START_SESSION_MUT, {
+        channelKey: CHANNEL_KEY,
+        config: DEFAULT_CONFIG,
+      });
+
+      // 2. Subscribe via SSE (registers as a connected client on the server)
+      const abort = new AbortController();
+      abortRef.current = abort;
+
+      // Wait for SSE connection to be established before starting the game
+      let resolveConnected: () => void = () => {};
+      const connected = new Promise<void>((r) => {
+        resolveConnected = r;
+      });
+
+      // Process instructions sequentially in background
+      void (async () => {
+        try {
+          for await (const instruction of sseSubscribe(
+            RENDER_INSTRUCTIONS_SUB,
+            { channelKey: CHANNEL_KEY },
+            abort.signal,
+            resolveConnected,
+          )) {
+            // Update state immediately
+            dispatch({ type: "INSTRUCTION", instruction });
+
+            // Pause so the user can see each state change
+            const pauseMs = INSTRUCTION_DELAYS[instruction.type] ?? 1000;
+            await delay(pauseMs, abort.signal);
+
+            // If player action with analysis, play TTS before acking
+            if (
+              instruction.type === "PLAYER_ACTION" &&
+              instruction.playerAction?.analysis
+            ) {
+              const voiceId =
+                VOICE_IDS[instruction.playerAction.playerId] ?? "";
+              await speakAnalysis(instruction.playerAction.analysis, voiceId);
+            }
+
+            // Acknowledge instruction
+            await gqlFetch(RENDER_COMPLETE_MUT, {
+              channelKey: CHANNEL_KEY,
+              instructionId: instruction.instructionId,
+            });
+          }
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          const message = err instanceof Error ? err.message : String(err);
+          dispatch({ type: "ERROR", error: message });
+        }
+      })();
+
+      // 3. Wait for SSE connection, then start the orchestrator
+      await connected;
+      await gqlFetch(RUN_SESSION_MUT, { channelKey: CHANNEL_KEY });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      dispatch({ type: "ERROR", error: message });
+    }
+  }, []);
+
+  const stopGame = useCallback(async () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    try {
+      await gqlFetch(STOP_SESSION_MUT, { channelKey: CHANNEL_KEY });
+    } catch {
+      // Ignore stop errors
+    }
+    dispatch({ type: "RESET" });
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  return { state, startGame, stopGame };
+}

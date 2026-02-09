@@ -26,3 +26,36 @@ export interface Pot {
 
 /** Community cards dealt face-up on the board (0-5 cards). */
 export type CommunityCards = Card[];
+
+// ── Game state types ────────────────────────────────────
+
+export type GamePhase =
+  | "WAITING"
+  | "PREFLOP"
+  | "FLOP"
+  | "TURN"
+  | "RIVER"
+  | "SHOWDOWN";
+
+export type GameStatus =
+  | "idle"
+  | "connecting"
+  | "running"
+  | "finished"
+  | "error";
+
+export interface GameState {
+  status: GameStatus;
+  channelKey: string | null;
+  gameId: string | null;
+  handNumber: number;
+  phase: GamePhase;
+  smallBlind: number;
+  bigBlind: number;
+  button: number | null;
+  players: Player[];
+  communityCards: Card[];
+  pots: Pot[];
+  holeCards: Map<string, [Card, Card]>;
+  error: string | null;
+}

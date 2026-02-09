@@ -47,6 +47,7 @@ export const channelTypeDefs = /* GraphQL */ `
 
   extend type Mutation {
     startSession(channelKey: String!, config: SessionConfig!): Session!
+    runSession(channelKey: String!): Boolean!
     stopSession(channelKey: String!): Boolean!
   }
 `;

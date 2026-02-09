@@ -101,7 +101,7 @@ describe("orchestrator", () => {
     expect(session.status).toBe("FINISHED");
   });
 
-  it("handles agent failure with auto-fold", async () => {
+  it("hard errors after LLM retries exhausted", async () => {
     const session = createSession("test-channel", baseConfig);
 
     const failingRunner: AgentRunner = {
@@ -115,13 +115,11 @@ describe("orchestrator", () => {
       },
     };
 
-    const instructions = spyOnPublish();
-    await runSession(session, failingRunner);
-
-    const playerAction = instructions.find((i) => i.type === "PLAYER_ACTION");
-    expect(playerAction).toBeDefined();
-    expect(playerAction!.playerAction!.action).toBe("FOLD");
-  });
+    spyOnPublish();
+    await expect(runSession(session, failingRunner)).rejects.toThrow(
+      /LLM unavailable/,
+    );
+  }, 30_000);
 
   it("stops on abort signal", async () => {
     const session = createSession("test-channel", {

@@ -13,7 +13,8 @@
     "includes": [
       "**",
       "!packages/proctor-api/src/gql/resolverTypes.ts",
-      "!logs"
+      "!logs",
+      "!**/dist"
     ]
   },
   "overrides": [

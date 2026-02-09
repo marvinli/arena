@@ -1,3 +1,5 @@
+import { LlmAgentRunner } from "../../../services/games/poker/llm-agent-runner.js";
+import { runSession } from "../../../services/games/poker/orchestrator.js";
 import {
   createSession,
   getSession,
@@ -38,6 +40,21 @@ const startSessionMutation: MutationResolvers["startSession"] = (
   };
 };
 
+const runSessionMutation: MutationResolvers["runSession"] = (
+  _parent,
+  { channelKey },
+) => {
+  const session = getSession(channelKey);
+  if (!session) throw new Error(`Session not found: ${channelKey}`);
+  if (session.gameId) throw new Error(`Session already running: ${channelKey}`);
+
+  void runSession(session, new LlmAgentRunner()).catch((err) => {
+    console.error("[runSession] orchestrator failed:", err);
+  });
+
+  return true;
+};
+
 const stopSessionMutation: MutationResolvers["stopSession"] = (
   _parent,
   { channelKey },
@@ -50,6 +67,7 @@ export const channelResolvers = {
   Query: { getSession: getSessionQuery },
   Mutation: {
     startSession: startSessionMutation,
+    runSession: runSessionMutation,
     stopSession: stopSessionMutation,
   },
 };

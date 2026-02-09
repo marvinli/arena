@@ -24,6 +24,8 @@ import {
 import * as poker from "./poker-engine.js";
 
 const MAX_ACTION_RETRIES = 3;
+const MAX_LLM_RETRIES = 3;
+const LLM_RETRY_DELAY_MS = 2000;
 
 interface SessionContext {
   session: Session;
@@ -116,23 +118,32 @@ async function resolveAction(
   const turnData = poker.getMyTurn(ctx.gameId, playerId);
 
   let result: { action: { type: string; amount?: number }; analysis?: string };
-  try {
-    result = await ctx.agentRunner.runTurn(playerId, {
-      gameId: ctx.gameId,
-      handNumber: ctx.session.handNumber,
-      phase: turnData.gameState.phase,
-      communityCards: turnData.gameState.communityCards,
-      myHand: turnData.myHand,
-      players: turnData.gameState.players,
-      pots: turnData.gameState.pots,
-      validActions: turnData.validActions,
-    });
-  } catch (err) {
-    console.error(
-      `[orchestrator] Agent ${playerId} failed, auto-folding:`,
-      err instanceof Error ? err.message : err,
-    );
-    result = { action: { type: "FOLD" } };
+  for (let llmAttempt = 0; ; llmAttempt++) {
+    try {
+      result = await ctx.agentRunner.runTurn(playerId, {
+        gameId: ctx.gameId,
+        handNumber: ctx.session.handNumber,
+        phase: turnData.gameState.phase,
+        communityCards: turnData.gameState.communityCards,
+        myHand: turnData.myHand,
+        players: turnData.gameState.players,
+        pots: turnData.gameState.pots,
+        validActions: turnData.validActions,
+      });
+      break;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(
+        `[orchestrator] Agent ${playerId} LLM call failed (attempt ${llmAttempt + 1}/${MAX_LLM_RETRIES}):`,
+        msg,
+      );
+      if (llmAttempt >= MAX_LLM_RETRIES - 1) {
+        throw new Error(
+          `LLM unavailable for agent ${playerId} after ${MAX_LLM_RETRIES} retries: ${msg}`,
+        );
+      }
+      await new Promise((r) => setTimeout(r, LLM_RETRY_DELAY_MS));
+    }
   }
 
   // Submit action, retrying with agent feedback on invalid actions
@@ -164,13 +175,15 @@ async function resolveAction(
       try {
         result = await ctx.agentRunner.rejectAction(playerId, errorMsg);
       } catch (retryErr) {
+        const retryMsg =
+          retryErr instanceof Error ? retryErr.message : String(retryErr);
         console.error(
-          `[orchestrator] Agent ${playerId} retry failed, auto-folding:`,
-          retryErr instanceof Error ? retryErr.message : retryErr,
+          `[orchestrator] Agent ${playerId} rejectAction failed:`,
+          retryMsg,
         );
-        result = { action: { type: "FOLD" } };
-        const state = poker.submitAction(ctx.gameId, playerId, "FOLD");
-        return { result, state };
+        throw new Error(
+          `LLM unavailable for agent ${playerId} during action retry: ${retryMsg}`,
+        );
       }
     }
   }
