@@ -7,10 +7,12 @@ The front-end is a renderer. It has no game logic. It subscribes to a stream of 
 ```
 Front-End                          Proctor API (port 4001)
    |                                      |
-   |-- query getChannelState ------------>|  (get current scene on connect)
-   |<----- current state -----------------|
+   |-- mutate startSession ------------->|  (create session)
+   |<----- session info ------------------|
    |                                      |
-   |== subscribe renderInstructions ====>|  (open persistent channel)
+   |== subscribe renderInstructions ====>|  (open SSE channel, registers client)
+   |                                      |
+   |-- mutate runSession ---------------->|  (start orchestrator game loop)
    |                                      |
    |<==== RenderInstruction =============|  (proctor pushes instruction)
    |                                      |
@@ -22,136 +24,13 @@ Front-End                          Proctor API (port 4001)
    |          ...                         |
 ```
 
-The GraphQL endpoint is `http://localhost:4001/graphql` for queries/mutations and `ws://localhost:4001/graphql` for subscriptions.
+The GraphQL endpoint is `http://localhost:4001/graphql` for queries/mutations. Subscriptions use SSE (Server-Sent Events) over the same endpoint with `Accept: text/event-stream`.
 
 ---
 
-## Step 1: Get Current State on Connect
+## Step 1: Start a Session
 
-When the front-end loads (or reconnects), call `getChannelState` to render the current scene. This lets the front-end join mid-game.
-
-```graphql
-query GetChannelState($channelKey: String!) {
-  getChannelState(channelKey: $channelKey) {
-    channelKey
-    gameId
-    handNumber
-    phase
-    players {
-      id
-      name
-      chips
-      status
-      seatIndex
-    }
-    communityCards {
-      rank
-      suit
-    }
-    pots {
-      size
-      eligiblePlayerIds
-    }
-    lastInstruction {
-      instructionId
-      type
-      timestamp
-    }
-  }
-}
-```
-
-Use this to hydrate the initial UI: seat players, show chip counts, render any community cards already dealt, display pots.
-
----
-
-## Step 2: Subscribe to Render Instructions
-
-Open a GraphQL subscription to receive instructions as the game progresses.
-
-```graphql
-subscription RenderInstructions($channelKey: String!) {
-  renderInstructions(channelKey: $channelKey) {
-    instructionId
-    type
-    timestamp
-
-    gameStart {
-      gameId
-      players { id name chips status seatIndex }
-      smallBlind
-      bigBlind
-    }
-
-    dealHands {
-      handNumber
-      players { id name chips status seatIndex }
-      hands { playerId cards { rank suit } }
-      button
-      pots { size eligiblePlayerIds }
-    }
-
-    dealCommunity {
-      phase
-      communityCards { rank suit }
-      pots { size eligiblePlayerIds }
-    }
-
-    playerAction {
-      playerId
-      playerName
-      action
-      amount
-      analysis
-      pots { size eligiblePlayerIds }
-      players { id name chips status seatIndex }
-    }
-
-    handResult {
-      winners { playerId amount hand }
-      pots { size eligiblePlayerIds }
-      players { id name chips status seatIndex }
-      communityCards { rank suit }
-    }
-
-    leaderboard {
-      players { id name chips status seatIndex }
-      handsPlayed
-    }
-
-    gameOver {
-      winnerId
-      winnerName
-      players { id name chips status seatIndex }
-      handsPlayed
-    }
-  }
-}
-```
-
-When the subscription connects, the proctor registers the client. When it disconnects, the client is automatically unregistered.
-
----
-
-## Step 3: Acknowledge Each Instruction
-
-After rendering an instruction (animations complete, TTS finished), call `renderComplete`. The proctor blocks until all connected clients acknowledge before sending the next instruction.
-
-```graphql
-mutation RenderComplete($channelKey: String!, $instructionId: ID!) {
-  renderComplete(channelKey: $channelKey, instructionId: $instructionId)
-}
-```
-
-If the front-end doesn't acknowledge within 30 seconds, the proctor auto-advances. Reliable acknowledgment prevents the game from stalling.
-
----
-
-## Step 4: Start and Stop Sessions
-
-The front-end (or an admin UI) can start game sessions.
-
-### Start a Session
+Create the session before subscribing, so the server is ready when the subscription connects.
 
 ```graphql
 mutation StartSession($channelKey: String!, $config: SessionConfig!) {
@@ -174,22 +53,22 @@ Example config:
     "players": [
       {
         "playerId": "agent-1",
-        "name": "Aggressive Alice",
+        "name": "Alice",
         "modelId": "claude-haiku-4-5-20251001",
         "modelName": "Claude Haiku",
         "provider": "anthropic",
         "avatarUrl": "https://example.com/alice.png",
-        "ttsVoice": "elevenlabs-voice-id-alice",
+        "ttsVoice": "TX3LPaxmHKxFdv7VOQHJ",
         "temperature": 0.9
       },
       {
         "playerId": "agent-2",
-        "name": "Cautious Bob",
+        "name": "Bob",
         "modelId": "gpt-4o-mini",
         "modelName": "GPT-4o Mini",
         "provider": "openai",
         "avatarUrl": "https://example.com/bob.png",
-        "ttsVoice": "elevenlabs-voice-id-bob"
+        "ttsVoice": "t0jbNlBVZ17f02VDIeMI"
       }
     ],
     "startingChips": 1000,
@@ -202,7 +81,112 @@ Example config:
 
 Set `handsPerGame` to `null` to play until one player has all the chips.
 
-### Stop a Session
+---
+
+## Step 2: Subscribe to Render Instructions
+
+Open an SSE subscription to receive instructions as the game progresses. The subscription registers the client on the server — the proctor won't advance until all connected clients have acknowledged each instruction.
+
+```graphql
+subscription RenderInstructions($channelKey: String!) {
+  renderInstructions(channelKey: $channelKey) {
+    instructionId
+    type
+    timestamp
+
+    gameStart {
+      gameId
+      players { id name chips bet status seatIndex }
+      playerMeta { id ttsVoice avatarUrl }
+      smallBlind
+      bigBlind
+    }
+
+    dealHands {
+      handNumber
+      players { id name chips bet status seatIndex }
+      hands { playerId cards { rank suit } }
+      button
+      pots { size eligiblePlayerIds }
+    }
+
+    dealCommunity {
+      phase
+      communityCards { rank suit }
+      pots { size eligiblePlayerIds }
+    }
+
+    playerTurn {
+      playerId
+      playerName
+    }
+
+    playerAnalysis {
+      playerId
+      playerName
+      analysis
+    }
+
+    playerAction {
+      playerId
+      playerName
+      action
+      amount
+      pots { size eligiblePlayerIds }
+      players { id name chips bet status seatIndex }
+    }
+
+    handResult {
+      winners { playerId amount hand }
+      pots { size eligiblePlayerIds }
+      players { id name chips bet status seatIndex }
+      communityCards { rank suit }
+    }
+
+    leaderboard {
+      players { id name chips bet status seatIndex }
+      handsPlayed
+    }
+
+    gameOver {
+      winnerId
+      winnerName
+      players { id name chips bet status seatIndex }
+      handsPlayed
+    }
+  }
+}
+```
+
+---
+
+## Step 3: Start the Game Loop
+
+After the subscription is connected, call `runSession` to start the orchestrator. This ensures the front-end is listening before any instructions are emitted.
+
+```graphql
+mutation RunSession($channelKey: String!) {
+  runSession(channelKey: $channelKey)
+}
+```
+
+---
+
+## Step 4: Acknowledge Each Instruction
+
+After rendering an instruction (animations complete, TTS finished), call `renderComplete`. The proctor blocks until all connected clients acknowledge before sending the next instruction.
+
+```graphql
+mutation RenderComplete($channelKey: String!, $instructionId: ID!) {
+  renderComplete(channelKey: $channelKey, instructionId: $instructionId)
+}
+```
+
+If the front-end doesn't acknowledge within 30 seconds, the proctor auto-advances. Reliable acknowledgment prevents the game from stalling.
+
+---
+
+## Step 5: Stop a Session
 
 ```graphql
 mutation StopSession($channelKey: String!) {
@@ -240,10 +224,13 @@ Emitted once when the session begins.
 |---|---|---|
 | `gameId` | `ID!` | Unique game identifier |
 | `players` | `[PlayerInfo!]!` | All players with starting chips |
+| `playerMeta` | `[PlayerMeta!]!` | Per-player metadata (ttsVoice, avatarUrl) |
 | `smallBlind` | `Int!` | Small blind amount |
 | `bigBlind` | `Int!` | Big blind amount |
 
-**Render:** Display the table, seat all players, show starting chip counts and blind structure.
+`playerMeta` contains `{ id, ttsVoice, avatarUrl }` for each player. Store the voice IDs and avatar URLs on connect — they're used for TTS during `PLAYER_ANALYSIS` and for rendering player avatars.
+
+**Render:** Display the table, seat all players with their avatars, show starting chip counts and blind structure.
 
 ### DEAL_HANDS
 
@@ -282,31 +269,43 @@ Card counts by phase:
 
 **Render:** Animate dealing the new community cards. For flop, deal 3 cards. For turn and river, deal 1 card (the new card is the last in the array).
 
+### PLAYER_TURN
+
+Emitted when a player is about to act.
+
+| Field | Type | Description |
+|---|---|---|
+| `playerId` | `ID!` | Who is about to act |
+| `playerName` | `String!` | Display name |
+
+**Render:** Highlight the active player's seat. This is a brief instruction — just visual emphasis.
+
+### PLAYER_ANALYSIS
+
+Emitted when a player has analysis (audience-facing commentary). Only emitted if the agent produced analysis text.
+
+| Field | Type | Description |
+|---|---|---|
+| `playerId` | `ID!` | Who is speaking |
+| `playerName` | `String!` | Display name |
+| `analysis` | `String!` | Audience-facing commentary |
+
+**Render:** Display the analysis text (e.g., in a speech bubble). Convert to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via ElevenLabs TTS. The front-end can fire-and-forget the TTS and ack immediately — this lets the proctor pipeline the next instruction while audio plays.
+
 ### PLAYER_ACTION
 
-Emitted when a player acts.
+Emitted when a player acts. Always follows `PLAYER_TURN` (and optionally `PLAYER_ANALYSIS`).
 
 | Field | Type | Description |
 |---|---|---|
 | `playerId` | `ID!` | Who acted |
 | `playerName` | `String!` | Display name |
-| `action` | `String!` | `"fold"`, `"check"`, `"call"`, `"bet"`, or `"raise"` |
+| `action` | `String!` | `"FOLD"`, `"CHECK"`, `"CALL"`, `"BET"`, or `"RAISE"` |
 | `amount` | `Int` | Chip amount (null for fold/check) |
-| `analysis` | `String` | Audience-facing commentary (null if none) |
 | `pots` | `[PotInfo!]!` | Updated pot state |
 | `players` | `[PlayerInfo!]!` | Updated player states |
 
-This is the most complex instruction to render. When `analysis` is present:
-
-1. Display the analysis text (e.g., in a speech bubble or commentary panel)
-2. Convert to speech using the player's `ttsVoice` (from `AgentConfig`) via TTS
-3. Play the audio
-4. Animate the action (chip movement, fold animation, etc.)
-5. Call `renderComplete` after everything finishes
-
-When `analysis` is null, just animate the action and acknowledge.
-
-**Render:** Show the action label ("Alice raises to 200"), animate chips, update pot. If analysis exists, render text and play TTS before acknowledging.
+**Render:** Show the action label ("Alice raises to 200"), animate chips, update pot and player states.
 
 ### HAND_RESULT
 
@@ -363,8 +362,21 @@ Present in most instruction payloads. Represents a player's current state.
   id: string        // Unique player ID
   name: string      // Display name
   chips: number     // Current chip count
+  bet: number       // Current bet in this round
   status: string    // "ACTIVE" | "FOLDED" | "ALL_IN" | "BUSTED"
   seatIndex: number // 0-based seat position
+}
+```
+
+### PlayerMeta
+
+Per-player metadata, included in `GAME_START`. Store these for the duration of the game.
+
+```typescript
+{
+  id: string            // Player ID
+  ttsVoice: string      // ElevenLabs voice ID (nullable)
+  avatarUrl: string     // Avatar image URL (nullable)
 }
 ```
 
@@ -400,14 +412,21 @@ The sequence of instructions for a typical game:
 GAME_START
   │
   ├── DEAL_HANDS (hand #1)
+  │     ├── PLAYER_TURN (player about to act)
+  │     ├── PLAYER_ANALYSIS (optional — if agent has commentary)
   │     ├── PLAYER_ACTION (player acts)
-  │     ├── PLAYER_ACTION (next player acts)
+  │     ├── PLAYER_TURN (next player)
+  │     ├── PLAYER_ACTION (next player acts, no analysis)
   │     ├── ...
   │     ├── DEAL_COMMUNITY (FLOP)
+  │     ├── PLAYER_TURN ...
+  │     ├── PLAYER_ANALYSIS ...
   │     ├── PLAYER_ACTION ...
   │     ├── DEAL_COMMUNITY (TURN)
+  │     ├── PLAYER_TURN ...
   │     ├── PLAYER_ACTION ...
   │     ├── DEAL_COMMUNITY (RIVER)
+  │     ├── PLAYER_TURN ...
   │     ├── PLAYER_ACTION ...
   │     └── HAND_RESULT
   │
@@ -434,26 +453,34 @@ The front-end should maintain local state derived from instructions. Here's a re
 
 ```typescript
 interface GameState {
+  status: "idle" | "connecting" | "running" | "finished" | "error";
+  channelKey: string | null;
   gameId: string | null;
   handNumber: number;
   phase: "WAITING" | "PREFLOP" | "FLOP" | "TURN" | "RIVER" | "SHOWDOWN";
   smallBlind: number;
   bigBlind: number;
   button: number | null;             // seat index of dealer
-  players: Map<string, UIPlayer>;    // playerId → state
+  players: UIPlayer[];
   communityCards: CardInfo[];
   pots: PotInfo[];
+  holeCards: Map<string, [CardInfo, CardInfo]>;  // stored from DEAL_HANDS, revealed at HAND_RESULT
+  speakingPlayerId: string | null;    // who is currently speaking via TTS
+  error: string | null;
 }
 
 interface UIPlayer {
   id: string;
   name: string;
   chips: number;
-  status: "ACTIVE" | "FOLDED" | "ALL_IN" | "BUSTED";
-  seatIndex: number;
-  holeCards: [CardInfo, CardInfo] | null;  // stored from DEAL_HANDS, shown at HAND_RESULT
-  lastAction: string | null;               // "fold", "call", "raise", etc.
-  currentBet: number;
+  avatar: string;                     // from GAME_START playerMeta
+  cards: [CardInfo, CardInfo] | null; // shown face-down during play, revealed at showdown
+  isDealer: boolean;
+  isFolded: boolean;
+  isActive: boolean;                  // highlighted during PLAYER_TURN
+  isAllIn: boolean;
+  lastAction: string | null;          // "FOLD", "CALL", "RAISE", etc.
+  currentBet: number;                 // from PlayerInfo.bet
 }
 ```
 
@@ -461,62 +488,62 @@ interface UIPlayer {
 
 | Instruction | State Updates |
 |---|---|
-| `GAME_START` | Set `gameId`, `smallBlind`, `bigBlind`. Populate `players` map. |
+| `GAME_START` | Set `gameId`, `smallBlind`, `bigBlind`. Populate `players` with avatars from `playerMeta`. Store voice IDs for TTS. |
 | `DEAL_HANDS` | Set `handNumber`, `button`. Store each player's `holeCards` (from `hands`). Update `players` from payload. Set `phase` to `"PREFLOP"`. Reset `lastAction` and `currentBet` for all players. |
 | `DEAL_COMMUNITY` | Set `phase` from payload. Update `communityCards`. Update `pots`. Reset `lastAction` and `currentBet` for all players (new betting round). |
-| `PLAYER_ACTION` | Update the acting player's `lastAction`, `status`, `chips`. Update `pots`. Recalculate `currentBet` from chip changes. |
-| `HAND_RESULT` | Set `phase` to `"SHOWDOWN"`. Reveal all `holeCards`. Update `players` chip counts. Clear `communityCards`, `pots`, `lastAction` for next hand. |
-| `LEADERBOARD` | Update all player chip counts. Set `phase` to `"WAITING"`. |
-| `GAME_OVER` | Final standings. Game is over. |
+| `PLAYER_TURN` | Set `isActive` true for the acting player, false for all others. |
+| `PLAYER_ANALYSIS` | Set `speakingPlayerId`. Trigger TTS. (State update is minimal — TTS is a side effect.) |
+| `PLAYER_ACTION` | Update the acting player's `lastAction`, `status`, `chips`, `currentBet`. Update `pots`. Set `isActive` false. |
+| `HAND_RESULT` | Set `phase` to `"SHOWDOWN"`. Reveal all `holeCards`. Update `players` chip counts. |
+| `LEADERBOARD` | Update all player chip counts. Set `phase` to `"WAITING"`. Clear `communityCards`, `pots`, `holeCards`. |
+| `GAME_OVER` | Set `status` to `"finished"`. Final standings. |
 
 ---
 
 ## TTS Integration
 
-When a `PLAYER_ACTION` includes `analysis`, the front-end should convert it to speech. The player's `ttsVoice` (an ElevenLabs voice ID) is set in the `AgentConfig` when the session is started. Store the voice ID per player when processing `GAME_START` or from the session config.
+When a `PLAYER_ANALYSIS` instruction arrives, convert the analysis text to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via ElevenLabs.
 
 ```typescript
-async function speakAnalysis(
-  analysis: string,
-  voiceId: string,
-  apiKey: string,
-): Promise<void> {
+async function speakAnalysis(text: string, voiceId: string): Promise<void> {
+  if (!voiceId || !ELEVENLABS_API_KEY) return;
+
   const response = await fetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "xi-api-key": apiKey,
+        "xi-api-key": ELEVENLABS_API_KEY,
       },
       body: JSON.stringify({
-        text: analysis,
-        model_id: "eleven_monolingual_v1",
+        text,
+        model_id: "eleven_turbo_v2_5",
       }),
     },
   );
+
+  if (!response.ok) return;
 
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
 
   return new Promise((resolve) => {
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      resolve();
-    };
-    audio.play();
+    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.play().catch(() => { URL.revokeObjectURL(url); resolve(); });
   });
 }
 ```
 
-The rendering flow for a `PLAYER_ACTION` with analysis:
+The rendering flow for a player turn:
 
-1. Receive instruction
-2. Display analysis text on screen
-3. Call `speakAnalysis()` — wait for audio to finish
-4. Animate the action (chips, fold, etc.)
-5. Call `renderComplete(channelKey, instructionId)`
+1. Receive `PLAYER_TURN` → highlight player seat → ack
+2. Receive `PLAYER_ANALYSIS` → display text, fire-and-forget TTS → ack (TTS plays in background)
+3. Receive `PLAYER_ACTION` → animate action → ack
+
+TTS can be disabled via the `VITE_DISABLE_TTS=true` environment variable.
 
 ---
 
@@ -542,45 +569,96 @@ If the front-end disconnects and reconnects:
 
 The `lastInstruction` field in `getChannelState` tells you what was last emitted, which can help determine if an acknowledgment was missed.
 
+### getChannelState Query
+
+```graphql
+query GetChannelState($channelKey: String!) {
+  getChannelState(channelKey: $channelKey) {
+    channelKey
+    gameId
+    handNumber
+    phase
+    players {
+      id
+      name
+      chips
+      bet
+      status
+      seatIndex
+    }
+    communityCards {
+      rank
+      suit
+    }
+    pots {
+      size
+      eligiblePlayerIds
+    }
+    lastInstruction {
+      instructionId
+      type
+      timestamp
+    }
+  }
+}
+```
+
 ---
 
 ## GraphQL Client Setup
 
-Example using Apollo Client with split links for HTTP queries and WebSocket subscriptions:
+The front-end uses a simple fetch-based GraphQL client. Subscriptions use SSE (Server-Sent Events) — no WebSocket library required.
 
 ```typescript
-import { ApolloClient, InMemoryCache, HttpLink, split } from "@apollo/client";
-import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
-import { createClient } from "graphql-ws";
-import { getMainDefinition } from "@apollo/client/utilities";
+// Queries and mutations — simple fetch
+async function gqlFetch<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const res = await fetch("/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  const json = await res.json();
+  if (json.errors) throw new Error(json.errors[0].message);
+  return json.data;
+}
 
-const httpLink = new HttpLink({
-  uri: "http://localhost:4001/graphql",
-});
+// Subscriptions — SSE
+async function* sseSubscribe(
+  query: string,
+  variables: Record<string, unknown>,
+  signal: AbortSignal,
+): AsyncGenerator<any> {
+  const res = await fetch("/graphql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
+    body: JSON.stringify({ query, variables }),
+    signal,
+  });
 
-const wsLink = new GraphQLWsLink(
-  createClient({
-    url: "ws://localhost:4001/graphql",
-  }),
-);
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
 
-const link = split(
-  ({ query }) => {
-    const def = getMainDefinition(query);
-    return def.kind === "OperationDefinition" && def.operation === "subscription";
-  },
-  wsLink,
-  httpLink,
-);
-
-const client = new ApolloClient({ link, cache: new InMemoryCache() });
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // Parse SSE events (event: next, data: {...})
+    // yield parsed instruction data
+  }
+}
 ```
+
+The Vite dev server proxies `/graphql` to `http://localhost:4001`, so no CORS configuration is needed.
 
 ---
 
 ## Error Handling
 
-- **Agent timeout/failure**: The proctor auto-folds for the agent. The front-end still receives a normal `PLAYER_ACTION` with `action: "fold"`. No special handling needed.
+- **Agent timeout/failure**: The proctor auto-folds for the agent. The front-end still receives normal `PLAYER_TURN` + `PLAYER_ACTION` with `action: "FOLD"`. No special handling needed.
 - **renderComplete timeout**: If the front-end doesn't acknowledge within 30 seconds, the proctor auto-advances. The front-end may miss instructions if it's too slow.
 - **Session not found**: `getChannelState` and `getSession` return null or throw if the channel key doesn't exist.
 - **Subscription disconnect**: Re-subscribe and call `getChannelState` to catch up.
@@ -593,10 +671,10 @@ const client = new ApolloClient({ link, cache: new InMemoryCache() });
 
 | Enum | Values |
 |---|---|
-| `InstructionType` | `GAME_START`, `DEAL_HANDS`, `DEAL_COMMUNITY`, `PLAYER_ACTION`, `HAND_RESULT`, `LEADERBOARD`, `GAME_OVER` |
+| `InstructionType` | `GAME_START`, `DEAL_HANDS`, `DEAL_COMMUNITY`, `PLAYER_TURN`, `PLAYER_ANALYSIS`, `PLAYER_ACTION`, `HAND_RESULT`, `LEADERBOARD`, `GAME_OVER` |
 | `SessionStatus` | `RUNNING`, `STOPPED`, `FINISHED` |
 | Player status | `ACTIVE`, `FOLDED`, `ALL_IN`, `BUSTED` |
-| Actions | `fold`, `check`, `call`, `bet`, `raise` |
+| Actions | `FOLD`, `CHECK`, `CALL`, `BET`, `RAISE` |
 | Card ranks | `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `J`, `Q`, `K`, `A` |
 | Card suits | `clubs`, `diamonds`, `hearts`, `spades` |
 
@@ -604,9 +682,10 @@ const client = new ApolloClient({ link, cache: new InMemoryCache() });
 
 | Operation | Type | Purpose |
 |---|---|---|
-| `getChannelState(channelKey)` | Query | Current game state for reconnection |
-| `getSession(channelKey)` | Query | Session metadata and status |
-| `startSession(channelKey, config)` | Mutation | Create and start a game |
+| `startSession(channelKey, config)` | Mutation | Create a game session |
+| `runSession(channelKey)` | Mutation | Start the orchestrator game loop |
 | `stopSession(channelKey)` | Mutation | Stop a running game |
+| `getSession(channelKey)` | Query | Session metadata and status |
+| `getChannelState(channelKey)` | Query | Current game state for reconnection |
 | `renderComplete(channelKey, instructionId)` | Mutation | Acknowledge instruction rendered |
-| `renderInstructions(channelKey)` | Subscription | Stream of render instructions |
+| `renderInstructions(channelKey)` | Subscription | Stream of render instructions (SSE) |

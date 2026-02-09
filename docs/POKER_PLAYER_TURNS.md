@@ -8,18 +8,18 @@ Each player is an AI agent with metadata that controls its identity, model, and 
 
 ```typescript
 interface PlayerConfig {
-  id: string;              // Unique identifier (e.g., "aggressive-al")
-  name: string;            // Display name (e.g., "Grok")
-  modelId: string;         // LLM model identifier (e.g., "claude-sonnet-4-5-20250929")
-  modelName: string;       // Friendly model name for display (e.g., "Claude Sonnet")
-  provider: string;        // Model provider (e.g., "anthropic", "openai", "google")
-  avatarUrl: string;       // Avatar image URL for front-end rendering
-  ttsVoice: string;        // TTS voice model identifier (e.g., "EXAVITQu4vr4xnSDxMaL")
+  id: string;              // Unique identifier (e.g., "agent-1")
+  name: string;            // Display name (e.g., "Alice")
+  modelId: string;         // LLM model identifier (e.g., "claude-haiku-4-5-20251001")
+  modelName: string;       // Friendly model name for display (e.g., "Claude Haiku")
+  provider: string;        // Model provider ("anthropic", "openai", "google")
+  avatarUrl?: string;      // Avatar image URL for front-end rendering
+  ttsVoice?: string;       // ElevenLabs voice ID (e.g., "TX3LPaxmHKxFdv7VOQHJ")
   temperature?: number;    // Optional creativity setting (default: provider default)
 }
 ```
 
-The front-end uses `name`, `avatarUrl`, and `ttsVoice` for rendering. The agent runner uses `modelId`, `provider`, and `temperature` for LLM calls. The prompt template uses all metadata fields to give the agent its identity.
+The front-end uses `name`, `avatarUrl`, and `ttsVoice` for rendering. The agent runner uses `modelId`, `provider`, and `temperature` for LLM calls. The prompt template uses `name`, `modelName`, and `provider` to give the agent its identity.
 
 ### Session config
 
@@ -38,33 +38,45 @@ interface SessionConfig {
 All agents use the same system prompt template. The template inserts player metadata to give each agent its identity. The model itself — not the prompt — provides behavioral differences.
 
 ```
-You are {{name}}, a poker player in a Texas Hold'em tournament.
+You are {{name}}, a professional poker player in a Texas Hold'em tournament.
 You are powered by {{modelName}} from {{provider}}.
 
 You are playing against other AI models. Each opponent is a different model
 with its own strategy. Play to win.
 
+You are an expert poker player. Play solid, fundamentally sound poker:
+- CAREFULLY read your hole cards and the board. Identify your ACTUAL hand
+  rank (pair, two pair, straight, flush, etc.) before deciding. Do not
+  misread your hand.
+- Understand position, pot odds, and implied odds.
+- Don't fold strong hands. Don't call with garbage. Protect your big blind
+  when getting good odds — never fold the big blind to a limp.
+- Bet for value with strong hands. Bluff selectively and with purpose.
+- Pay attention to opponent betting patterns and adjust accordingly.
+
 You will receive game updates as the hand progresses — community cards,
 other players' actions, hand results. When it is your turn, you will be
 given your hole cards, the current game state, and your valid actions.
 
-When you are ready to act, call the submit_action tool with:
-- Your action (fold, check, call, bet, or raise)
-- The bet amount (required for bet and raise)
-- Your analysis — audience-facing commentary explaining your thinking,
-  your read on opponents, and why you chose this action. This is shown
-  to viewers and spoken aloud via TTS. Be insightful and entertaining.
+When it is your turn, first speak your thoughts aloud as plain text, then
+call the submit_action tool.
 
-You may reason internally before calling submit_action. Take your time to
-analyze the hand, consider pot odds, evaluate opponent tendencies, and
-plan your strategy. But you MUST eventually call submit_action to complete
-your turn.
+Your spoken text is read to the audience via TTS before your action is
+revealed, so be natural and conversational — talk like a poker pro at
+the table. Share your read on opponents, your hand strength, pot odds,
+whatever is on your mind. End by announcing what you're going to do in
+a natural way, e.g. "I'll call.", "Time to fold.", "Let's push all-in.",
+"Raise to 200." Keep it to 2-4 sentences total.
 
-Other players cannot see your analysis or your internal reasoning.
-They only see the action you take (fold/check/call/bet/raise and the amount).
+Do NOT use labels like "Analysis:" or "Action:" — just speak naturally.
+
+Then call submit_action with your action and amount.
+
+Other players cannot hear your commentary. They only see the action you
+take (fold/check/call/bet/raise and the amount).
 ```
 
-The template is stored as a single string in the codebase. The agent runner interpolates `{{name}}`, `{{modelName}}`, and `{{provider}}` at session start when constructing each agent's system prompt. No other customization per agent.
+The template is stored in `prompt-template.ts`. The agent runner interpolates `{{name}}`, `{{modelName}}`, and `{{provider}}` at session start when constructing each agent's system prompt. No other customization per agent.
 
 ## Agent Tools
 
@@ -78,11 +90,12 @@ Each agent has one tool available during their turn.
   description: "Submit your poker action. This ends your turn.",
   parameters: {
     action: "FOLD" | "CHECK" | "CALL" | "BET" | "RAISE",
-    amount?: number,    // Required for BET and RAISE. Ignored for others.
-    analysis: string    // Audience-facing commentary. Shown to viewers, spoken via TTS.
+    amount?: number    // Required for BET and RAISE. Ignored for others.
   }
 }
 ```
+
+Note: `analysis` is NOT a parameter of the tool. The agent's audience-facing commentary is extracted from the **text output** that the LLM produces before calling `submit_action`. The agent speaks its thoughts aloud as natural text, then calls the tool. The agent runner captures `result.text` as the analysis.
 
 The agent runner validates the tool call against the valid actions from the game engine. If the agent submits an invalid action (wrong type, out-of-range amount), the agent runner sends back a tool result error and lets the agent retry. If retries are exhausted, auto-fold.
 
@@ -93,8 +106,8 @@ History is not provided via a separate tool — the proctor injects all game eve
 The agent runner handles each turn:
 
 1. Send "your turn" message to LLM with game state, hole cards, valid actions
-2. LLM responds with a `submit_action` tool call
-3. Validate action against valid actions, return result to proctor
+2. LLM responds with natural text (analysis) + a `submit_action` tool call
+3. Validate action against valid actions, return `{ action, analysis }` to proctor
 4. If no tool call or invalid action after retries → auto-fold
 
 ## Agent Conversation Lifecycle
@@ -109,17 +122,17 @@ System: [prompt template with metadata]
 --- Hand 1 ---
 User: [DEAL_HANDS — your hole cards, table state, positions]
 User: [YOUR_TURN — game state, valid actions]
-Assistant: [reasoning + submit_action tool call]
+Assistant: [spoken thoughts + submit_action tool call]
 Tool: [action confirmed]
 User: [OPPONENT_ACTION — Bob calls]
 User: [OPPONENT_ACTION — Charlie raises to 80]
 User: [YOUR_TURN — updated game state, valid actions]
-Assistant: [reasoning + submit_action tool call]
+Assistant: [spoken thoughts + submit_action tool call]
 Tool: [action confirmed]
 User: [DEAL_COMMUNITY — flop: A♠ K♦ 7♣]
 User: [OPPONENT_ACTION — Bob checks]
 User: [YOUR_TURN — updated game state, valid actions]
-Assistant: [reasoning + submit_action tool call]
+Assistant: [spoken thoughts + submit_action tool call]
 Tool: [action confirmed]
 ...
 User: [HAND_RESULT — winner, pot awarded]
@@ -176,13 +189,13 @@ Bob folds.
 #### DEAL_COMMUNITY
 Sent when community cards are dealt.
 ```
-Flop: A♠ K♦ 7♣
+FLOP: A♠ K♦ 7♣
 ```
 ```
-Turn: 9♥
+TURN: 9♥
 ```
 ```
-River: 2♣
+RIVER: 2♣
 ```
 
 #### HAND_RESULT
@@ -215,7 +228,7 @@ The proctor is **strictly procedural**. It has no intelligence. It follows a fix
 5. Build game event messages and inject them into the agent's conversation
 6. Invoke the agent and wait for `submit_action`
 7. Submit the action to the game engine
-8. Emit render instructions to the front-end
+8. Emit render instructions to the front-end (PLAYER_TURN → PLAYER_ANALYSIS → PLAYER_ACTION)
 9. Wait for `renderComplete` before proceeding
 
 ### What the proctor does NOT do
@@ -242,9 +255,11 @@ for each hand until gameOver or aborted:
 
         if state.currentPlayerId exists:
             player = state.currentPlayerId
-            inject YOUR_TURN into player's agent
+            emit PLAYER_TURN to front-end
             result = await agentRunner.runTurn(player)   // blocks until submit_action
             submitAction(player, result.action)
+            if result.analysis:
+                emit PLAYER_ANALYSIS to front-end
             emit PLAYER_ACTION to front-end
             inject OPPONENT_ACTION into all OTHER agents
 
@@ -280,33 +295,39 @@ A single player turn, step by step:
 ```
 1. Proctor asks game engine: getGameState() → currentPlayerId = "alice"
 
-2. Proctor builds YOUR_TURN message for Alice:
-   - Reads game state from engine (phase, community cards, pots, player chips)
-   - Reads Alice's hole cards from engine (getMyTurn)
-   - Reads valid actions from engine
-   - Formats as human-readable text
+2. Proctor emits PLAYER_TURN to front-end:
+   - { playerId: "alice", playerName: "Alice" }
+   - Front-end highlights Alice's seat
+   - Front-end calls renderComplete
 
 3. Proctor calls agentRunner.runTurn("alice", context):
    - Agent runner appends YOUR_TURN message to Alice's conversation
    - Agent runner sends conversation to LLM (Anthropic/OpenAI/Google API)
-   - LLM reasons internally (text output — not shown to anyone)
-   - LLM calls submit_action({ action: "RAISE", amount: 80, analysis: "..." })
+   - LLM responds with:
+     Text: "I've got a strong top pair here. Bob's been passive all game,
+     so his raise means something. I'll call and see the turn."
+     Tool: submit_action({ action: "CALL" })
    - Agent runner validates action against valid actions
-   - Agent runner appends assistant message to conversation
-   - Agent runner returns { action: { type: "RAISE", amount: 80 }, analysis: "..." }
+   - Agent runner appends assistant message + tool result to conversation
+   - Agent runner returns { action: { type: "CALL" }, analysis: "I've got a strong top pair..." }
 
 4. Proctor submits action to game engine:
-   - poker.submitAction(gameId, "alice", "RAISE", 80)
+   - poker.submitAction(gameId, "alice", "CALL")
    - Engine validates and updates state
 
-5. Proctor emits PLAYER_ACTION render instruction to front-end:
-   - Includes action, amount, and analysis
-   - Front-end renders analysis text, plays TTS with Alice's voice, shows raise animation
-   - Front-end calls renderComplete when done
+5. Proctor emits PLAYER_ANALYSIS to front-end (because analysis exists):
+   - { playerId: "alice", playerName: "Alice", analysis: "I've got a strong top pair..." }
+   - Front-end displays text, plays TTS with Alice's voice
+   - Front-end calls renderComplete
 
-6. Proctor injects OPPONENT_ACTION into all other agents' conversations:
-   - Bob's conversation gets: "Alice raises to 80."
-   - Charlie's conversation gets: "Alice raises to 80."
+6. Proctor emits PLAYER_ACTION to front-end:
+   - { playerId: "alice", action: "CALL", amount: null, pots: [...], players: [...] }
+   - Front-end renders call animation
+   - Front-end calls renderComplete
+
+7. Proctor injects OPPONENT_ACTION into all other agents' conversations:
+   - Bob's conversation gets: "Alice calls."
+   - Charlie's conversation gets: "Alice calls."
    - Alice does NOT get this message (she already knows — she did it)
 ```
 
@@ -325,23 +346,37 @@ interface AgentRunner {
    * runs the LLM tool-use loop, returns the action and analysis.
    * The conversation is updated in place with the full exchange.
    */
-  runTurn(playerId: string, turnContext: TurnContext): Promise<TurnResult>;
+  runTurn(playerId: string, context: AgentTurnContext): Promise<AgentTurnResult>;
+
+  /** Reject the last action with an error message and let the agent retry. */
+  rejectAction(playerId: string, error: string): Promise<AgentTurnResult>;
 }
 
-interface TurnContext {
+interface AgentTurnContext {
   gameId: string;
   handNumber: number;
   phase: string;
-  communityCards: Card[];
-  myHand: Card[];
-  players: PlayerState[];
-  pots: Pot[];
-  validActions: ValidAction[];
+  communityCards: Array<{ rank: string; suit: string }>;
+  myHand: Array<{ rank: string; suit: string }>;
+  players: Array<{
+    id: string;
+    name: string;
+    chips: number;
+    bet: number;
+    status: string;
+  }>;
+  pots: Array<{ size: number; eligiblePlayerIds: string[] }>;
+  validActions: Array<{
+    type: string;
+    amount?: number | null;
+    min?: number | null;
+    max?: number | null;
+  }>;
 }
 
-interface TurnResult {
+interface AgentTurnResult {
   action: { type: string; amount?: number };
-  analysis: string;
+  analysis?: string;  // extracted from LLM text output, not a tool parameter
 }
 ```
 
@@ -349,49 +384,52 @@ interface TurnResult {
 
 ```typescript
 interface AgentState {
-  playerId: string;
   config: PlayerConfig;
   systemPrompt: string;       // Template with metadata interpolated
-  messages: Message[];         // Full conversation history
+  messages: ModelMessage[];    // Full conversation history (ai SDK message format)
+  lastToolCallId?: string;    // For reject-and-retry flow
 }
-
-type Message =
-  | { role: "user"; content: string }
-  | { role: "assistant"; content: string; toolCalls?: ToolCall[] }
-  | { role: "tool"; toolCallId: string; content: string };
 ```
 
 The agent runner holds a `Map<string, AgentState>` — one entry per player in the game. Initialized at session start, persists until the game ends.
+
+### LLM provider support
+
+The agent runner uses the Vercel AI SDK (`ai` package) with multi-provider support:
+- `@ai-sdk/anthropic` — Anthropic models (Claude)
+- `@ai-sdk/openai` — OpenAI models (GPT)
+- `@ai-sdk/google` — Google models (Gemini)
+
+The provider is selected based on `PlayerConfig.provider`. Each agent can use a different provider/model.
 
 ## Front-End Forwarding
 
 The proctor emits render instructions to the front-end via pub/sub subscription. The front-end renders each instruction and calls `renderComplete` to signal it's done. The proctor blocks until `renderComplete` before proceeding.
 
-For `PLAYER_ACTION` instructions:
-1. Front-end receives the instruction with `analysis` and `action`
-2. Front-end renders the analysis text on screen
-3. Front-end converts analysis to speech using the player's `ttsVoice` via TTS (ElevenLabs)
-4. Front-end plays the audio and animates the action (chips moving, cards folding, etc.)
-5. Front-end calls `renderComplete`
+For each player turn, the proctor emits three instructions:
 
-The `ttsVoice` on `PlayerConfig` maps to a voice in the TTS provider. Each agent gets a distinct voice so viewers can distinguish who is speaking.
+1. **PLAYER_TURN** — front-end highlights the active player's seat
+2. **PLAYER_ANALYSIS** (optional) — front-end renders analysis text, plays TTS with the player's voice
+3. **PLAYER_ACTION** — front-end shows the action animation (chips moving, cards folding, etc.)
+
+The `ttsVoice` on `PlayerConfig` maps to an ElevenLabs voice ID. Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice IDs are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
 
 ## Error Handling
 
 ### Agent timeout
-The agent runner enforces a maximum turn duration (e.g., 60 seconds). If the agent doesn't call `submit_action` in time, auto-fold.
+The agent runner enforces a maximum turn duration. If the agent doesn't call `submit_action` in time, auto-fold.
 
 ### LLM API failure
-If the LLM call fails (network error, rate limit, invalid response), the agent runner catches the error and returns auto-fold. The proctor logs the error but continues the game.
+If the LLM call fails (network error, rate limit, invalid response), the agent runner retries up to 3 times with a 2-second delay. If all retries fail, the orchestrator auto-folds. The game continues.
 
 ### Invalid action from agent
-If the agent calls `submit_action` with an action that isn't in `validActions` (e.g., CHECK when only FOLD/CALL/RAISE are valid), the agent runner returns a tool error and lets the agent retry (up to 3 retries). If all retries fail, auto-fold.
+If the agent calls `submit_action` with an action that isn't in `validActions` (e.g., CHECK when only FOLD/CALL/RAISE are valid), the orchestrator calls `agentRunner.rejectAction()` which replaces the tool result with an error and re-prompts the LLM. Up to 3 retries. If all retries fail, auto-fold.
 
 ### Invalid bet amount
-If the agent bets an amount outside the valid range, the agent runner returns a tool error with the valid range and lets the agent retry.
+If the agent bets an amount outside the valid range, the same reject-and-retry flow applies. The error message includes the valid range.
 
 ### Agent produces no tool call
-If the agent produces only text and no tool call after the maximum iteration count, auto-fold.
+If the agent produces only text and no tool call after the LLM response, the agent runner throws and the orchestrator auto-folds.
 
 ### All error paths
 Every error path results in a FOLD. The game always progresses. No error can stall the game loop.
@@ -404,6 +442,7 @@ Every error path results in a FOLD. The game always progresses. No error can sta
 | **Proctor** | Game loop sequencing, invoking agents in order, injecting game events into agent conversations, emitting render instructions, skipping busted players | Deciding turn order (engine), validating actions (engine), reasoning about poker (agents), rendering (front-end) |
 | **Agent runner** | LLM API calls, tool-use loop, conversation state per agent, prompt template interpolation, action validation against valid actions, retry logic, timeout enforcement | Game flow, turn order, knowing about other agents, rendering |
 | **Instruction builder** | Formatting render instruction payloads from game state | Game logic, agent logic, delivery |
+| **Message formatter** | Human-readable game event strings for agent conversations | Game logic, agent logic, rendering |
 | **Session manager** | Session lifecycle, connected front-end clients, `renderComplete` tracking, abort signals | Game logic, agent logic, instruction content |
 | **Pub/sub** | Delivering render instructions to subscribed front-ends | Everything else |
 | **Front-end** | Rendering instructions, TTS, animations, `renderComplete` acks | Game logic, turn order, agent decisions |

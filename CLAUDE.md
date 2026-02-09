@@ -9,8 +9,8 @@ See [docs/HIGH_LEVEL_DESIGN.md](docs/HIGH_LEVEL_DESIGN.md) for the full system d
 ## Packages
 
 - `proctor-api` — orchestrator + game engines (GraphQL, port 4001). Business logic under `src/services/` (session management at `services/session/`, poker at `services/games/poker/`)
-- `front-end` — renderer (TTS, animations, no game logic)
-- `videographer` — headless browser capture/streaming
+- `front-end` — React renderer (TTS, animations, no game logic)
+- `videographer` — headless browser capture/streaming (planned, not yet implemented)
 
 ## Monorepo Setup
 
@@ -24,6 +24,7 @@ See [docs/HIGH_LEVEL_DESIGN.md](docs/HIGH_LEVEL_DESIGN.md) for the full system d
 
 ```sh
 npm run proctor-api        # dev server with hot reload (tsx watch)
+npm run front-end          # vite dev server
 npm run test:proctor-api   # vitest
 npm run check              # biome lint + format check
 npm run check:fix          # biome auto-fix
@@ -34,6 +35,7 @@ npm run check:fix          # biome auto-fix
 ```sh
 npm run codegen --workspace=@arena/proctor-api   # regenerate resolverTypes.ts
 npx tsc --noEmit -p packages/proctor-api         # type check
+npm run run-game --workspace=@arena/proctor-api   # CLI game runner (no front-end needed)
 ```
 
 ## Conventions

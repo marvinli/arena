@@ -23,18 +23,21 @@ packages/
           poker/
             poker-engine.ts        # Poker rules engine — state, move validation, win conditions
             orchestrator.ts        # Poker game loop — drives hands, calls agents, emits instructions
-            instruction-builder.ts # Builds poker-specific RenderInstruction payloads
             agent-runner.ts        # AgentRunner interface + context/result types
+            llm-agent-runner.ts    # LLM implementation of AgentRunner (ai SDK, multi-provider)
+            instruction-builder.ts # Builds poker-specific RenderInstruction payloads
+            message-formatter.ts   # Human-readable game event strings for agent conversations
+            prompt-template.ts     # Shared system prompt template for agents
       gql/schema/
         Game/        # Poker game state queries/mutations
         Player/      # Player actions, turn data
         Hand/        # Hand history
-        Channel/     # Session management
-        GameState/   # Channel state for front-end
+        Channel/     # Session management (start/stop/run)
+        GameState/   # Channel state for front-end reconnection
         RenderInstruction/  # Subscription + instruction types
         RenderComplete/     # Render ack mutation
   front-end/     # Renderer — no game logic, renders instructions from proctor-api, does TTS, controls pacing
-  videographer/  # Camera — opens front-end in a browser, streams/records it
+  videographer/  # Camera — opens front-end in a browser, streams/records it (planned, not yet implemented)
 ```
 
 New games get their own engine under `src/services/games/` (e.g., `src/services/games/blackjack/`) with corresponding GQL schema folders.
@@ -45,7 +48,7 @@ New games get their own engine under `src/services/games/` (e.g., `src/services/
 
 A single GraphQL server (port 4001) that serves two roles:
 
-1. **Game engine** — pure rules and state. The poker engine (`src/games/poker/poker-engine.ts`) knows poker, nothing else. It tracks game phase, validates moves, evaluates hands, and records history. The engine functions are called directly in-process — no HTTP boundary.
+1. **Game engine** — pure rules and state. The poker engine (`src/services/games/poker/poker-engine.ts`) knows poker, nothing else. It tracks game phase, validates moves, evaluates hands, and records history. The engine functions are called directly in-process — no HTTP boundary.
 
 2. **Orchestrator** — manages agents, game lifecycle, and pushes render instructions to the front-end. Mutations to trigger actions, subscriptions for async render instructions back.
 
@@ -61,94 +64,95 @@ A single GraphQL server (port 4001) that serves two roles:
 - `mutate renderComplete(channelKey, instructionId)` — "I'm done rendering this one"
 - `query getChannelState(channelKey)` — returns the current full game state; called once on connect or reconnect so the front-end can render the current scene even if it joins mid-game
 - `mutate startSession(channelKey, config)` — create a new game session
+- `mutate runSession(channelKey)` — start the orchestrator game loop (called after subscribing)
 - `mutate stopSession(channelKey)` — stop a running session
 
-**Render instruction types:** `GameStart`, `DealHands`, `DealCommunity`, `PlayerAction`, `HandResult`, `Leaderboard`, `GameOver`
+**Render instruction types:** `GAME_START`, `DEAL_HANDS`, `DEAL_COMMUNITY`, `PLAYER_TURN`, `PLAYER_ANALYSIS`, `PLAYER_ACTION`, `HAND_RESULT`, `LEADERBOARD`, `GAME_OVER`
 
-- `DealHands` — all players are dealt their hole cards; includes the full table state (players, chip counts, blinds, positions) so the front-end can render the scene
-- `DealCommunity` — community cards for flop/turn/river
-- `PlayerAction` — the agent's action (fold/call/raise) plus optional `analysis` — audience-facing commentary from the agent (e.g., "Player X has been very aggressive, I put his range at..."). Delivered as a single instruction.
+- `DEAL_HANDS` — all players are dealt their hole cards; includes the full table state (players, chip counts, blinds, positions) so the front-end can render the scene
+- `DEAL_COMMUNITY` — community cards for flop/turn/river
+- `PLAYER_TURN` — signals which player is about to act (front-end highlights the active seat)
+- `PLAYER_ANALYSIS` — the agent's audience-facing commentary (e.g., "Player X has been very aggressive, I put his range at..."). The front-end renders this text and plays TTS.
+- `PLAYER_ACTION` — the agent's action (fold/call/raise) with updated game state
 
 Each instruction has an `instructionId`. The front-end renders it, then calls `renderComplete(instructionId)` to signal it's done. The proctor waits for `renderComplete` before emitting the next instruction. This way the front-end doesn't track turns or game state — it just renders instructions and acks them.
 
 Multiple front-end instances can connect to the same channel key. The proctor waits for all connected clients to `renderComplete` before proceeding (or times out).
 
-For CLI testing without a front-end, the proctor auto-advances (no front-end connected = full speed).
+For CLI testing without a front-end, the proctor auto-advances (no front-end connected = full speed). The `run-game` script (`npm run run-game --workspace=@arena/proctor-api`) runs a game headlessly.
 
 **State ownership:** The game engine owns game state (cards, pot, turns). Each agent owns its own conversation history (past reasoning across turns). The proctor owns global state (channel config, connected front-ends, which game is running, scene sequencing).
 
 **Agent tools**
 
-The orchestrator calls the game engine directly on behalf of agents. These functions are called in-process, not over HTTP:
+Each agent has a single tool: `submit_action`. The orchestrator calls the game engine directly on behalf of agents — `getMyTurn()` and `getHistory()` are proctor-internal calls, not agent-facing tools.
 
 ```
 Tools available to agents:
-  get_my_turn()                    → game state, my hand, valid actions (lean — no history)
-  get_history()                    → review past hands and opponent patterns (agent opts in when they want it)
-  submit_action(action, analysis?) → fold / call / raise / etc. with optional audience-facing analysis
+  submit_action(action, amount?) → fold / call / raise / etc.
 ```
 
-`analysis` is an optional parameter on `submit_action`. When provided, it contains audience-facing commentary (hand analysis, table reads, thinking aloud) that the proctor forwards to the front-end. Other agents do not see it.
+Analysis (audience-facing commentary) is extracted from the agent's natural language text output before the tool call, not from a tool parameter. The agent speaks its thoughts aloud as plain text, then calls `submit_action`.
 
 **Agent definitions**
 
 Each agent is configured via the session config:
-- **Model** — which LLM to use
-- **System prompt** — who this agent "is," their play style, how they think about poker
+- **Model** — which LLM to use (provider + modelId)
+- **System prompt** — shared template with player metadata interpolated (name, model name, provider)
 - **Temperature** — optional creativity setting
+- **Avatar URL** — front-end display image
+- **TTS Voice** — ElevenLabs voice ID for spoken analysis
 
 On their turn:
 
 1. Orchestrator calls the agent runner
-2. Runner builds the LLM request with system prompt + game context + tool definitions
-3. LLM does internal reasoning (private — no one sees this)
-4. LLM decides on an action, optionally with analysis
+2. Runner builds the LLM request with system prompt + accumulated conversation + tool definitions
+3. LLM speaks its thoughts aloud as natural text (audience-facing analysis)
+4. LLM calls `submit_action` with its chosen action
 5. Runner returns `{ action, analysis }` to orchestrator
-6. Orchestrator submits the action to the game engine and emits a render instruction
+6. Orchestrator submits the action to the game engine
+7. Orchestrator emits `PLAYER_TURN`, then `PLAYER_ANALYSIS` (if analysis exists), then `PLAYER_ACTION` to the front-end
 
 **What agents see:**
 - Their own hand
 - Community cards
 - Pot size, chip counts
+- All opponent actions (injected into conversation by the proctor)
 
 **What agents do NOT see:**
 - Other agents' hands
 - Other agents' analysis
 - Other agents' internal chain-of-thought
 
-**Agent failure handling:** If an agent's LLM call fails or times out, the orchestrator auto-folds for that player.
+**Agent failure handling:** If an agent's LLM call fails or times out, the orchestrator auto-folds for that player. Invalid actions trigger a reject-and-retry loop (up to 3 retries), then auto-fold.
 
 **Future:** Add a `trash_talk(message)` tool that IS visible to other agents — goes into their game state as table chat.
 
 ### front-end (the renderer)
 
-No game logic — all game knowledge lives in proctor-api. The front-end is a substantial app (TTS, animations, scene rendering) but it never decides *what* to show, only *how* to show it.
+No game logic — all game knowledge lives in proctor-api. The front-end is a substantial React app (TTS, animations, scene rendering) but it never decides *what* to show, only *how* to show it.
 
 Flow:
-1. Calls `getChannelState(channelKey)` on connect to get current scene
-2. Subscribes to `renderInstructions(channelKey)` on proctor-api
-3. Receives render instructions on subscription — each has an `instructionId`
-4. Renders each instruction — card animation, chip movement, player action display, etc.
-5. For `PlayerAction` with `analysis`, renders the analysis text and converts to speech via TTS (ElevenLabs), then renders the action
-6. When done rendering, calls `renderComplete(instructionId)` mutation
-7. Proctor sends next instruction after all connected front-ends have acked
+1. Calls `startSession(channelKey, config)` mutation to create the session
+2. Subscribes to `renderInstructions(channelKey)` via SSE (this registers the client on the server)
+3. Calls `runSession(channelKey)` mutation to start the orchestrator game loop
+4. Receives render instructions on subscription — each has an `instructionId`
+5. Renders each instruction — card animation, chip movement, player action display, etc.
+6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via TTS (ElevenLabs `eleven_turbo_v2_5`), then for the following `PLAYER_ACTION` renders the action
+7. When done rendering, calls `renderComplete(instructionId)` mutation
+8. Proctor sends next instruction after all connected front-ends have acked
 
 The front-end doesn't track turns or game state. It just renders instructions and acks them. It can join mid-game — the proctor sends whatever comes next.
 
 Responsibilities:
 - Render whatever it's told — cards, chips, player actions, leaderboards, transitions
-- For `PlayerAction` with analysis, render analysis text and convert to speech via TTS (ElevenLabs)
+- For `PLAYER_ANALYSIS`, render analysis text and convert to speech via TTS (ElevenLabs)
 - Control pacing via `renderComplete` — proctor won't advance until front-end is done
 - Handle scene transitions (game → leaderboard → next game) based on instruction type
 
-### videographer (the camera)
+### videographer (the camera) — planned
 
-Opens the front-end in a headless browser. Captures the output. Streams or records it. That's it.
-
-```bash
-npm run videographer -- --output=session.mp4
-npm run videographer -- --stream=rtmp://live.twitch.tv/app/STREAM_KEY
-```
+Opens the front-end in a headless browser. Captures the output. Streams or records it. That's it. Not yet implemented.
 
 ## Data Flow
 
@@ -163,62 +167,70 @@ npm run videographer -- --stream=rtmp://live.twitch.tv/app/STREAM_KEY
       |              (proctor advances game)
       |                        |-- poker.getMyTurn(gameId, playerId)
       |                        |
-      |                        |   Agent (LLM)
+      |                        |   Agent (LLM, in-process)
       |                        |   | receives game state, hand, valid actions
-      |                        |   | (internal reasoning — private)
+      |                        |   | (speaks analysis as text, calls submit_action)
       |                        |   | returns { action, analysis }
       |                        |
       |                        |-- poker.submitAction(gameId, playerId, action)
       |                        |
-      |<== sub: PlayerAction ==|
-      |                        |
-      | (animate, TTS, etc.)   |
-      |                        |
-      |-- mutate renderComplete(instructionId) ->|
+      |<== sub: PLAYER_TURN ===|  (highlight active player)
+      |-- renderComplete ------>|
+      |<== sub: PLAYER_ANALYSIS |  (analysis text + TTS)
+      |-- renderComplete ------>|
+      |<== sub: PLAYER_ACTION ==|  (action animation)
+      |-- renderComplete ------>|
       |          ...proctor sends next instruction
 ```
 
-Videographer just captures whatever the front-end renders. It has no connection to proctor-api.
+Videographer will just capture whatever the front-end renders. It has no connection to proctor-api.
 
 ## Agent Turn Example
 
 ```
-Front-end subscribes to renderInstructions(channelKey: "poker-channel-en")
+Front-end subscribes to renderInstructions(channelKey: "poker-stream-1")
 
 Proctor advances to next turn:
   → calls poker.getGameState(gameId): whose turn? → "aggressive-al"
   → calls agent runner for "aggressive-al"
 
-Agent "aggressive-al" (Claude Sonnet, temperature 0.9):
-  System prompt: "You are Aggressive Al, a bold poker player who loves big bets..."
+Agent "aggressive-al" (Claude Haiku, temperature default):
+  System prompt: "You are Aggressive Al, a professional poker player..."
 
-  Orchestrator calls poker.getMyTurn(gameId, "aggressive-al"):
-  ← {
-      gameState: { phase: "FLOP", communityCards: [...], players: [...], pots: [...] },
-      myHand: [{ rank: "A", suit: "spades" }, { rank: "K", suit: "spades" }],
-      validActions: [{ type: "FOLD" }, { type: "CALL", amount: 400 }, { type: "RAISE", min: 800, max: 5000 }]
-    }
-
-  Orchestrator calls poker.getHistory(gameId, 5):
-  ← [{ handNumber: 1, winners: [...], actions: [...] }, ...]
+  Orchestrator builds turn context from:
+    poker.getMyTurn(gameId, "aggressive-al"):
+    ← {
+        gameState: { phase: "FLOP", communityCards: [...], players: [...], pots: [...] },
+        myHand: [{ rank: "A", suit: "spades" }, { rank: "K", suit: "spades" }],
+        validActions: [{ type: "FOLD" }, { type: "CALL", amount: 400 }, { type: "RAISE", min: 800, max: 5000 }]
+      }
 
   Agent runner sends context to LLM:
-  (LLM reasoning — private, no one sees this)
-  "I have top two pair, aces and kings. The pot is 1200.
-   Player 2 raised pre-flop and bet the flop. Looking at the history,
-   they did the same thing last hand with a weak holding. I should raise."
+  LLM responds with text + tool call:
+    Text: "I have top pair with a good kicker. Player 2 has been betting
+    aggressively but the pot odds are too good to fold. Let's raise to 800."
 
-  Agent returns: { action: { type: "RAISE", amount: 800 }, analysis: "Player 2 has been very aggressive..." }
+    Tool: submit_action({ action: "RAISE", amount: 800 })
+
+  Agent returns: { action: { type: "RAISE", amount: 800 }, analysis: "I have top pair..." }
 
 Orchestrator:
   → calls poker.submitAction(gameId, "aggressive-al", "RAISE", 800)
-  → emits sub: PlayerAction { instructionId: "i-42", player: "aggressive-al", action: RAISE, amount: 800, analysis: "..." }
+  → emits PLAYER_TURN { playerId: "aggressive-al", playerName: "Aggressive Al" }
+  → waits for renderComplete
+  → emits PLAYER_ANALYSIS { playerId: "aggressive-al", analysis: "I have top pair..." }
+  → waits for renderComplete
+  → emits PLAYER_ACTION { player: "aggressive-al", action: RAISE, amount: 800 }
+  → waits for renderComplete
 
 Front-end:
-  → receives PlayerAction (i-42) → renders analysis text, plays TTS, then renders raise animation
-  → mutate renderComplete(instructionId: "i-42")
+  → receives PLAYER_TURN → highlights Aggressive Al's seat
+  → receives PLAYER_ANALYSIS → renders text, plays TTS with Al's voice
+  → receives PLAYER_ACTION → renders raise animation
+  → calls renderComplete after each
 
 Proctor:
+  → injects "Aggressive Al raises to 800." into all other agents' conversations
   → next player's turn...
 ```
 
@@ -234,7 +246,7 @@ Proctor:
 
 **Agents** — real LLM calls, always. Use cheap/fast models for local dev. The point is seeing how an LLM interprets game state and picks actions.
 
-**Front-end** — connect to a running proctor-api and visually verify. Can replay recorded instruction sequences for UI development.
+**Front-end** — connect to a running proctor-api and visually verify.
 
 ## Local Dev Flow
 
@@ -245,8 +257,11 @@ npm run test:proctor-api
 # Start the proctor-api dev server with hot reload
 npm run proctor-api
 
-# Start everything with front-end for visual development
-npm run dev
+# Start the front-end dev server (proxies /graphql to localhost:4001)
+npm run front-end
+
+# Run a headless game via CLI (no front-end needed)
+npm run run-game --workspace=@arena/proctor-api
 ```
 
 ## Key Decisions
@@ -257,20 +272,17 @@ Consistent interface across the system. Game engine: pre-canned queries give age
 **Why `renderComplete` instead of `nextAction`?**
 The front-end doesn't know about turns or game flow. It just renders instructions and acks them. The proctor decides what to send next. This means the front-end can join mid-game, multiple front-ends can connect to the same channel, and the proctor can emit multiple instructions per turn (waiting for each ack before sending the next).
 
-**Why game engines inside proctor-api instead of separate packages?**
-Eliminates ~270 lines of HTTP client boilerplate per game. Game engines are called directly in-process — simpler, faster, easier to test. New games add an engine under `src/games/` and GQL schema folders under `src/gql/schema/`. The single server approach is right for a local-first system with no scaling requirements between game logic and orchestration.
+**Why split PLAYER_TURN / PLAYER_ANALYSIS / PLAYER_ACTION?**
+Splitting the player's turn into three instructions allows the front-end to pipeline rendering. `PLAYER_TURN` highlights the active seat immediately. `PLAYER_ANALYSIS` triggers TTS (which can play while the proctor starts the next agent's LLM call). `PLAYER_ACTION` shows the action animation. Each is acked independently, giving the front-end fine-grained pacing control.
 
-**Why agents as separate processes?**
-Each agent uses a different model, runs at different speeds, can crash independently.
+**Why game engines inside proctor-api instead of separate packages?**
+Eliminates ~270 lines of HTTP client boilerplate per game. Game engines are called directly in-process — simpler, faster, easier to test. New games add an engine under `src/services/games/` and GQL schema folders under `src/gql/schema/`. The single server approach is right for a local-first system with no scaling requirements between game logic and orchestration.
+
+**Why agents in-process instead of separate processes?**
+Agents run inside the proctor-api process via the `ai` SDK (Vercel AI SDK). The agent runner holds per-agent conversation state in a Map and calls LLM APIs directly. This avoids IPC complexity and makes the system easy to run locally. Each agent uses a different model/provider, but they all run through the same agent runner. Failures are caught and handled (auto-fold) without affecting other agents.
 
 ## AWS Deployment (Later)
 
 - **proctor-api** → ECS Fargate (persistent connections for GraphQL subscriptions)
 - **front-end** → S3 + CloudFront
 - **videographer** → ECS task with headless browser + ffmpeg
-
-## Open Questions
-
-- Should agents get conversation history (their own past reasoning) across turns within a hand? Across hands?
-- TTS: should the front-end call ElevenLabs directly, or should the orchestrator generate audio and send URLs?
-- Event replay: do we need an event log for spectator catch-up, or is current-state-snapshot enough?
