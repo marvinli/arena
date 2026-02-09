@@ -384,7 +384,8 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
           ]);
         }
       }
-      const players = mapPlayers(dh.players, dh.button, state.players).map(
+      const activeDh = dh.players.filter((p) => p.status !== "BUSTED");
+      const players = mapPlayers(activeDh, dh.button, state.players).map(
         (p) => ({
           ...p,
           cards: holeCards.get(p.id) ?? null,
@@ -438,7 +439,8 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
     case "PLAYER_ACTION": {
       const pa = inst.playerAction;
       if (!pa) return state;
-      const players = mapPlayers(pa.players, state.button, state.players).map(
+      const activePa = pa.players.filter((p) => p.status !== "BUSTED");
+      const players = mapPlayers(activePa, state.button, state.players).map(
         (p) => {
           if (p.id === pa.playerId) {
             return {
@@ -460,7 +462,8 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
     case "HAND_RESULT": {
       const hr = inst.handResult;
       if (!hr) return state;
-      const players = mapPlayers(hr.players, state.button, state.players).map(
+      const activeHr = hr.players.filter((p) => p.status !== "BUSTED");
+      const players = mapPlayers(activeHr, state.button, state.players).map(
         (p) => ({
           ...p,
           cards: state.holeCards.get(p.id) ?? null,
@@ -480,7 +483,8 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
     case "LEADERBOARD": {
       const lb = inst.leaderboard;
       if (!lb) return state;
-      const players = mapPlayers(lb.players, null, state.players).map((p) => ({
+      const activeLb = lb.players.filter((p) => p.status !== "BUSTED");
+      const players = mapPlayers(activeLb, null, state.players).map((p) => ({
         ...p,
         cards: null as [Card, Card] | null,
         lastAction: null as PlayerAction,

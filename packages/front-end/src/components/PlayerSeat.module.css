@@ -79,12 +79,9 @@
 
 /* ── Fold / dim states ─────────────────────────────────── */
 
-.folded {
-  opacity: 0.45;
-}
-
+.folded,
 .dimmed {
-  opacity: 0.45;
+  opacity: 0.7;
 }
 
 /* ── Cards ─────────────────────────────────────────────── */
@@ -98,8 +95,9 @@
   transform-origin: left center;
   /* Claw back phantom layout space from scale */
   margin-right: -2.8cqw;
-  /* Reserve card height so layout doesn't shift during deal animation */
+  /* Reserve card space so layout doesn't shift during deal animation */
   min-height: 7cqw;
+  min-width: 9.6cqw;
   z-index: 1;
   opacity: 1;
   transition:
