@@ -111,6 +111,9 @@
 }
 
 .dealerButton {
+  position: absolute;
+  bottom: -0.2cqw;
+  right: -0.2cqw;
   width: 1.88cqw;
   height: 1.88cqw;
   border-radius: 50%;
@@ -123,8 +126,7 @@
   justify-content: center;
   border: 0.12cqw solid #c8a830;
   box-shadow: 0 0.08cqw 0.31cqw rgba(0, 0, 0, 0.5);
-  margin-left: 0.23cqw;
-  flex-shrink: 0;
+  z-index: 2;
 }
 
 .infoBadge {

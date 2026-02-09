@@ -81,6 +81,7 @@ export function PlayerSeat({
                 )}
               </div>
             </div>
+            {player.isDealer && <div className={styles.dealerButton}>D</div>}
           </div>
           <div className={styles.infoBadge}>
             <span className={styles.name}>{player.name}</span>
@@ -104,7 +105,6 @@ export function PlayerSeat({
             </>
           )}
         </div>
-        {player.isDealer && <div className={styles.dealerButton}>D</div>}
       </div>
     </div>
   );
