@@ -38,6 +38,7 @@ export const RENDER_INSTRUCTIONS_SUB = `
       gameStart {
         gameId
         players { id name chips bet status seatIndex }
+        playerMeta { id ttsVoice avatarUrl }
         smallBlind
         bigBlind
       }

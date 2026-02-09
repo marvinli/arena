@@ -36,9 +36,16 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     hand: String
   }
 
+  type PlayerMeta {
+    id: ID!
+    ttsVoice: String
+    avatarUrl: String
+  }
+
   type GameStartPayload {
     gameId: ID!
     players: [PlayerInfo!]!
+    playerMeta: [PlayerMeta!]!
     smallBlind: Int!
     bigBlind: Int!
   }

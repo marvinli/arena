@@ -36,6 +36,11 @@ const mockPots: GameState["pots"] = [
   { size: 100, eligiblePlayerIds: ["p1", "p2"] },
 ];
 
+const mockAgentConfigs = [
+  { playerId: "p1", ttsVoice: "voice-1", avatarUrl: null },
+  { playerId: "p2", ttsVoice: null, avatarUrl: "https://example.com/bob.png" },
+];
+
 const mockCommunityCards: GameState["communityCards"] = [
   { rank: "A", suit: "spades" },
   { rank: "K", suit: "hearts" },
@@ -68,19 +73,29 @@ function verifyBaseInstruction(
 describe("instruction-builder", () => {
   describe("buildGameStart", () => {
     it("returns correct type and has instructionId/timestamp", () => {
-      const result = buildGameStart("game-123", mockPlayers, {
-        smallBlind: 10,
-        bigBlind: 20,
-      });
+      const result = buildGameStart(
+        "game-123",
+        mockPlayers,
+        {
+          smallBlind: 10,
+          bigBlind: 20,
+        },
+        mockAgentConfigs,
+      );
 
       verifyBaseInstruction(result, InstructionType.GameStart);
     });
 
     it("gameStart payload contains gameId, players, smallBlind, bigBlind", () => {
-      const result = buildGameStart("game-123", mockPlayers, {
-        smallBlind: 10,
-        bigBlind: 20,
-      });
+      const result = buildGameStart(
+        "game-123",
+        mockPlayers,
+        {
+          smallBlind: 10,
+          bigBlind: 20,
+        },
+        mockAgentConfigs,
+      );
 
       expect(result.gameStart).toBeDefined();
       expect(result.gameStart?.gameId).toBe("game-123");
@@ -106,14 +121,24 @@ describe("instruction-builder", () => {
     });
 
     it("generates unique instructionId for each call", () => {
-      const result1 = buildGameStart("game-123", mockPlayers, {
-        smallBlind: 10,
-        bigBlind: 20,
-      });
-      const result2 = buildGameStart("game-123", mockPlayers, {
-        smallBlind: 10,
-        bigBlind: 20,
-      });
+      const result1 = buildGameStart(
+        "game-123",
+        mockPlayers,
+        {
+          smallBlind: 10,
+          bigBlind: 20,
+        },
+        mockAgentConfigs,
+      );
+      const result2 = buildGameStart(
+        "game-123",
+        mockPlayers,
+        {
+          smallBlind: 10,
+          bigBlind: 20,
+        },
+        mockAgentConfigs,
+      );
 
       expect(result1.instructionId).not.toBe(result2.instructionId);
     });

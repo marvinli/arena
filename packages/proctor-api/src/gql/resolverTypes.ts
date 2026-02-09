@@ -98,6 +98,7 @@ export type GameStartPayload = {
   __typename?: 'GameStartPayload';
   bigBlind: Scalars['Int']['output'];
   gameId: Scalars['ID']['output'];
+  playerMeta: Array<PlayerMeta>;
   players: Array<PlayerInfo>;
   smallBlind: Scalars['Int']['output'];
 };
@@ -280,6 +281,13 @@ export type PlayerInput = {
   chips: Scalars['Int']['input'];
   id: Scalars['ID']['input'];
   name: Scalars['String']['input'];
+};
+
+export type PlayerMeta = {
+  __typename?: 'PlayerMeta';
+  avatarUrl?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  ttsVoice?: Maybe<Scalars['String']['output']>;
 };
 
 export enum PlayerStatus {
@@ -537,6 +545,7 @@ export type ResolversTypes = {
   PlayerHand: ResolverTypeWrapper<PlayerHand>;
   PlayerInfo: ResolverTypeWrapper<PlayerInfo>;
   PlayerInput: PlayerInput;
+  PlayerMeta: ResolverTypeWrapper<PlayerMeta>;
   PlayerStatus: PlayerStatus;
   PlayerTurnPayload: ResolverTypeWrapper<PlayerTurnPayload>;
   Pot: ResolverTypeWrapper<Pot>;
@@ -585,6 +594,7 @@ export type ResolversParentTypes = {
   PlayerHand: PlayerHand;
   PlayerInfo: PlayerInfo;
   PlayerInput: PlayerInput;
+  PlayerMeta: PlayerMeta;
   PlayerTurnPayload: PlayerTurnPayload;
   Pot: Pot;
   PotInfo: PotInfo;
@@ -647,6 +657,7 @@ export type GameOverPayloadResolvers<ContextType = Context, ParentType extends R
 export type GameStartPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['GameStartPayload'] = ResolversParentTypes['GameStartPayload']> = {
   bigBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   gameId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  playerMeta?: Resolver<Array<ResolversTypes['PlayerMeta']>, ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
   smallBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -770,6 +781,13 @@ export type PlayerInfoResolvers<ContextType = Context, ParentType extends Resolv
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type PlayerMetaResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerMeta'] = ResolversParentTypes['PlayerMeta']> = {
+  avatarUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  ttsVoice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type PlayerTurnPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerTurnPayload'] = ResolversParentTypes['PlayerTurnPayload']> = {
   playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -886,6 +904,7 @@ export type Resolvers<ContextType = Context> = {
   PlayerAnalysisPayload?: PlayerAnalysisPayloadResolvers<ContextType>;
   PlayerHand?: PlayerHandResolvers<ContextType>;
   PlayerInfo?: PlayerInfoResolvers<ContextType>;
+  PlayerMeta?: PlayerMetaResolvers<ContextType>;
   PlayerTurnPayload?: PlayerTurnPayloadResolvers<ContextType>;
   Pot?: PotResolvers<ContextType>;
   PotInfo?: PotInfoResolvers<ContextType>;

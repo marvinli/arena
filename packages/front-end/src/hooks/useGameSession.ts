@@ -45,6 +45,11 @@ interface GqlInstruction {
   gameStart?: {
     gameId: string;
     players: GqlPlayerInfo[];
+    playerMeta: {
+      id: string;
+      ttsVoice: string | null;
+      avatarUrl: string | null;
+    }[];
     smallBlind: number;
     bigBlind: number;
   } | null;
@@ -107,6 +112,7 @@ const DEFAULT_CONFIG = {
       modelId: "claude-haiku-4-5-20251001",
       modelName: "Claude Haiku",
       provider: "anthropic",
+      ttsVoice: "TX3LPaxmHKxFdv7VOQHJ", // Liam
     },
     {
       playerId: "agent-2",
@@ -114,6 +120,7 @@ const DEFAULT_CONFIG = {
       modelId: "claude-haiku-4-5-20251001",
       modelName: "Claude Haiku",
       provider: "anthropic",
+      ttsVoice: "t0jbNlBVZ17f02VDIeMI", // Jessica
     },
     {
       playerId: "agent-3",
@@ -121,6 +128,7 @@ const DEFAULT_CONFIG = {
       modelId: "claude-haiku-4-5-20251001",
       modelName: "Claude Haiku",
       provider: "anthropic",
+      ttsVoice: "bVMeCyTHy58xNoL34h3p", // Jeremy
     },
     {
       playerId: "agent-4",
@@ -128,6 +136,7 @@ const DEFAULT_CONFIG = {
       modelId: "claude-haiku-4-5-20251001",
       modelName: "Claude Haiku",
       provider: "anthropic",
+      ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Sarah
     },
     {
       playerId: "agent-5",
@@ -135,21 +144,13 @@ const DEFAULT_CONFIG = {
       modelId: "claude-haiku-4-5-20251001",
       modelName: "Claude Haiku",
       provider: "anthropic",
+      ttsVoice: "iP95p4xoKVk53GoZ742B", // Chris
     },
   ],
   startingChips: 1000,
   smallBlind: 10,
   bigBlind: 20,
   handsPerGame: 5,
-};
-
-// ElevenLabs voice IDs per player (pre-made voices)
-const VOICE_IDS: Record<string, string> = {
-  "agent-1": "EXAVITQu4vr4xnSDxMaL", // Sarah
-  "agent-2": "ErXwobaYiN019PkySvjV", // Antoni
-  "agent-3": "IKne3meq5aSn9XLyUdCD", // Charlie
-  "agent-4": "21m00Tcm4TlvDq8ikWAM", // Rachel
-  "agent-5": "GBv7mTt0atIp3Br8iCZE", // Thomas
 };
 
 // ── Timing ──────────────────────────────────────────────
@@ -354,13 +355,20 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
     case "GAME_START": {
       const gs = inst.gameStart;
       if (!gs) return state;
+      const avatarMap = new Map(
+        (gs.playerMeta ?? []).map((m) => [m.id, m.avatarUrl ?? ""]),
+      );
+      const players = mapPlayers(gs.players, null, []).map((p) => ({
+        ...p,
+        avatar: avatarMap.get(p.id) ?? "",
+      }));
       return {
         ...state,
         status: "running",
         gameId: gs.gameId,
         smallBlind: gs.smallBlind,
         bigBlind: gs.bigBlind,
-        players: mapPlayers(gs.players, null, []),
+        players,
       };
     }
 
@@ -539,6 +547,8 @@ export function useGameSession() {
 
       // Process instructions sequentially in background
       void (async () => {
+        const voiceMap = new Map<string, string>();
+
         try {
           for await (const instruction of sseSubscribe(
             RENDER_INSTRUCTIONS_SUB,
@@ -548,6 +558,13 @@ export function useGameSession() {
           )) {
             // Update state immediately
             dispatch({ type: "INSTRUCTION", instruction });
+
+            // Capture player metadata from GAME_START
+            if (instruction.gameStart?.playerMeta) {
+              for (const meta of instruction.gameStart.playerMeta) {
+                if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+              }
+            }
 
             // Pause so the user can see each state change
             const pauseMs = INSTRUCTION_DELAYS[instruction.type] ?? 1000;
@@ -559,7 +576,7 @@ export function useGameSession() {
               instruction.playerAnalysis?.analysis
             ) {
               const { playerId, analysis } = instruction.playerAnalysis;
-              const voiceId = VOICE_IDS[playerId] ?? "";
+              const voiceId = voiceMap.get(playerId) ?? "";
               dispatch({ type: "SPEAK_START", playerId });
               await speakAnalysis(analysis, voiceId);
               dispatch({ type: "SPEAK_END" });

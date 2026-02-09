@@ -44,12 +44,22 @@ export function buildGameStart(
   gameId: string,
   players: GameState["players"],
   config: { smallBlind: number; bigBlind: number },
+  agentConfigs: Array<{
+    playerId: string;
+    ttsVoice?: string | null;
+    avatarUrl?: string | null;
+  }>,
 ): RenderInstruction {
   return {
     ...base(InstructionType.GameStart),
     gameStart: {
       gameId,
       players: toPlayerInfos(players),
+      playerMeta: agentConfigs.map((a) => ({
+        id: a.playerId,
+        ttsVoice: a.ttsVoice ?? null,
+        avatarUrl: a.avatarUrl ?? null,
+      })),
       smallBlind: config.smallBlind,
       bigBlind: config.bigBlind,
     },

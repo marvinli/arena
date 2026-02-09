@@ -377,10 +377,15 @@ export async function runSession(
 
   await emit(
     session,
-    buildGameStart(gameId, createState.players, {
-      smallBlind: session.config.smallBlind,
-      bigBlind: session.config.bigBlind,
-    }),
+    buildGameStart(
+      gameId,
+      createState.players,
+      {
+        smallBlind: session.config.smallBlind,
+        bigBlind: session.config.bigBlind,
+      },
+      session.config.players,
+    ),
     signal,
   );
 
