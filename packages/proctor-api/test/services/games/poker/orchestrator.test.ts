@@ -18,14 +18,16 @@ const baseConfig = {
     {
       playerId: "p1",
       name: "Alice",
-      model: "test",
-      systemPrompt: "Play poker",
+      modelId: "test",
+      modelName: "Test Model",
+      provider: "openai",
     },
     {
       playerId: "p2",
       name: "Bob",
-      model: "test",
-      systemPrompt: "Play poker",
+      modelId: "test",
+      modelName: "Test Model",
+      provider: "openai",
     },
   ],
   startingChips: 1000,
@@ -103,8 +105,13 @@ describe("orchestrator", () => {
     const session = createSession("test-channel", baseConfig);
 
     const failingRunner: AgentRunner = {
+      initAgent() {},
+      injectMessage() {},
       async runTurn() {
         throw new Error("LLM API error");
+      },
+      async rejectAction() {
+        return { action: { type: "FOLD" } };
       },
     };
 
@@ -124,8 +131,13 @@ describe("orchestrator", () => {
 
     // Use a slow agent to give time for abort
     const slowRunner: AgentRunner = {
+      initAgent() {},
+      injectMessage() {},
       async runTurn() {
         await new Promise((r) => setTimeout(r, 50));
+        return { action: { type: "FOLD" } };
+      },
+      async rejectAction() {
         return { action: { type: "FOLD" } };
       },
     };

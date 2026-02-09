@@ -9,14 +9,16 @@ const SESSION_CONFIG = {
     {
       playerId: "p1",
       name: "Alice",
-      model: "test-model",
-      systemPrompt: "Play poker",
+      modelId: "test-model",
+      modelName: "Test Model",
+      provider: "openai",
     },
     {
       playerId: "p2",
       name: "Bob",
-      model: "test-model",
-      systemPrompt: "Play poker",
+      modelId: "test-model",
+      modelName: "Test Model",
+      provider: "openai",
     },
   ],
   startingChips: 1000,
@@ -44,7 +46,9 @@ describe("proctor-api GraphQL", () => {
                 id
                 name
                 chips
-                model
+                modelId
+                modelName
+                provider
               }
             }
           }
@@ -58,8 +62,22 @@ describe("proctor-api GraphQL", () => {
         status: "RUNNING",
         handNumber: 0,
         players: [
-          { id: "p1", name: "Alice", chips: 1000, model: "test-model" },
-          { id: "p2", name: "Bob", chips: 1000, model: "test-model" },
+          {
+            id: "p1",
+            name: "Alice",
+            chips: 1000,
+            modelId: "test-model",
+            modelName: "Test Model",
+            provider: "openai",
+          },
+          {
+            id: "p2",
+            name: "Bob",
+            chips: 1000,
+            modelId: "test-model",
+            modelName: "Test Model",
+            provider: "openai",
+          },
         ],
       });
     });

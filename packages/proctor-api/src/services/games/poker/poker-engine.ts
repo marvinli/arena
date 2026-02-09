@@ -353,19 +353,23 @@ export function submitAction(
     | "raise";
   if (!legal.actions.includes(lowerAction)) {
     throw new Error(
-      `Illegal action: ${action}. Legal actions: ${legal.actions.join(", ")}`,
+      `You chose ${action.toUpperCase()}, but that action is not available right now. Your valid actions are: ${legal.actions.map((a) => a.toUpperCase()).join(", ")}.`,
     );
   }
 
   // Validate bet/raise amount
-  if (
-    (lowerAction === "bet" || lowerAction === "raise") &&
-    legal.chipRange &&
-    amount !== undefined
-  ) {
-    if (amount < legal.chipRange.min || amount > legal.chipRange.max) {
+  if (lowerAction === "bet" || lowerAction === "raise") {
+    if (amount === undefined) {
       throw new Error(
-        `Bet amount ${amount} out of range [${legal.chipRange.min}, ${legal.chipRange.max}]`,
+        `You chose ${lowerAction.toUpperCase()} but did not specify an amount. You must provide an amount between ${legal.chipRange?.min ?? 0} and ${legal.chipRange?.max ?? 0} chips.`,
+      );
+    }
+    if (
+      legal.chipRange &&
+      (amount < legal.chipRange.min || amount > legal.chipRange.max)
+    ) {
+      throw new Error(
+        `You tried to ${lowerAction.toUpperCase()} ${amount} chips, but the amount must be between ${legal.chipRange.min} and ${legal.chipRange.max} chips.`,
       );
     }
   }

@@ -58,12 +58,17 @@ export function buildGameStart(
 export function buildDealHands(
   handNumber: number,
   gameState: GameState,
+  hands: Array<{
+    playerId: string;
+    cards: Array<{ rank: string; suit: string }>;
+  }>,
 ): RenderInstruction {
   return {
     ...base(InstructionType.DealHands),
     dealHands: {
       handNumber,
       players: toPlayerInfos(gameState.players),
+      hands,
       button: gameState.button,
       pots: toPotInfos(gameState.pots),
     },

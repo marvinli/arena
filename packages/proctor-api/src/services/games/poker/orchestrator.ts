@@ -2,7 +2,7 @@ import type { GameState } from "../../../types.js";
 import { publish } from "../../session/pubsub.js";
 import type { Session } from "../../session/session-manager.js";
 import { waitForRenderComplete } from "../../session/session-manager.js";
-import type { AgentRunner } from "./agent-runner.js";
+import type { AgentRunner, PlayerConfig } from "./agent-runner.js";
 import {
   buildDealCommunity,
   buildDealHands,
@@ -12,6 +12,12 @@ import {
   buildLeaderboard,
   buildPlayerAction,
 } from "./instruction-builder.js";
+import {
+  formatDealCommunity,
+  formatDealHands,
+  formatHandResult,
+  formatOpponentAction,
+} from "./message-formatter.js";
 import * as poker from "./poker-engine.js";
 
 async function emit(
@@ -56,10 +62,6 @@ function updateGameState(session: Session, state: GameState): void {
   }
 }
 
-function findAgentConfig(session: Session, playerId: string) {
-  return session.config.players.find((p) => p.playerId === playerId);
-}
-
 function isGameOver(
   state: GameState,
   handsPerGame: number | null | undefined,
@@ -69,6 +71,28 @@ function isGameOver(
   if (activePlayers.length <= 1) return true;
   if (handsPerGame && handNumber >= handsPerGame) return true;
   return false;
+}
+
+function buildPlayerConfig(agentConfig: {
+  playerId: string;
+  name: string;
+  modelId: string;
+  modelName: string;
+  provider: string;
+  avatarUrl?: string | null;
+  ttsVoice?: string | null;
+  temperature?: number | null;
+}): PlayerConfig {
+  return {
+    id: agentConfig.playerId,
+    name: agentConfig.name,
+    modelId: agentConfig.modelId,
+    modelName: agentConfig.modelName,
+    provider: agentConfig.provider,
+    avatarUrl: agentConfig.avatarUrl ?? undefined,
+    ttsVoice: agentConfig.ttsVoice ?? undefined,
+    temperature: agentConfig.temperature ?? undefined,
+  };
 }
 
 export async function runSession(
@@ -92,6 +116,11 @@ export async function runSession(
   session.gameId = gameId;
   updateGameState(session, createState);
 
+  // Initialize agents
+  for (const p of session.config.players) {
+    agentRunner.initAgent(p.playerId, buildPlayerConfig(p));
+  }
+
   // Emit GAME_START
   await emit(
     session,
@@ -110,8 +139,37 @@ export async function runSession(
     const handState = poker.startHand(gameId);
     updateGameState(session, handState);
 
-    // Emit DEAL_HANDS
-    await emit(session, buildDealHands(session.handNumber, handState), signal);
+    // Gather hole cards for all active players
+    const playerHands: Array<{
+      playerId: string;
+      cards: Array<{ rank: string; suit: string }>;
+    }> = [];
+    for (const player of handState.players) {
+      if (player.status === "BUSTED") continue;
+      const myHand = poker.getMyTurn(gameId, player.id).myHand;
+      playerHands.push({ playerId: player.id, cards: myHand });
+    }
+
+    // Emit DEAL_HANDS (includes all hole cards for front-end)
+    await emit(
+      session,
+      buildDealHands(session.handNumber, handState, playerHands),
+      signal,
+    );
+
+    // Inject DEAL_HANDS into each active player's conversation
+    const totalPot = handState.pots.reduce((sum, p) => sum + p.size, 0);
+    for (const ph of playerHands) {
+      agentRunner.injectMessage(
+        ph.playerId,
+        formatDealHands(
+          session.handNumber,
+          ph.cards,
+          handState.players,
+          totalPot,
+        ),
+      );
+    }
 
     if (signal.aborted) break;
 
@@ -123,58 +181,77 @@ export async function runSession(
       // Check if there's a player to act
       if (currentState.currentPlayerId) {
         const playerId = currentState.currentPlayerId;
-        const agentConfig = findAgentConfig(session, playerId);
         const playerName =
           currentState.players.find((p) => p.id === playerId)?.name ?? playerId;
 
         // Get turn data from poker engine
         const turnData = poker.getMyTurn(gameId, playerId);
 
-        // Get history for agent context
-        const history = poker.getHistory(gameId, 5);
-
         // Call agent runner
+        const MAX_ACTION_RETRIES = 3;
         let result: {
           action: { type: string; amount?: number };
           analysis?: string;
         };
         try {
-          result = await agentRunner.runTurn(
-            {
-              gameId,
-              playerId,
-              playerName,
-              handNumber: session.handNumber,
-              gameState: {
-                phase: turnData.gameState.phase,
-                communityCards: turnData.gameState.communityCards,
-                players: turnData.gameState.players,
-                pots: turnData.gameState.pots,
-              },
-              myHand: turnData.myHand,
-              validActions: turnData.validActions,
-              history,
-            },
-            agentConfig
-              ? {
-                  model: agentConfig.model,
-                  systemPrompt: agentConfig.systemPrompt,
-                  temperature: agentConfig.temperature,
-                }
-              : { model: "default", systemPrompt: "" },
-          );
-        } catch {
+          result = await agentRunner.runTurn(playerId, {
+            gameId,
+            handNumber: session.handNumber,
+            phase: turnData.gameState.phase,
+            communityCards: turnData.gameState.communityCards,
+            myHand: turnData.myHand,
+            players: turnData.gameState.players,
+            pots: turnData.gameState.pots,
+            validActions: turnData.validActions,
+          });
+        } catch (err) {
           // Agent failed — auto-fold
+          console.error(
+            `[orchestrator] Agent ${playerId} failed, auto-folding:`,
+            err instanceof Error ? err.message : err,
+          );
           result = { action: { type: "FOLD" } };
         }
 
-        // Submit action to poker engine
-        currentState = poker.submitAction(
-          gameId,
-          playerId,
-          result.action.type,
-          result.action.amount,
-        );
+        // Submit action to poker engine, retrying with agent feedback on invalid actions
+        for (let attempt = 0; ; attempt++) {
+          try {
+            currentState = poker.submitAction(
+              gameId,
+              playerId,
+              result.action.type,
+              result.action.amount,
+            );
+            break;
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            console.error(
+              `[orchestrator] Invalid action from ${playerId} (attempt ${attempt + 1}):`,
+              errorMsg,
+            );
+
+            if (attempt >= MAX_ACTION_RETRIES) {
+              console.error(
+                `[orchestrator] Max retries reached for ${playerId}, auto-folding`,
+              );
+              result = { action: { type: "FOLD" } };
+              currentState = poker.submitAction(gameId, playerId, "FOLD");
+              break;
+            }
+
+            try {
+              result = await agentRunner.rejectAction(playerId, errorMsg);
+            } catch (retryErr) {
+              console.error(
+                `[orchestrator] Agent ${playerId} retry failed, auto-folding:`,
+                retryErr instanceof Error ? retryErr.message : retryErr,
+              );
+              result = { action: { type: "FOLD" } };
+              currentState = poker.submitAction(gameId, playerId, "FOLD");
+              break;
+            }
+          }
+        }
         updateGameState(session, currentState);
 
         // Emit PLAYER_ACTION
@@ -191,6 +268,19 @@ export async function runSession(
           signal,
         );
 
+        // Inject OPPONENT_ACTION into all other active players
+        for (const p of currentState.players) {
+          if (p.id === playerId || p.status === "BUSTED") continue;
+          agentRunner.injectMessage(
+            p.id,
+            formatOpponentAction(
+              playerName,
+              result.action.type,
+              result.action.amount,
+            ),
+          );
+        }
+
         if (signal.aborted) break;
         continue;
       }
@@ -206,6 +296,20 @@ export async function runSession(
         const winners = lastHand?.winners ?? [];
 
         await emit(session, buildHandResult(winners, advancedState), signal);
+
+        // Inject HAND_RESULT into all active players
+        for (const p of advancedState.players) {
+          if (p.status === "BUSTED") continue;
+          agentRunner.injectMessage(
+            p.id,
+            formatHandResult(
+              session.handNumber,
+              winners,
+              advancedState.players,
+            ),
+          );
+        }
+
         break;
       }
 
@@ -216,6 +320,19 @@ export async function runSession(
           buildDealCommunity(advancedState.phase, advancedState),
           signal,
         );
+
+        // Inject DEAL_COMMUNITY into all active players
+        for (const p of advancedState.players) {
+          if (p.status === "BUSTED" || p.status === "FOLDED") continue;
+          agentRunner.injectMessage(
+            p.id,
+            formatDealCommunity(
+              advancedState.phase,
+              advancedState.communityCards,
+            ),
+          );
+        }
+
         previousPhase = advancedState.phase;
       }
 

@@ -40,9 +40,15 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     bigBlind: Int!
   }
 
+  type PlayerHand {
+    playerId: ID!
+    cards: [CardInfo!]!
+  }
+
   type DealHandsPayload {
     handNumber: Int!
     players: [PlayerInfo!]!
+    hands: [PlayerHand!]!
     button: Int
     pots: [PotInfo!]!
   }

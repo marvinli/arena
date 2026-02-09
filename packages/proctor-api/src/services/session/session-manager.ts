@@ -7,7 +7,9 @@ export interface SessionPlayer {
   id: string;
   name: string;
   chips: number;
-  model: string;
+  modelId: string;
+  modelName: string;
+  provider: string;
 }
 
 export interface GameStateSnapshot {
@@ -52,7 +54,9 @@ export function createSession(
     id: p.playerId,
     name: p.name,
     chips: config.startingChips,
-    model: p.model,
+    modelId: p.modelId,
+    modelName: p.modelName,
+    provider: p.provider,
   }));
 
   const session: Session = {

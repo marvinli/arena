@@ -142,7 +142,7 @@ describe("poker-engine", () => {
       // If bet is not a valid action, trying it should fail
       if (!turn.validActions.some((a) => a.type === ActionType.Bet)) {
         expect(() => submitAction(gameId, currentId, "bet", 100)).toThrow(
-          "Illegal action",
+          "not available right now",
         );
       }
     });
@@ -161,7 +161,7 @@ describe("poker-engine", () => {
       if (raiseAction?.max) {
         expect(() =>
           submitAction(gameId, currentId, "raise", raiseAction.max + 1),
-        ).toThrow("out of range");
+        ).toThrow("amount must be between");
       }
     });
 

@@ -33,11 +33,14 @@ export enum ActionType {
 }
 
 export type AgentConfig = {
-  model: Scalars['String']['input'];
+  avatarUrl?: InputMaybe<Scalars['String']['input']>;
+  modelId: Scalars['String']['input'];
+  modelName: Scalars['String']['input'];
   name: Scalars['String']['input'];
   playerId: Scalars['ID']['input'];
-  systemPrompt: Scalars['String']['input'];
+  provider: Scalars['String']['input'];
   temperature?: InputMaybe<Scalars['Float']['input']>;
+  ttsVoice?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type Card = {
@@ -69,6 +72,7 @@ export type DealHandsPayload = {
   __typename?: 'DealHandsPayload';
   button?: Maybe<Scalars['Int']['output']>;
   handNumber: Scalars['Int']['output'];
+  hands: Array<PlayerHand>;
   players: Array<PlayerInfo>;
   pots: Array<PotInfo>;
 };
@@ -242,6 +246,12 @@ export type PlayerActionPayload = {
   pots: Array<PotInfo>;
 };
 
+export type PlayerHand = {
+  __typename?: 'PlayerHand';
+  cards: Array<CardInfo>;
+  playerId: Scalars['ID']['output'];
+};
+
 export type PlayerInfo = {
   __typename?: 'PlayerInfo';
   chips: Scalars['Int']['output'];
@@ -359,8 +369,10 @@ export type SessionPlayer = {
   __typename?: 'SessionPlayer';
   chips: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
-  model: Scalars['String']['output'];
+  modelId: Scalars['String']['output'];
+  modelName: Scalars['String']['output'];
   name: Scalars['String']['output'];
+  provider: Scalars['String']['output'];
 };
 
 export enum SessionStatus {
@@ -498,6 +510,7 @@ export type ResolversTypes = {
   PhaseActions: ResolverTypeWrapper<PhaseActions>;
   Player: ResolverTypeWrapper<Player>;
   PlayerActionPayload: ResolverTypeWrapper<PlayerActionPayload>;
+  PlayerHand: ResolverTypeWrapper<PlayerHand>;
   PlayerInfo: ResolverTypeWrapper<PlayerInfo>;
   PlayerInput: PlayerInput;
   PlayerStatus: PlayerStatus;
@@ -543,6 +556,7 @@ export type ResolversParentTypes = {
   PhaseActions: PhaseActions;
   Player: Player;
   PlayerActionPayload: PlayerActionPayload;
+  PlayerHand: PlayerHand;
   PlayerInfo: PlayerInfo;
   PlayerInput: PlayerInput;
   Pot: Pot;
@@ -589,6 +603,7 @@ export type DealCommunityPayloadResolvers<ContextType = Context, ParentType exte
 export type DealHandsPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['DealHandsPayload'] = ResolversParentTypes['DealHandsPayload']> = {
   button?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   handNumber?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  hands?: Resolver<Array<ResolversTypes['PlayerHand']>, ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
   pots?: Resolver<Array<ResolversTypes['PotInfo']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -705,6 +720,12 @@ export type PlayerActionPayloadResolvers<ContextType = Context, ParentType exten
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type PlayerHandResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerHand'] = ResolversParentTypes['PlayerHand']> = {
+  cards?: Resolver<Array<ResolversTypes['CardInfo']>, ParentType, ContextType>;
+  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type PlayerInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerInfo'] = ResolversParentTypes['PlayerInfo']> = {
   chips?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
@@ -773,8 +794,10 @@ export type SessionResolvers<ContextType = Context, ParentType extends Resolvers
 export type SessionPlayerResolvers<ContextType = Context, ParentType extends ResolversParentTypes['SessionPlayer'] = ResolversParentTypes['SessionPlayer']> = {
   chips?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  model?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  modelName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  provider?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -817,6 +840,7 @@ export type Resolvers<ContextType = Context> = {
   PhaseActions?: PhaseActionsResolvers<ContextType>;
   Player?: PlayerResolvers<ContextType>;
   PlayerActionPayload?: PlayerActionPayloadResolvers<ContextType>;
+  PlayerHand?: PlayerHandResolvers<ContextType>;
   PlayerInfo?: PlayerInfoResolvers<ContextType>;
   Pot?: PotResolvers<ContextType>;
   PotInfo?: PotInfoResolvers<ContextType>;

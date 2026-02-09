@@ -2,8 +2,11 @@ export const channelTypeDefs = /* GraphQL */ `
   input AgentConfig {
     playerId: ID!
     name: String!
-    model: String!
-    systemPrompt: String!
+    modelId: String!
+    modelName: String!
+    provider: String!
+    avatarUrl: String
+    ttsVoice: String
     temperature: Float
   }
 
@@ -19,7 +22,9 @@ export const channelTypeDefs = /* GraphQL */ `
     id: ID!
     name: String!
     chips: Int!
-    model: String!
+    modelId: String!
+    modelName: String!
+    provider: String!
   }
 
   enum SessionStatus {
