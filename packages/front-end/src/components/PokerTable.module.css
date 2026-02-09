@@ -25,13 +25,13 @@
 }
 
 .potLabel {
-  font-size: 0.94cqw;
+  font-size: 1.25cqw;
   font-weight: 700;
   color: #e0e4ef;
   text-shadow: 0 0.08cqw 0.47cqw rgba(0, 0, 0, 0.6);
   letter-spacing: 0.04cqw;
   background: rgba(0, 0, 0, 0.4);
-  padding: 0.16cqw 0.55cqw;
+  padding: 0.2cqw 0.6cqw;
   border-radius: 0.47cqw;
 }
 
@@ -76,7 +76,7 @@
 }
 
 .betAmount {
-  font-size: 0.86cqw;
+  font-size: 1.1cqw;
   font-weight: 700;
   color: #e0e4ef;
 }
