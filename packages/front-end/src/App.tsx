@@ -20,6 +20,7 @@ export function App() {
         players={state.players}
         communityCards={state.communityCards}
         pots={state.pots}
+        speakingPlayerId={state.speakingPlayerId}
       />
       {state.status === "finished" && (
         <button

@@ -57,5 +57,6 @@ export interface GameState {
   communityCards: Card[];
   pots: Pot[];
   holeCards: Map<string, [Card, Card]>;
+  speakingPlayerId: string | null;
   error: string | null;
 }

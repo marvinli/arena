@@ -297,7 +297,9 @@ type Action =
   | { type: "START"; channelKey: string }
   | { type: "ERROR"; error: string }
   | { type: "RESET" }
-  | { type: "INSTRUCTION"; instruction: GqlInstruction };
+  | { type: "INSTRUCTION"; instruction: GqlInstruction }
+  | { type: "SPEAK_START"; playerId: string }
+  | { type: "SPEAK_END" };
 
 const INITIAL_STATE: GameState = {
   status: "idle",
@@ -312,6 +314,7 @@ const INITIAL_STATE: GameState = {
   communityCards: [],
   pots: [],
   holeCards: new Map(),
+  speakingPlayerId: null,
   error: null,
 };
 
@@ -332,6 +335,12 @@ function reducer(state: GameState, action: Action): GameState {
 
     case "INSTRUCTION":
       return handleInstruction(state, action.instruction);
+
+    case "SPEAK_START":
+      return { ...state, speakingPlayerId: action.playerId };
+
+    case "SPEAK_END":
+      return { ...state, speakingPlayerId: null };
   }
 }
 
@@ -541,9 +550,11 @@ export function useGameSession() {
               instruction.type === "PLAYER_ACTION" &&
               instruction.playerAction?.analysis
             ) {
-              const voiceId =
-                VOICE_IDS[instruction.playerAction.playerId] ?? "";
-              await speakAnalysis(instruction.playerAction.analysis, voiceId);
+              const { playerId, analysis } = instruction.playerAction;
+              const voiceId = VOICE_IDS[playerId] ?? "";
+              dispatch({ type: "SPEAK_START", playerId });
+              await speakAnalysis(analysis, voiceId);
+              dispatch({ type: "SPEAK_END" });
             }
 
             // Acknowledge instruction

@@ -40,11 +40,16 @@ export function PokerTable({
   players,
   communityCards,
   pots,
+  speakingPlayerId,
 }: {
   players: Player[];
   communityCards: Card[];
   pots: Pot[];
+  speakingPlayerId: string | null;
 }) {
+  // If any player is active or speaking, dim everyone else
+  const highlightedId =
+    speakingPlayerId ?? players.find((p) => p.isActive)?.id ?? null;
   return (
     <div className={styles.scene}>
       {/* Community cards + pot */}
@@ -105,6 +110,8 @@ export function PokerTable({
                 player={player}
                 seatColor={SEAT_COLORS[i]}
                 holeCardSecondClass={styles.holeCardSecond}
+                isSpeaking={player.id === speakingPlayerId}
+                isDimmed={highlightedId !== null && player.id !== highlightedId}
               />
             </div>
             {showBet && player.currentBet > 0 && (

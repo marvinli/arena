@@ -1,6 +1,8 @@
 .seat {
   padding: 0.31cqw;
-  transition: filter 0.3s ease;
+  transition:
+    filter 0.3s ease,
+    opacity 0.3s ease;
 }
 
 .active {
@@ -75,9 +77,18 @@
   overflow: hidden;
 }
 
+/* ── Fold / dim states ─────────────────────────────────── */
+
 .folded {
-  opacity: 0.4;
+  opacity: 0.2;
+  filter: grayscale(1);
 }
+
+.dimmed {
+  opacity: 0.45;
+}
+
+/* ── Cards ─────────────────────────────────────────────── */
 
 .cards {
   display: flex;
@@ -144,6 +155,8 @@
   white-space: nowrap;
 }
 
+/* ── Action badge ──────────────────────────────────────── */
+
 .actionBadge {
   position: absolute;
   bottom: 100%;
@@ -183,5 +196,81 @@
   100% {
     opacity: 0;
     transform: translateX(-50%) scale(0.9);
+  }
+}
+
+/* ── Thought bubble ────────────────────────────────────── */
+
+.thoughtBubble {
+  position: absolute;
+  bottom: 85%;
+  left: 70%;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 1.2cqw;
+  padding: 0.35cqw 0.6cqw;
+  display: flex;
+  gap: 0.3cqw;
+  align-items: center;
+  z-index: 12;
+  animation: bubbleAppear 0.3s ease-out;
+}
+
+.bubbleTail1 {
+  position: absolute;
+  bottom: -0.55cqw;
+  left: 0.4cqw;
+  width: 0.7cqw;
+  height: 0.7cqw;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+}
+
+.bubbleTail2 {
+  position: absolute;
+  bottom: -1cqw;
+  left: -0.05cqw;
+  width: 0.4cqw;
+  height: 0.4cqw;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+}
+
+.dot {
+  width: 0.55cqw;
+  height: 0.55cqw;
+  border-radius: 50%;
+  background: #555;
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dotPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes bubbleAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }

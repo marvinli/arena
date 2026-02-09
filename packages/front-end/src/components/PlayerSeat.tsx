@@ -16,15 +16,20 @@ export function PlayerSeat({
   player,
   seatColor,
   holeCardSecondClass,
+  isSpeaking,
+  isDimmed,
 }: {
   player: Player;
   seatColor: string;
   holeCardSecondClass?: string;
+  isSpeaking?: boolean;
+  isDimmed?: boolean;
 }) {
   const seatClass = [
     styles.seat,
     player.isActive ? styles.active : "",
     player.isFolded ? styles.folded : "",
+    isDimmed && !player.isFolded ? styles.dimmed : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -45,6 +50,15 @@ export function PlayerSeat({
             {player.lastAction && actionBadgeClass && (
               <div className={actionBadgeClass}>
                 {player.lastAction.toUpperCase()}
+              </div>
+            )}
+            {isSpeaking && (
+              <div className={styles.thoughtBubble}>
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+                <span className={styles.dot} />
+                <div className={styles.bubbleTail1} />
+                <div className={styles.bubbleTail2} />
               </div>
             )}
             <div
