@@ -93,16 +93,16 @@ export function PlayerSeat({
           </div>
         </div>
         <div className={cardsClass}>
-          {visibleCards >= 1 && (
+          {player.cards && visibleCards >= 1 && (
             <div className={styles.cardDealIn}>
-              <PlayingCard card={player.cards?.[0] ?? null} faceUp={faceUp} />
+              <PlayingCard card={player.cards[0] ?? null} faceUp={faceUp} />
             </div>
           )}
-          {visibleCards >= 2 && (
+          {player.cards && visibleCards >= 2 && (
             <div
               className={`${styles.cardDealIn} ${holeCardSecondClass ?? ""}`}
             >
-              <PlayingCard card={player.cards?.[1] ?? null} faceUp={faceUp} />
+              <PlayingCard card={player.cards[1] ?? null} faceUp={faceUp} />
             </div>
           )}
         </div>
