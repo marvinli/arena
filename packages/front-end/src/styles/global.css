@@ -14,9 +14,9 @@ body,
 }
 
 body {
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: #0f1118;
+  color: #e0e4ef;
   overflow: hidden;
 }
 

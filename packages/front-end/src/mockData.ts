@@ -1,4 +1,13 @@
-import type { Player } from "./types";
+import type { Card, Player } from "./types";
+
+/** 3 flop cards dealt; turn and river not yet dealt. */
+export const mockCommunityCards: Card[] = [
+  { rank: "10", suit: "hearts" },
+  { rank: "J", suit: "clubs" },
+  { rank: "7", suit: "diamonds" },
+];
+
+export const mockPot = 4200;
 
 export const mockPlayers: Player[] = [
   {

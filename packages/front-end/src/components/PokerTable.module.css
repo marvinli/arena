@@ -1,29 +1,78 @@
 .scene {
   position: relative;
-  width: 1000px;
-  height: 620px;
+  width: 1200px;
+  height: 700px;
 }
+
+/* ── Felt ─────────────────────────────────────────────── */
 
 .felt {
   position: absolute;
-  top: 80px;
-  left: 80px;
-  right: 80px;
-  bottom: 80px;
-  background: radial-gradient(ellipse at center, #1a6b3c, #145a30 60%, #0e4824);
+  top: 90px;
+  left: 100px;
+  right: 100px;
+  bottom: 90px;
+  background: #1c2033;
   border-radius: 50%;
-  border: 12px solid #5c3a1e;
+  border: 2px solid #2a3050;
   box-shadow:
-    inset 0 0 40px rgba(0, 0, 0, 0.3),
-    0 4px 20px rgba(0, 0, 0, 0.5),
-    0 0 0 4px #3d2510,
-    0 0 0 8px #2a1a0c;
+    inset 0 0 60px rgba(0, 0, 0, 0.4),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
+.feltTexture {
+  display: none;
+}
+
+/* ── Rail (hidden) ────────────────────────────────────── */
+
 .rail {
+  display: none;
+}
+
+.railPad {
+  display: none;
+}
+
+/* ── Community cards ──────────────────────────────────── */
+
+.communityArea {
   position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 4px solid rgba(255, 255, 255, 0.05);
-  pointer-events: none;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 1;
+}
+
+.potLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e0e4ef;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.5px;
+}
+
+.communityCards {
+  display: flex;
+  gap: 8px;
+}
+
+.emptySlot {
+  width: 50px;
+  height: 70px;
+  border-radius: 5px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── Hole-card overlap on second card ─────────────────── */
+
+.holeCardSecond {
+  margin-left: -6px;
+  transform: rotate(4deg);
 }

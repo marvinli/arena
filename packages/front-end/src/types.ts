@@ -13,3 +13,6 @@ export interface Player {
   isFolded: boolean;
   isActive: boolean; // currently acting
 }
+
+/** Community cards dealt face-up on the board (0-5 cards). */
+export type CommunityCards = Card[];
