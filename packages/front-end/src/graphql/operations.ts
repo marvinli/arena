@@ -61,12 +61,18 @@ export const RENDER_INSTRUCTIONS_SUB = `
         playerName
       }
 
+      playerAnalysis {
+        playerId
+        playerName
+        analysis
+      }
+
       playerAction {
         playerId
         playerName
         action
         amount
-        analysis
+        closing
         pots { size eligiblePlayerIds }
         players { id name chips bet status seatIndex }
       }

@@ -7,6 +7,7 @@ import {
   buildHandResult,
   buildLeaderboard,
   buildPlayerAction,
+  buildPlayerAnalysis,
 } from "../../../../src/services/games/poker/instruction-builder.js";
 import type { GameState, RenderInstruction } from "../../../../src/types.js";
 import { InstructionType } from "../../../../src/types.js";
@@ -201,6 +202,37 @@ describe("instruction-builder", () => {
     });
   });
 
+  describe("buildPlayerAnalysis", () => {
+    it("returns correct type and has instructionId/timestamp", () => {
+      const result = buildPlayerAnalysis(
+        "p1",
+        "Alice",
+        "Strong hand, considering a raise.",
+      );
+      verifyBaseInstruction(result, InstructionType.PlayerAnalysis);
+    });
+
+    it("playerAnalysis payload has playerId, playerName, analysis", () => {
+      const result = buildPlayerAnalysis(
+        "p1",
+        "Alice",
+        "Strong hand, considering a raise.",
+      );
+      expect(result.playerAnalysis).toBeDefined();
+      expect(result.playerAnalysis?.playerId).toBe("p1");
+      expect(result.playerAnalysis?.playerName).toBe("Alice");
+      expect(result.playerAnalysis?.analysis).toBe(
+        "Strong hand, considering a raise.",
+      );
+    });
+
+    it("generates unique instructionId for each call", () => {
+      const result1 = buildPlayerAnalysis("p1", "Alice", "Thinking...");
+      const result2 = buildPlayerAnalysis("p1", "Alice", "Thinking...");
+      expect(result1.instructionId).not.toBe(result2.instructionId);
+    });
+  });
+
   describe("buildPlayerAction", () => {
     it("returns correct type and has instructionId/timestamp", () => {
       const result = buildPlayerAction(
@@ -208,20 +240,20 @@ describe("instruction-builder", () => {
         "Alice",
         "bet",
         50,
-        "Strong hand",
+        "Good luck!",
         mockGameState,
       );
 
       verifyBaseInstruction(result, InstructionType.PlayerAction);
     });
 
-    it("playerAction payload has playerId, playerName, action, amount (number), analysis (string), pots, players", () => {
+    it("playerAction payload has playerId, playerName, action, amount (number), closing (string), pots, players", () => {
       const result = buildPlayerAction(
         "p1",
         "Alice",
         "bet",
         50,
-        "Strong hand",
+        "Good luck!",
         mockGameState,
       );
 
@@ -230,7 +262,7 @@ describe("instruction-builder", () => {
       expect(result.playerAction?.playerName).toBe("Alice");
       expect(result.playerAction?.action).toBe("bet");
       expect(result.playerAction?.amount).toBe(50);
-      expect(result.playerAction?.analysis).toBe("Strong hand");
+      expect(result.playerAction?.closing).toBe("Good luck!");
       expect(result.playerAction?.pots).toEqual([
         { size: 100, eligiblePlayerIds: ["p1", "p2"] },
       ]);
@@ -258,7 +290,7 @@ describe("instruction-builder", () => {
       expect(result.playerAction?.amount).toBeNull();
     });
 
-    it("playerAction payload converts undefined analysis to null", () => {
+    it("playerAction payload converts undefined closing to null", () => {
       const result = buildPlayerAction(
         "p1",
         "Alice",
@@ -268,7 +300,7 @@ describe("instruction-builder", () => {
         mockGameState,
       );
 
-      expect(result.playerAction?.analysis).toBeNull();
+      expect(result.playerAction?.closing).toBeNull();
     });
 
     it("generates unique instructionId for each call", () => {
@@ -277,7 +309,7 @@ describe("instruction-builder", () => {
         "Alice",
         "bet",
         50,
-        "Strong hand",
+        "Good luck!",
         mockGameState,
       );
       const result2 = buildPlayerAction(
@@ -285,7 +317,7 @@ describe("instruction-builder", () => {
         "Alice",
         "bet",
         50,
-        "Strong hand",
+        "Good luck!",
         mockGameState,
       );
 

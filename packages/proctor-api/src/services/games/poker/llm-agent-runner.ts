@@ -42,10 +42,11 @@ const submitActionTool = tool({
       .number()
       .optional()
       .describe("Bet/raise amount. Required for BET and RAISE."),
-    analysis: z
+    closing: z
       .string()
+      .optional()
       .describe(
-        "Audience-facing commentary explaining your thinking, your read on opponents, and why you chose this action.",
+        "A brief closing remark after your action — a quip, taunt, or parting thought for the audience.",
       ),
   }),
 });
@@ -161,12 +162,15 @@ export class LlmAgentRunner implements AgentRunner {
       ],
     });
 
+    const analysis = result.text?.trim() || undefined;
+
     return {
       action: {
         type: toolCall.input.action,
         amount: toolCall.input.amount,
       },
-      analysis: toolCall.input.analysis,
+      analysis,
+      closing: toolCall.input.closing,
     };
   }
 }

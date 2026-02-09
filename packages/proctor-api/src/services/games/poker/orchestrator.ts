@@ -14,6 +14,7 @@ import {
   buildHandResult,
   buildLeaderboard,
   buildPlayerAction,
+  buildPlayerAnalysis,
   buildPlayerTurn,
 } from "./instruction-builder.js";
 import {
@@ -114,7 +115,11 @@ async function resolveAction(
   ctx: SessionContext,
   playerId: string,
 ): Promise<{
-  result: { action: { type: string; amount?: number }; analysis?: string };
+  result: {
+    action: { type: string; amount?: number };
+    analysis?: string;
+    closing?: string;
+  };
   state: GameState;
 }> {
   const turnData = poker.getMyTurn(ctx.gameId, playerId);
@@ -205,6 +210,14 @@ async function playTurn(
   const { result, state } = await resolveAction(ctx, playerId);
   updateGameState(ctx.session, state);
 
+  if (result.analysis) {
+    await emit(
+      ctx.session,
+      buildPlayerAnalysis(playerId, playerName, result.analysis),
+      ctx.signal,
+    );
+  }
+
   await emit(
     ctx.session,
     buildPlayerAction(
@@ -212,7 +225,7 @@ async function playTurn(
       playerName,
       result.action.type,
       result.action.amount,
-      result.analysis,
+      result.closing,
       state,
     ),
     ctx.signal,

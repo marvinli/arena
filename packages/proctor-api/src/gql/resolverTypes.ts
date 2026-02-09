@@ -154,6 +154,7 @@ export enum InstructionType {
   HandResult = 'HAND_RESULT',
   Leaderboard = 'LEADERBOARD',
   PlayerAction = 'PLAYER_ACTION',
+  PlayerAnalysis = 'PLAYER_ANALYSIS',
   PlayerTurn = 'PLAYER_TURN'
 }
 
@@ -246,11 +247,18 @@ export type PlayerActionPayload = {
   __typename?: 'PlayerActionPayload';
   action: Scalars['String']['output'];
   amount?: Maybe<Scalars['Int']['output']>;
-  analysis?: Maybe<Scalars['String']['output']>;
+  closing?: Maybe<Scalars['String']['output']>;
   playerId: Scalars['ID']['output'];
   playerName: Scalars['String']['output'];
   players: Array<PlayerInfo>;
   pots: Array<PotInfo>;
+};
+
+export type PlayerAnalysisPayload = {
+  __typename?: 'PlayerAnalysisPayload';
+  analysis: Scalars['String']['output'];
+  playerId: Scalars['ID']['output'];
+  playerName: Scalars['String']['output'];
 };
 
 export type PlayerHand = {
@@ -358,6 +366,7 @@ export type RenderInstruction = {
   instructionId: Scalars['ID']['output'];
   leaderboard?: Maybe<LeaderboardPayload>;
   playerAction?: Maybe<PlayerActionPayload>;
+  playerAnalysis?: Maybe<PlayerAnalysisPayload>;
   playerTurn?: Maybe<PlayerTurnPayload>;
   timestamp: Scalars['String']['output'];
   type: InstructionType;
@@ -525,6 +534,7 @@ export type ResolversTypes = {
   PhaseActions: ResolverTypeWrapper<PhaseActions>;
   Player: ResolverTypeWrapper<Player>;
   PlayerActionPayload: ResolverTypeWrapper<PlayerActionPayload>;
+  PlayerAnalysisPayload: ResolverTypeWrapper<PlayerAnalysisPayload>;
   PlayerHand: ResolverTypeWrapper<PlayerHand>;
   PlayerInfo: ResolverTypeWrapper<PlayerInfo>;
   PlayerInput: PlayerInput;
@@ -572,6 +582,7 @@ export type ResolversParentTypes = {
   PhaseActions: PhaseActions;
   Player: Player;
   PlayerActionPayload: PlayerActionPayload;
+  PlayerAnalysisPayload: PlayerAnalysisPayload;
   PlayerHand: PlayerHand;
   PlayerInfo: PlayerInfo;
   PlayerInput: PlayerInput;
@@ -730,11 +741,18 @@ export type PlayerResolvers<ContextType = Context, ParentType extends ResolversP
 export type PlayerActionPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerActionPayload'] = ResolversParentTypes['PlayerActionPayload']> = {
   action?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   amount?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  analysis?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  closing?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
   pots?: Resolver<Array<ResolversTypes['PotInfo']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type PlayerAnalysisPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerAnalysisPayload'] = ResolversParentTypes['PlayerAnalysisPayload']> = {
+  analysis?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -802,6 +820,7 @@ export type RenderInstructionResolvers<ContextType = Context, ParentType extends
   instructionId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   leaderboard?: Resolver<Maybe<ResolversTypes['LeaderboardPayload']>, ParentType, ContextType>;
   playerAction?: Resolver<Maybe<ResolversTypes['PlayerActionPayload']>, ParentType, ContextType>;
+  playerAnalysis?: Resolver<Maybe<ResolversTypes['PlayerAnalysisPayload']>, ParentType, ContextType>;
   playerTurn?: Resolver<Maybe<ResolversTypes['PlayerTurnPayload']>, ParentType, ContextType>;
   timestamp?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['InstructionType'], ParentType, ContextType>;
@@ -866,6 +885,7 @@ export type Resolvers<ContextType = Context> = {
   PhaseActions?: PhaseActionsResolvers<ContextType>;
   Player?: PlayerResolvers<ContextType>;
   PlayerActionPayload?: PlayerActionPayloadResolvers<ContextType>;
+  PlayerAnalysisPayload?: PlayerAnalysisPayloadResolvers<ContextType>;
   PlayerHand?: PlayerHandResolvers<ContextType>;
   PlayerInfo?: PlayerInfoResolvers<ContextType>;
   PlayerTurnPayload?: PlayerTurnPayloadResolvers<ContextType>;

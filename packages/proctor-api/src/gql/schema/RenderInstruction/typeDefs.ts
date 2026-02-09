@@ -4,6 +4,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     DEAL_HANDS
     DEAL_COMMUNITY
     PLAYER_TURN
+    PLAYER_ANALYSIS
     PLAYER_ACTION
     HAND_RESULT
     LEADERBOARD
@@ -66,12 +67,18 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     playerName: String!
   }
 
+  type PlayerAnalysisPayload {
+    playerId: ID!
+    playerName: String!
+    analysis: String!
+  }
+
   type PlayerActionPayload {
     playerId: ID!
     playerName: String!
     action: String!
     amount: Int
-    analysis: String
+    closing: String
     pots: [PotInfo!]!
     players: [PlayerInfo!]!
   }
@@ -103,6 +110,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     dealHands: DealHandsPayload
     dealCommunity: DealCommunityPayload
     playerTurn: PlayerTurnPayload
+    playerAnalysis: PlayerAnalysisPayload
     playerAction: PlayerActionPayload
     handResult: HandResultPayload
     leaderboard: LeaderboardPayload

@@ -48,7 +48,7 @@
 }
 
 .folded .avatarRing {
-  border-color: #333;
+  border-color: var(--seat-color, #3b3f54);
 }
 
 @keyframes pulseRing {
@@ -80,8 +80,7 @@
 /* ── Fold / dim states ─────────────────────────────────── */
 
 .folded {
-  opacity: 0.2;
-  filter: grayscale(1);
+  opacity: 0.45;
 }
 
 .dimmed {

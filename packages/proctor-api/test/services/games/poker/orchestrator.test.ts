@@ -69,8 +69,8 @@ describe("orchestrator", () => {
     await runSession(session, agentRunner);
 
     // Verify instruction sequence:
-    // GAME_START -> DEAL_HANDS -> PLAYER_TURN -> PLAYER_ACTION(fold) -> HAND_RESULT -> GAME_OVER
-    expect(instructions.length).toBeGreaterThanOrEqual(5);
+    // GAME_START -> DEAL_HANDS -> PLAYER_TURN -> PLAYER_ANALYSIS -> PLAYER_ACTION(fold) -> HAND_RESULT -> GAME_OVER
+    expect(instructions.length).toBeGreaterThanOrEqual(6);
 
     expect(instructions[0].type).toBe("GAME_START");
     expect(instructions[0].gameStart).toBeDefined();
@@ -82,16 +82,19 @@ describe("orchestrator", () => {
     expect(instructions[2].type).toBe("PLAYER_TURN");
     expect(instructions[2].playerTurn).toBeDefined();
 
-    expect(instructions[3].type).toBe("PLAYER_ACTION");
-    expect(instructions[3].playerAction).toBeDefined();
-    expect(instructions[3].playerAction!.action).toBe("FOLD");
-    expect(instructions[3].playerAction!.analysis).toBe(
+    expect(instructions[3].type).toBe("PLAYER_ANALYSIS");
+    expect(instructions[3].playerAnalysis).toBeDefined();
+    expect(instructions[3].playerAnalysis!.analysis).toBe(
       "I fold because my hand is weak",
     );
 
-    expect(instructions[4].type).toBe("HAND_RESULT");
-    expect(instructions[4].handResult).toBeDefined();
-    expect(instructions[4].handResult!.winners.length).toBeGreaterThan(0);
+    expect(instructions[4].type).toBe("PLAYER_ACTION");
+    expect(instructions[4].playerAction).toBeDefined();
+    expect(instructions[4].playerAction!.action).toBe("FOLD");
+
+    expect(instructions[5].type).toBe("HAND_RESULT");
+    expect(instructions[5].handResult).toBeDefined();
+    expect(instructions[5].handResult!.winners.length).toBeGreaterThan(0);
   });
 
   it("marks session as FINISHED when game completes", async () => {

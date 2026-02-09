@@ -30,11 +30,11 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(config);
 
     expect(prompt).toContain("submit_action");
-    expect(prompt).toContain("fold, check, call, bet, or raise");
     expect(prompt).toContain("Texas Hold'em tournament");
     expect(prompt).toContain("your hole cards");
     expect(prompt).toContain("community cards");
-    expect(prompt).toContain("analysis");
+    expect(prompt).toContain("speak your thoughts");
+    expect(prompt).toContain("closing remark");
   });
 
   it("does not contain any remaining placeholders after substitution", () => {
@@ -100,11 +100,9 @@ describe("buildSystemPrompt", () => {
 
     // Verify key sections are present
     expect(prompt).toContain("You will receive game updates");
-    expect(prompt).toContain("When you are ready to act");
-    expect(prompt).toContain("The bet amount (required for bet and raise)");
-    expect(prompt).toContain("audience-facing commentary");
-    expect(prompt).toContain("You may reason internally");
-    expect(prompt).toContain("you MUST eventually call submit_action");
-    expect(prompt).toContain("Other players cannot see your analysis");
+    expect(prompt).toContain("speak your thoughts aloud");
+    expect(prompt).toContain("submit_action");
+    expect(prompt).toContain("closing remark");
+    expect(prompt).toContain("Other players cannot hear your commentary");
   });
 });

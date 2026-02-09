@@ -103,12 +103,27 @@ export function buildPlayerTurn(
   };
 }
 
+export function buildPlayerAnalysis(
+  playerId: string,
+  playerName: string,
+  analysis: string,
+): RenderInstruction {
+  return {
+    ...base(InstructionType.PlayerAnalysis),
+    playerAnalysis: {
+      playerId,
+      playerName,
+      analysis,
+    },
+  };
+}
+
 export function buildPlayerAction(
   playerId: string,
   playerName: string,
   action: string,
   amount: number | undefined,
-  analysis: string | undefined,
+  closing: string | undefined,
   gameState: GameState,
 ): RenderInstruction {
   return {
@@ -118,7 +133,7 @@ export function buildPlayerAction(
       playerName,
       action,
       amount: amount ?? null,
-      analysis: analysis ?? null,
+      closing: closing ?? null,
       pots: toPotInfos(gameState.pots),
       players: toPlayerInfos(gameState.players),
     },

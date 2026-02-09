@@ -64,12 +64,17 @@ interface GqlInstruction {
     playerId: string;
     playerName: string;
   } | null;
+  playerAnalysis?: {
+    playerId: string;
+    playerName: string;
+    analysis: string;
+  } | null;
   playerAction?: {
     playerId: string;
     playerName: string;
     action: string;
     amount: number | null;
-    analysis: string | null;
+    closing: string | null;
     pots: GqlPotInfo[];
     players: GqlPlayerInfo[];
   } | null;
@@ -154,6 +159,7 @@ const INSTRUCTION_DELAYS: Record<string, number> = {
   GAME_START: 1500,
   DEAL_HANDS: 2000,
   PLAYER_TURN: 500,
+  PLAYER_ANALYSIS: 500,
   PLAYER_ACTION: 1500,
   DEAL_COMMUNITY: 1500,
   HAND_RESULT: 3000,
@@ -419,6 +425,9 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
       return { ...state, players };
     }
 
+    case "PLAYER_ANALYSIS":
+      return state;
+
     case "PLAYER_ACTION": {
       const pa = inst.playerAction;
       if (!pa) return state;
@@ -545,15 +554,27 @@ export function useGameSession() {
             const pauseMs = INSTRUCTION_DELAYS[instruction.type] ?? 1000;
             await delay(pauseMs, abort.signal);
 
-            // If player action with analysis, play TTS before acking
+            // If player analysis, play TTS of the pre-action thinking
             if (
-              instruction.type === "PLAYER_ACTION" &&
-              instruction.playerAction?.analysis
+              instruction.type === "PLAYER_ANALYSIS" &&
+              instruction.playerAnalysis?.analysis
             ) {
-              const { playerId, analysis } = instruction.playerAction;
+              const { playerId, analysis } = instruction.playerAnalysis;
               const voiceId = VOICE_IDS[playerId] ?? "";
               dispatch({ type: "SPEAK_START", playerId });
               await speakAnalysis(analysis, voiceId);
+              dispatch({ type: "SPEAK_END" });
+            }
+
+            // If player action with closing remark, play TTS after showing the action
+            if (
+              instruction.type === "PLAYER_ACTION" &&
+              instruction.playerAction?.closing
+            ) {
+              const { playerId, closing } = instruction.playerAction;
+              const voiceId = VOICE_IDS[playerId] ?? "";
+              dispatch({ type: "SPEAK_START", playerId });
+              await speakAnalysis(closing, voiceId);
               dispatch({ type: "SPEAK_END" });
             }
 
