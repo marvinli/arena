@@ -46,8 +46,8 @@
 }
 
 .emptySlot {
-  width: 5.0cqw;
-  height: 7.0cqw;
+  width: 5cqw;
+  height: 7cqw;
   border-radius: 0.47cqw;
   border: 0.12cqw dashed rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.05);
@@ -83,7 +83,7 @@
 
 .allIn {
   background: rgba(220, 50, 50, 0.25);
-  border-color: #dc3232 !important;
+  border-color: #dc3232;
 }
 
 .allInLabel {

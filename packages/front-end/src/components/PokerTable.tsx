@@ -3,8 +3,6 @@ import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./PlayingCard";
 import styles from "./PokerTable.module.css";
 
-const TOTAL_COMMUNITY_SLOTS = 5;
-
 const SEAT_COLORS = [
   "#e05c5c",
   "#5cb8e0",
@@ -39,8 +37,6 @@ function formatChips(amount: number): string {
 }
 
 export function PokerTable() {
-  const emptySlots = TOTAL_COMMUNITY_SLOTS - mockCommunityCards.length;
-
   return (
     <div className={styles.scene}>
       {/* Community cards + pot */}
@@ -58,7 +54,8 @@ export function PokerTable() {
             const card = mockCommunityCards[i] ?? null;
             const needsGap = i === 3 || i === 4;
             return (
-              <span key={i} style={{ display: "contents" }}>
+              // biome-ignore lint/suspicious/noArrayIndexKey: fixed-position card slots never reorder
+              <span key={`slot-${i}`} style={{ display: "contents" }}>
                 {needsGap && <div className={styles.streetGap} />}
                 {card ? (
                   <PlayingCard card={card} />
@@ -81,7 +78,7 @@ export function PokerTable() {
         const dist = Math.sqrt(dx * dx + dy * dy);
         const step = Math.min(0.35, 14 / dist);
         const betX = seat.x + dx * step;
-        const yNudge = (i === 3 || i === 7) ? -3 : 0;
+        const yNudge = i === 3 || i === 7 ? -3 : 0;
         const betY = seat.y + dy * step + yNudge;
         const showBet = player.lastAction && player.lastAction !== "fold";
 
@@ -110,16 +107,65 @@ export function PokerTable() {
                   borderColor: SEAT_COLORS[i],
                 }}
               >
-                {player.isAllIn && <span className={styles.allInLabel}>ALL IN</span>}
-                <svg className={styles.betChipIcon} viewBox="0 0 20 20" fill="none">
-                  <circle cx="10" cy="10" r="8.5" stroke={SEAT_COLORS[i]} strokeWidth="1.5" />
-                  <circle cx="10" cy="10" r="5.5" stroke={SEAT_COLORS[i]} strokeWidth="1" />
-                  <line x1="10" y1="1" x2="10" y2="4" stroke={SEAT_COLORS[i]} strokeWidth="1.5" />
-                  <line x1="10" y1="16" x2="10" y2="19" stroke={SEAT_COLORS[i]} strokeWidth="1.5" />
-                  <line x1="1" y1="10" x2="4" y2="10" stroke={SEAT_COLORS[i]} strokeWidth="1.5" />
-                  <line x1="16" y1="10" x2="19" y2="10" stroke={SEAT_COLORS[i]} strokeWidth="1.5" />
+                {player.isAllIn && (
+                  <span className={styles.allInLabel}>ALL IN</span>
+                )}
+                <svg
+                  className={styles.betChipIcon}
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="8.5"
+                    stroke={SEAT_COLORS[i]}
+                    strokeWidth="1.5"
+                  />
+                  <circle
+                    cx="10"
+                    cy="10"
+                    r="5.5"
+                    stroke={SEAT_COLORS[i]}
+                    strokeWidth="1"
+                  />
+                  <line
+                    x1="10"
+                    y1="1"
+                    x2="10"
+                    y2="4"
+                    stroke={SEAT_COLORS[i]}
+                    strokeWidth="1.5"
+                  />
+                  <line
+                    x1="10"
+                    y1="16"
+                    x2="10"
+                    y2="19"
+                    stroke={SEAT_COLORS[i]}
+                    strokeWidth="1.5"
+                  />
+                  <line
+                    x1="1"
+                    y1="10"
+                    x2="4"
+                    y2="10"
+                    stroke={SEAT_COLORS[i]}
+                    strokeWidth="1.5"
+                  />
+                  <line
+                    x1="16"
+                    y1="10"
+                    x2="19"
+                    y2="10"
+                    stroke={SEAT_COLORS[i]}
+                    strokeWidth="1.5"
+                  />
                 </svg>
-                <span className={styles.betAmount}>{formatChips(player.currentBet)}</span>
+                <span className={styles.betAmount}>
+                  {formatChips(player.currentBet)}
+                </span>
               </div>
             )}
           </div>

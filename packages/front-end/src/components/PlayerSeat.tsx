@@ -45,7 +45,11 @@ export function PlayerSeat({
                   <img
                     src={player.avatar}
                     alt={player.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
                   />
                 ) : (
                   getInitials(player.name)
