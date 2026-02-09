@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
 import { ChipStackDisplay } from "./ChipStack";
 import styles from "./PlayerSeat.module.css";
@@ -29,6 +30,20 @@ export function PlayerSeat({
   visibleCards?: number;
   faceUp?: boolean;
 }) {
+  // Detect fold transition → play flip-then-dismiss animation
+  const [folding, setFolding] = useState(false);
+  const prevFoldedRef = useRef(player.isFolded);
+  useEffect(() => {
+    if (player.isFolded && !prevFoldedRef.current) {
+      setFolding(true);
+      const timer = setTimeout(() => setFolding(false), 1000);
+      return () => clearTimeout(timer);
+    }
+    prevFoldedRef.current = player.isFolded;
+  }, [player.isFolded]);
+
+  const effectiveFaceUp = folding ? false : faceUp;
+
   const seatClass = [
     styles.seat,
     player.isActive ? styles.active : "",
@@ -38,7 +53,11 @@ export function PlayerSeat({
     .filter(Boolean)
     .join(" ");
 
-  const cardsClass = [styles.cards, player.isFolded ? styles.cardsHidden : ""]
+  const cardsClass = [
+    styles.cards,
+    folding ? styles.cardsFolding : "",
+    player.isFolded && !folding ? styles.cardsHidden : "",
+  ]
     .filter(Boolean)
     .join(" ");
 
@@ -95,14 +114,20 @@ export function PlayerSeat({
         <div className={cardsClass}>
           {player.cards && visibleCards >= 1 && (
             <div className={styles.cardDealIn}>
-              <PlayingCard card={player.cards[0] ?? null} faceUp={faceUp} />
+              <PlayingCard
+                card={player.cards[0] ?? null}
+                faceUp={effectiveFaceUp}
+              />
             </div>
           )}
           {player.cards && visibleCards >= 2 && (
             <div
               className={`${styles.cardDealIn} ${holeCardSecondClass ?? ""}`}
             >
-              <PlayingCard card={player.cards[1] ?? null} faceUp={faceUp} />
+              <PlayingCard
+                card={player.cards[1] ?? null}
+                faceUp={effectiveFaceUp}
+              />
             </div>
           )}
         </div>
