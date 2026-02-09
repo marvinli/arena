@@ -37,14 +37,14 @@ export function PlayerSeat({
 
   return (
     <div className={seatClass}>
-      {player.lastAction && actionBadgeClass && (
-        <div className={actionBadgeClass}>
-          {player.lastAction.toUpperCase()}
-        </div>
-      )}
       <div className={styles.topRow}>
         <div className={styles.avatarColumn}>
           <div className={styles.avatarArea}>
+            {player.lastAction && actionBadgeClass && (
+              <div className={actionBadgeClass}>
+                {player.lastAction.toUpperCase()}
+              </div>
+            )}
             <div
               className={styles.avatarRing}
               style={{ "--seat-color": seatColor } as React.CSSProperties}
