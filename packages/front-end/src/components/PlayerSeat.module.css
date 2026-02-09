@@ -88,6 +88,16 @@
   /* Claw back phantom layout space from scale */
   margin-right: -2.8cqw;
   z-index: 1;
+  opacity: 1;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.cardsHidden {
+  opacity: 0;
+  transform: scale(0.4);
+  pointer-events: none;
 }
 
 .dealerButton {

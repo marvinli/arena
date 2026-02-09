@@ -29,7 +29,9 @@ export function PlayerSeat({
     .filter(Boolean)
     .join(" ");
 
-  const showCards = !player.isFolded;
+  const cardsClass = [styles.cards, player.isFolded ? styles.cardsHidden : ""]
+    .filter(Boolean)
+    .join(" ");
 
   const actionBadgeClass = player.lastAction
     ? `${styles.actionBadge} ${player.lastAction === "fold" ? styles.actionFold : ""}`
@@ -71,25 +73,23 @@ export function PlayerSeat({
             <ChipStackDisplay amount={player.chips} />
           </div>
         </div>
-        {showCards && (
-          <div className={styles.cards}>
-            {player.cards ? (
-              <>
-                <PlayingCard card={player.cards[0]} />
-                <div className={holeCardSecondClass}>
-                  <PlayingCard card={player.cards[1]} />
-                </div>
-              </>
-            ) : (
-              <>
+        <div className={cardsClass}>
+          {player.cards ? (
+            <>
+              <PlayingCard card={player.cards[0]} />
+              <div className={holeCardSecondClass}>
+                <PlayingCard card={player.cards[1]} />
+              </div>
+            </>
+          ) : (
+            <>
+              <PlayingCard card={null} />
+              <div className={holeCardSecondClass}>
                 <PlayingCard card={null} />
-                <div className={holeCardSecondClass}>
-                  <PlayingCard card={null} />
-                </div>
-              </>
-            )}
-          </div>
-        )}
+              </div>
+            </>
+          )}
+        </div>
         {player.isDealer && <div className={styles.dealerButton}>D</div>}
       </div>
     </div>
