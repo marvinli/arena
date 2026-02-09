@@ -89,6 +89,10 @@ export function stopSession(channelKey: string): void {
   session.abortController.abort();
 }
 
+export function deleteSession(channelKey: string): void {
+  sessions.delete(channelKey);
+}
+
 export function registerClient(channelKey: string, clientId: string): void {
   const session = sessions.get(channelKey);
   if (!session) return;
@@ -151,13 +155,22 @@ export function waitForRenderComplete(
     return Promise.resolve();
   }
 
-  // Register pending acks for all connected clients
-  session.pendingAcks.set(instructionId, new Set(session.connectedClients));
+  // Snapshot connected clients to avoid race with unregisterClient
+  const clients = new Set(session.connectedClients);
+  if (clients.size === 0) {
+    return Promise.resolve();
+  }
+  session.pendingAcks.set(instructionId, clients);
 
   return new Promise<void>((resolve) => {
+    let resolved = false;
     const cleanup = () => {
+      if (resolved) return;
+      resolved = true;
       session.pendingAcks.delete(instructionId);
       session.pendingAckResolvers.delete(instructionId);
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
       resolve();
     };
 
@@ -169,9 +182,7 @@ export function waitForRenderComplete(
     const timer = setTimeout(cleanup, timeout);
 
     session.pendingAckResolvers.set(instructionId, () => {
-      clearTimeout(timer);
-      signal.removeEventListener("abort", onAbort);
-      resolve();
+      cleanup();
     });
   });
 }

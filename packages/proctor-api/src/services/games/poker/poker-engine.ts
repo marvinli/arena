@@ -93,6 +93,7 @@ function getPhase(
     const round = table.roundOfBetting();
     return roundToPhase[round] ?? GamePhase.Showdown;
   } catch {
+    // poker-ts throws when betting rounds are complete (showdown)
     return GamePhase.Showdown;
   }
 }
@@ -105,7 +106,7 @@ function buildPlayers(game: Game): Player[] {
   try {
     handPlayers = game.table.handPlayers();
   } catch {
-    // hand not in progress
+    // poker-ts throws when no hand is in progress
   }
 
   return game.players.map((pm) => {
@@ -170,7 +171,7 @@ function buildGameState(game: Game, gameId: string): GameState {
   try {
     communityCards = table.communityCards().map(formatCard);
   } catch {
-    // no community cards yet
+    // poker-ts throws before flop is dealt
   }
 
   let currentPlayerId: string | null = null;
@@ -180,7 +181,7 @@ function buildGameState(game: Game, gameId: string): GameState {
       currentPlayerId = seatToPlayerId(game, currentSeat) ?? null;
     }
   } catch {
-    // no player to act
+    // poker-ts throws when no betting round is active
   }
 
   let button: number | null = null;
@@ -189,7 +190,7 @@ function buildGameState(game: Game, gameId: string): GameState {
       button = table.button();
     }
   } catch {
-    // no button
+    // poker-ts throws when no hand has started
   }
 
   return {
@@ -204,7 +205,21 @@ function buildGameState(game: Game, gameId: string): GameState {
   };
 }
 
+export function deleteGame(gameId: string): void {
+  games.delete(gameId);
+}
+
 export function createGame(opts: CreateGameOptions): string {
+  if (opts.players.length < 2) {
+    throw new Error("A game requires at least 2 players");
+  }
+  if (opts.smallBlind <= 0 || opts.bigBlind <= 0) {
+    throw new Error("Blinds must be positive numbers");
+  }
+  if (opts.smallBlind >= opts.bigBlind) {
+    throw new Error("Small blind must be less than big blind");
+  }
+
   const gameId = randomUUID();
   const table = new Poker.Table({
     smallBlind: opts.smallBlind,
@@ -234,7 +249,9 @@ export function startHand(gameId: string): GameState {
   const game = getGame(gameId);
 
   if (game.table.isHandInProgress()) {
-    throw new Error("Hand already in progress");
+    throw new Error(
+      `Cannot start hand in game ${gameId}: hand already in progress`,
+    );
   }
 
   game.folded.clear();
@@ -280,7 +297,7 @@ export function getMyTurn(gameId: string, playerId: string): MyTurnResponse {
       myHand = cards.map(formatCard);
     }
   } catch {
-    // no cards dealt yet
+    // poker-ts throws when no hand is in progress
   }
 
   // Get valid actions if it's this player's turn
@@ -313,7 +330,7 @@ export function getMyTurn(gameId: string, playerId: string): MyTurnResponse {
       }
     }
   } catch {
-    // no actions available
+    // poker-ts throws when no betting round is active
   }
 
   return { gameState, myHand, validActions };
@@ -332,15 +349,21 @@ export function submitAction(
   }
 
   if (!game.table.isHandInProgress()) {
-    throw new Error("No hand in progress");
+    throw new Error(
+      `Cannot submit action for player ${playerId} in game ${gameId}: no hand in progress`,
+    );
   }
 
   if (!game.table.isBettingRoundInProgress()) {
-    throw new Error("No betting round in progress");
+    throw new Error(
+      `Cannot submit action for player ${playerId} in game ${gameId}: no betting round in progress`,
+    );
   }
 
   if (game.table.playerToAct() !== seatIndex) {
-    throw new Error("Not your turn");
+    throw new Error(
+      `Cannot submit action for player ${playerId} in game ${gameId}: not this player's turn`,
+    );
   }
 
   // Validate action is legal
@@ -400,11 +423,13 @@ export function advanceGame(gameId: string): GameState {
   const game = getGame(gameId);
 
   if (!game.table.isHandInProgress()) {
-    throw new Error("No hand in progress");
+    throw new Error(`Cannot advance game ${gameId}: no hand in progress`);
   }
 
   if (game.table.isBettingRoundInProgress()) {
-    throw new Error("Betting round still in progress");
+    throw new Error(
+      `Cannot advance game ${gameId}: betting round still in progress`,
+    );
   }
 
   if (game.table.areBettingRoundsCompleted()) {
@@ -413,7 +438,7 @@ export function advanceGame(gameId: string): GameState {
     try {
       communityCards = game.table.communityCards().map(formatCard);
     } catch {
-      // no community cards
+      // poker-ts throws when no community cards exist (preflop fold-out)
     }
 
     // Save pots before showdown
@@ -475,11 +500,18 @@ export function advanceGame(gameId: string): GameState {
 
     // If only one active player remains (everyone else folded), or all remaining
     // players are all-in, keep advancing through remaining rounds automatically
+    const MAX_ROUND_ADVANCES = 10;
+    let advances = 0;
     while (
       game.table.isHandInProgress() &&
       !game.table.isBettingRoundInProgress() &&
       !game.table.areBettingRoundsCompleted()
     ) {
+      if (++advances > MAX_ROUND_ADVANCES) {
+        throw new Error(
+          `advanceGame: exceeded ${MAX_ROUND_ADVANCES} round advances — possible infinite loop`,
+        );
+      }
       game.table.endBettingRound();
     }
 

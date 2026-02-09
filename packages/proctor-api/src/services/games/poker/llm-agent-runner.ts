@@ -63,7 +63,12 @@ export class LlmAgentRunner implements AgentRunner {
 
   injectMessage(playerId: string, message: string): void {
     const agent = this.agents.get(playerId);
-    if (!agent) return;
+    if (!agent) {
+      console.warn(
+        `[llm-agent-runner] injectMessage called for unknown agent: ${playerId}`,
+      );
+      return;
+    }
     agent.messages.push({ role: "user", content: message });
   }
 

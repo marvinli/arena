@@ -68,7 +68,7 @@ describe("poker-engine", () => {
     it("throws when hand already in progress", () => {
       const gameId = createTestGame();
       startHand(gameId);
-      expect(() => startHand(gameId)).toThrow("Hand already in progress");
+      expect(() => startHand(gameId)).toThrow("hand already in progress");
     });
   });
 
@@ -127,7 +127,7 @@ describe("poker-engine", () => {
       const otherId = TEST_PLAYERS.find((p) => p.id !== currentId)!.id;
 
       expect(() => submitAction(gameId, otherId, "call")).toThrow(
-        "Not your turn",
+        "not this player's turn",
       );
     });
 

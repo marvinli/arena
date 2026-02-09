@@ -369,7 +369,7 @@ describe("poker-api GraphQL", () => {
       const { gameId } = await createAndStart();
       const res = await gql(START_HAND, { gameId });
       expect(res.errors).toBeDefined();
-      expect(res.errors![0].message).toBe("Hand already in progress");
+      expect(res.errors![0].message).toContain("hand already in progress");
     });
 
     it("submitAction with invalid enum value returns validation error", async () => {
