@@ -13,6 +13,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     id: ID!
     name: String!
     chips: Int!
+    bet: Int!
     status: String!
     seatIndex: Int!
   }

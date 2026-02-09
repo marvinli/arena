@@ -88,6 +88,7 @@ describe("instruction-builder", () => {
         id: "p1",
         name: "Alice",
         chips: 1000,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 0,
       });
@@ -95,6 +96,7 @@ describe("instruction-builder", () => {
         id: "p2",
         name: "Bob",
         chips: 500,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 1,
       });
@@ -150,6 +152,7 @@ describe("instruction-builder", () => {
         id: "p1",
         name: "Alice",
         chips: 1000,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 0,
       });
@@ -236,6 +239,7 @@ describe("instruction-builder", () => {
         id: "p1",
         name: "Alice",
         chips: 1000,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 0,
       });
@@ -358,6 +362,7 @@ describe("instruction-builder", () => {
         id: "p1",
         name: "Alice",
         chips: 1000,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 0,
       });
@@ -365,6 +370,7 @@ describe("instruction-builder", () => {
         id: "p2",
         name: "Bob",
         chips: 500,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 1,
       });
@@ -397,6 +403,7 @@ describe("instruction-builder", () => {
         id: "p1",
         name: "Alice",
         chips: 1000,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 0,
       });
@@ -404,6 +411,7 @@ describe("instruction-builder", () => {
         id: "p2",
         name: "Bob",
         chips: 500,
+        bet: 0,
         status: "ACTIVE",
         seatIndex: 1,
       });

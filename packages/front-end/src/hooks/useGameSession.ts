@@ -23,6 +23,7 @@ interface GqlPlayerInfo {
   id: string;
   name: string;
   chips: number;
+  bet: number;
   status: string;
   seatIndex: number;
 }
@@ -269,7 +270,7 @@ function mapPlayer(
     isActive: existing?.isActive ?? false,
     isAllIn: info.status === "ALL_IN",
     lastAction: existing?.lastAction ?? null,
-    currentBet: existing?.currentBet ?? 0,
+    currentBet: info.bet,
   };
 }
 
@@ -361,7 +362,6 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
           ...p,
           cards: null as [Card, Card] | null,
           lastAction: null as PlayerAction,
-          currentBet: 0,
           isActive: false,
         }),
       );
@@ -404,7 +404,6 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
             return {
               ...p,
               lastAction: pa.action as PlayerAction,
-              currentBet: pa.amount ?? 0,
               isActive: false,
             };
           }
@@ -426,7 +425,6 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
           ...p,
           cards: state.holeCards.get(p.id) ?? null,
           lastAction: null as PlayerAction,
-          currentBet: 0,
           isActive: false,
         }),
       );
@@ -446,7 +444,6 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
         ...p,
         cards: null as [Card, Card] | null,
         lastAction: null as PlayerAction,
-        currentBet: 0,
         isActive: false,
         isDealer: false,
       }));
@@ -468,7 +465,6 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
         ...p,
         cards: null as [Card, Card] | null,
         lastAction: null as PlayerAction,
-        currentBet: 0,
         isActive: false,
       }));
       return {

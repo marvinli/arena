@@ -23,6 +23,7 @@ function toPlayerInfos(
     id: p.id,
     name: p.name,
     chips: p.chips,
+    bet: p.bet,
     status: p.status,
     seatIndex: p.seatIndex,
   }));

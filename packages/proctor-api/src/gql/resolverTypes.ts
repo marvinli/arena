@@ -260,6 +260,7 @@ export type PlayerHand = {
 
 export type PlayerInfo = {
   __typename?: 'PlayerInfo';
+  bet: Scalars['Int']['output'];
   chips: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
@@ -734,6 +735,7 @@ export type PlayerHandResolvers<ContextType = Context, ParentType extends Resolv
 };
 
 export type PlayerInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerInfo'] = ResolversParentTypes['PlayerInfo']> = {
+  bet?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   chips?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

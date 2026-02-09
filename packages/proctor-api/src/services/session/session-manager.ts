@@ -18,6 +18,7 @@ export interface GameStateSnapshot {
     id: string;
     name: string;
     chips: number;
+    bet: number;
     status: string;
     seatIndex: number;
   }>;

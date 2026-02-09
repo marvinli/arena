@@ -37,14 +37,14 @@ export const RENDER_INSTRUCTIONS_SUB = `
 
       gameStart {
         gameId
-        players { id name chips status seatIndex }
+        players { id name chips bet status seatIndex }
         smallBlind
         bigBlind
       }
 
       dealHands {
         handNumber
-        players { id name chips status seatIndex }
+        players { id name chips bet status seatIndex }
         hands { playerId cards { rank suit } }
         button
         pots { size eligiblePlayerIds }
@@ -63,25 +63,25 @@ export const RENDER_INSTRUCTIONS_SUB = `
         amount
         analysis
         pots { size eligiblePlayerIds }
-        players { id name chips status seatIndex }
+        players { id name chips bet status seatIndex }
       }
 
       handResult {
         winners { playerId amount hand }
         pots { size eligiblePlayerIds }
-        players { id name chips status seatIndex }
+        players { id name chips bet status seatIndex }
         communityCards { rank suit }
       }
 
       leaderboard {
-        players { id name chips status seatIndex }
+        players { id name chips bet status seatIndex }
         handsPlayed
       }
 
       gameOver {
         winnerId
         winnerName
-        players { id name chips status seatIndex }
+        players { id name chips bet status seatIndex }
         handsPlayed
       }
     }
