@@ -1,4 +1,6 @@
 import Claude from "@lobehub/icons/es/Claude";
+import Gemini from "@lobehub/icons/es/Gemini";
+import OpenAI from "@lobehub/icons/es/OpenAI";
 import { useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
 import { ChipStackDisplay } from "./ChipStack";
@@ -81,7 +83,8 @@ export function PlayerSeat({
               style={{ "--seat-color": seatColor } as React.CSSProperties}
             >
               <div className={styles.avatar}>
-                {player.avatar ? (
+                {player.avatar &&
+                !["anthropic", "openai", "google"].includes(player.avatar) ? (
                   <img
                     src={player.avatar}
                     alt={player.name}
@@ -91,6 +94,10 @@ export function PlayerSeat({
                       objectFit: "cover",
                     }}
                   />
+                ) : player.avatar === "openai" ? (
+                  <OpenAI.Avatar size={42} />
+                ) : player.avatar === "google" ? (
+                  <Gemini.Avatar size={42} />
                 ) : (
                   <Claude.Color style={{ width: "60%", height: "60%" }} />
                 )}

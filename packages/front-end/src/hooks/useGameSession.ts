@@ -142,6 +142,24 @@ const DEFAULT_CONFIG = {
       provider: "anthropic",
       ttsVoice: "t0jbNlBVZ17f02VDIeMI", // Jessica
     },
+    {
+      playerId: "agent-3",
+      name: "GPT-5 Mini",
+      modelId: "gpt-5-mini",
+      modelName: "GPT-5 Mini",
+      provider: "openai",
+      avatarUrl: "openai",
+      ttsVoice: "bVMeCyTHy58xNoL34h3p", // Jeremy
+    },
+    {
+      playerId: "agent-4",
+      name: "Gemini",
+      modelId: "gemini-2.5-flash",
+      modelName: "Gemini 2.5 Flash",
+      provider: "google",
+      avatarUrl: "google",
+      ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Sarah
+    },
   ],
   startingChips: 1000,
   smallBlind: 10,
