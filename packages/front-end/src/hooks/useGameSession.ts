@@ -548,6 +548,9 @@ export function useGameSession() {
       // Process instructions sequentially in background
       void (async () => {
         const voiceMap = new Map<string, string>();
+        // Gate: wait for in-flight TTS before starting the next PLAYER_ANALYSIS.
+        // This lets the proctor run one turn ahead (LLM call overlaps with TTS).
+        let ttsGate: Promise<void> = Promise.resolve();
 
         try {
           for await (const instruction of sseSubscribe(
@@ -556,6 +559,11 @@ export function useGameSession() {
             abort.signal,
             resolveConnected,
           )) {
+            // Gate: don't start a new player's analysis until previous TTS finishes
+            if (instruction.type === "PLAYER_ANALYSIS") {
+              await ttsGate;
+            }
+
             // Update state immediately
             dispatch({ type: "INSTRUCTION", instruction });
 
@@ -570,7 +578,8 @@ export function useGameSession() {
             const pauseMs = INSTRUCTION_DELAYS[instruction.type] ?? 1000;
             await delay(pauseMs, abort.signal);
 
-            // If player analysis, play TTS of the pre-action thinking
+            // Fire-and-forget TTS — ack immediately so the proctor can start
+            // the next player's LLM call while audio plays
             if (
               instruction.type === "PLAYER_ANALYSIS" &&
               instruction.playerAnalysis?.analysis
@@ -578,8 +587,10 @@ export function useGameSession() {
               const { playerId, analysis } = instruction.playerAnalysis;
               const voiceId = voiceMap.get(playerId) ?? "";
               dispatch({ type: "SPEAK_START", playerId });
-              await speakAnalysis(analysis, voiceId);
-              dispatch({ type: "SPEAK_END" });
+              ttsGate = speakAnalysis(analysis, voiceId).then(
+                () => dispatch({ type: "SPEAK_END" }),
+                () => dispatch({ type: "SPEAK_END" }),
+              );
             }
 
             // Acknowledge instruction
