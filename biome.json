@@ -10,7 +10,11 @@
     }
   },
   "files": {
-    "includes": ["**", "!packages/proctor-api/src/gql/resolverTypes.ts"]
+    "includes": [
+      "**",
+      "!packages/proctor-api/src/gql/resolverTypes.ts",
+      "!logs"
+    ]
   },
   "overrides": [
     {

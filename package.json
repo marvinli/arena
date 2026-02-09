@@ -9,6 +9,7 @@
     "front-end": "npm run dev --workspace=@arena/front-end",
     "proctor-api": "npm run dev --workspace=@arena/proctor-api",
     "test:proctor-api": "npm test --workspace=@arena/proctor-api",
+    "run-game": "npm run run-game --workspace=@arena/proctor-api",
     "check": "biome check .",
     "check:fix": "biome check --write ."
   },
