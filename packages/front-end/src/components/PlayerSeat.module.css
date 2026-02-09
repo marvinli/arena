@@ -91,12 +91,15 @@
 
 .cards {
   display: flex;
+  align-items: center;
   gap: 0.08cqw;
   margin-left: -0.6cqw;
   transform: scale(0.75);
   transform-origin: left center;
   /* Claw back phantom layout space from scale */
   margin-right: -2.8cqw;
+  /* Reserve card height so layout doesn't shift during deal animation */
+  min-height: 7cqw;
   z-index: 1;
   opacity: 1;
   transition:
@@ -108,6 +111,21 @@
   opacity: 0;
   transform: scale(0.4);
   pointer-events: none;
+}
+
+/* ── Card deal-in animation ──────────────────────────────── */
+
+.cardDealIn {
+  animation: dealIn 0.12s ease-out both;
+}
+
+@keyframes dealIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .dealerButton {

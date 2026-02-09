@@ -18,12 +18,16 @@ export function PlayerSeat({
   holeCardSecondClass,
   isSpeaking,
   isDimmed,
+  visibleCards = 2,
+  faceUp = true,
 }: {
   player: Player;
   seatColor: string;
   holeCardSecondClass?: string;
   isSpeaking?: boolean;
   isDimmed?: boolean;
+  visibleCards?: number;
+  faceUp?: boolean;
 }) {
   const seatClass = [
     styles.seat,
@@ -89,20 +93,17 @@ export function PlayerSeat({
           </div>
         </div>
         <div className={cardsClass}>
-          {player.cards ? (
-            <>
-              <PlayingCard card={player.cards[0]} />
-              <div className={holeCardSecondClass}>
-                <PlayingCard card={player.cards[1]} />
-              </div>
-            </>
-          ) : (
-            <>
-              <PlayingCard card={null} />
-              <div className={holeCardSecondClass}>
-                <PlayingCard card={null} />
-              </div>
-            </>
+          {visibleCards >= 1 && (
+            <div className={styles.cardDealIn}>
+              <PlayingCard card={player.cards?.[0] ?? null} faceUp={faceUp} />
+            </div>
+          )}
+          {visibleCards >= 2 && (
+            <div
+              className={`${styles.cardDealIn} ${holeCardSecondClass ?? ""}`}
+            >
+              <PlayingCard card={player.cards?.[1] ?? null} faceUp={faceUp} />
+            </div>
           )}
         </div>
       </div>

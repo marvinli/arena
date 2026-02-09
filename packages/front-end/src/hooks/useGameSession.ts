@@ -157,7 +157,7 @@ const DEFAULT_CONFIG = {
 
 const INSTRUCTION_DELAYS: Record<string, number> = {
   GAME_START: 1500,
-  DEAL_HANDS: 2000,
+  DEAL_HANDS: 2500,
   PLAYER_TURN: 500,
   PLAYER_ANALYSIS: 500,
   PLAYER_ACTION: 1500,
@@ -545,13 +545,68 @@ export function useGameSession() {
         resolveConnected = r;
       });
 
-      // Process instructions sequentially in background
+      // Decouple SSE consumption (acks fast for pipelining) from visual
+      // rendering (dispatches with proper FIFO timing, gating on TTS).
       void (async () => {
         const voiceMap = new Map<string, string>();
-        // Gate: wait for in-flight TTS before starting the next PLAYER_ANALYSIS.
-        // This lets the proctor run one turn ahead (LLM call overlaps with TTS).
         let ttsGate: Promise<void> = Promise.resolve();
 
+        // ── Visual render queue ────────────────────────────
+        // Instructions are pushed here by the SSE consumer and
+        // drained in order by the render loop.
+        const renderQueue: GqlInstruction[] = [];
+        let draining = false;
+
+        function startDrain() {
+          if (draining) return;
+          draining = true;
+          void (async () => {
+            try {
+              while (renderQueue.length > 0) {
+                if (abort.signal.aborted) break;
+                const inst = renderQueue.shift()!;
+
+                // Wait for in-flight TTS before showing analysis or action
+                if (
+                  inst.type === "PLAYER_ANALYSIS" ||
+                  inst.type === "PLAYER_ACTION"
+                ) {
+                  await ttsGate;
+                }
+
+                // Capture player metadata before dispatching
+                if (inst.gameStart?.playerMeta) {
+                  for (const meta of inst.gameStart.playerMeta) {
+                    if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+                  }
+                }
+
+                dispatch({ type: "INSTRUCTION", instruction: inst });
+
+                const pauseMs = INSTRUCTION_DELAYS[inst.type] ?? 1000;
+                await delay(pauseMs, abort.signal);
+
+                // Fire-and-forget TTS after dispatching analysis
+                if (
+                  inst.type === "PLAYER_ANALYSIS" &&
+                  inst.playerAnalysis?.analysis
+                ) {
+                  const { playerId, analysis } = inst.playerAnalysis;
+                  const voiceId = voiceMap.get(playerId) ?? "";
+                  dispatch({ type: "SPEAK_START", playerId });
+                  ttsGate = speakAnalysis(analysis, voiceId).then(
+                    () => dispatch({ type: "SPEAK_END" }),
+                    () => dispatch({ type: "SPEAK_END" }),
+                  );
+                }
+              }
+            } finally {
+              draining = false;
+            }
+          })();
+        }
+
+        // ── SSE consumer — acks immediately for pipelining ─
         try {
           for await (const instruction of sseSubscribe(
             RENDER_INSTRUCTIONS_SUB,
@@ -559,41 +614,11 @@ export function useGameSession() {
             abort.signal,
             resolveConnected,
           )) {
-            // Gate: don't start a new player's analysis until previous TTS finishes
-            if (instruction.type === "PLAYER_ANALYSIS") {
-              await ttsGate;
-            }
+            renderQueue.push(instruction);
+            startDrain();
 
-            // Update state immediately
-            dispatch({ type: "INSTRUCTION", instruction });
-
-            // Capture player metadata from GAME_START
-            if (instruction.gameStart?.playerMeta) {
-              for (const meta of instruction.gameStart.playerMeta) {
-                if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
-              }
-            }
-
-            // Pause so the user can see each state change
-            const pauseMs = INSTRUCTION_DELAYS[instruction.type] ?? 1000;
-            await delay(pauseMs, abort.signal);
-
-            // Fire-and-forget TTS — ack immediately so the proctor can start
-            // the next player's LLM call while audio plays
-            if (
-              instruction.type === "PLAYER_ANALYSIS" &&
-              instruction.playerAnalysis?.analysis
-            ) {
-              const { playerId, analysis } = instruction.playerAnalysis;
-              const voiceId = voiceMap.get(playerId) ?? "";
-              dispatch({ type: "SPEAK_START", playerId });
-              ttsGate = speakAnalysis(analysis, voiceId).then(
-                () => dispatch({ type: "SPEAK_END" }),
-                () => dispatch({ type: "SPEAK_END" }),
-              );
-            }
-
-            // Acknowledge instruction
+            // Ack immediately so the proctor can pipeline the
+            // next LLM call while we render at our own pace.
             await gqlFetch(RENDER_COMPLETE_MUT, {
               channelKey: CHANNEL_KEY,
               instructionId: instruction.instructionId,

@@ -1,3 +1,4 @@
+import { useDealAnimation } from "../hooks/useDealAnimation";
 import type { Card, Player, Pot } from "../types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./PlayingCard";
@@ -41,12 +42,18 @@ export function PokerTable({
   communityCards,
   pots,
   speakingPlayerId,
+  handNumber,
+  button,
 }: {
   players: Player[];
   communityCards: Card[];
   pots: Pot[];
   speakingPlayerId: string | null;
+  handNumber: number;
+  button: number | null;
 }) {
+  const dealAnimation = useDealAnimation(handNumber, button, players);
+
   // If any player is active or speaking, dim everyone else
   const highlightedId =
     speakingPlayerId ?? players.find((p) => p.isActive)?.id ?? null;
@@ -112,6 +119,8 @@ export function PokerTable({
                 holeCardSecondClass={styles.holeCardSecond}
                 isSpeaking={player.id === speakingPlayerId}
                 isDimmed={highlightedId !== null && player.id !== highlightedId}
+                visibleCards={dealAnimation.get(i)?.visibleCards ?? 2}
+                faceUp={dealAnimation.get(i)?.faceUp ?? true}
               />
             </div>
             {showBet && player.currentBet > 0 && (

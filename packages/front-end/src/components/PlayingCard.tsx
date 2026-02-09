@@ -72,23 +72,39 @@ function CardBackDesign() {
   );
 }
 
-export function PlayingCard({ card }: { card: Card | null }) {
-  if (!card) {
-    return (
-      <div className={`${styles.card} ${styles.back}`}>
-        <CardBackDesign />
-      </div>
-    );
-  }
+export function PlayingCard({
+  card,
+  faceUp,
+}: {
+  card: Card | null;
+  faceUp?: boolean;
+}) {
+  // Show front face only when we have actual card data.
+  // When card is null, always show the back regardless of faceUp.
+  const showFace = card !== null && (faceUp ?? true);
 
-  const isRed = RED_SUITS.has(card.suit);
-  const symbol = SUIT_SYMBOLS[card.suit];
+  const isRed = card ? RED_SUITS.has(card.suit) : false;
+  const symbol = card ? SUIT_SYMBOLS[card.suit] : "";
+
   return (
     <div
-      className={`${styles.card} ${styles.front} ${isRed ? styles.red : styles.black}`}
+      className={`${styles.cardContainer} ${showFace ? styles.flipped : ""}`}
     >
-      <span className={styles.rank}>{card.rank}</span>
-      <span className={styles.centerSuit}>{symbol}</span>
+      {/* Back face (visible when not flipped) */}
+      <div className={`${styles.card} ${styles.back} ${styles.cardFace}`}>
+        <CardBackDesign />
+      </div>
+      {/* Front face (visible when flipped) */}
+      <div
+        className={`${styles.card} ${styles.front} ${styles.cardFace} ${isRed ? styles.red : styles.black}`}
+      >
+        {card && (
+          <>
+            <span className={styles.rank}>{card.rank}</span>
+            <span className={styles.centerSuit}>{symbol}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 }

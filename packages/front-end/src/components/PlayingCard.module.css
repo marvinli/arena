@@ -1,6 +1,52 @@
-.card {
+/* ── 3D flip container ─────────────────────────────────── */
+
+.cardContainer {
   width: 5cqw;
   height: 7cqw;
+  perspective: 40cqw;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.cardFace {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform 0.4s ease;
+}
+
+/* Back face: starts facing viewer */
+.back {
+  background: #8b1a1a;
+  border: 0.08cqw solid #a02020;
+  transform: rotateY(0deg);
+}
+
+/* Front face: starts facing away */
+.front {
+  background: #f8f9fc;
+  border: 0.08cqw solid #d4d8e8;
+  transform: rotateY(180deg);
+}
+
+/* When flipped: back rotates away, front rotates into view */
+.flipped .back {
+  transform: rotateY(-180deg);
+}
+
+.flipped .front {
+  transform: rotateY(0deg);
+}
+
+/* ── Card shared ───────────────────────────────────────── */
+
+.card {
+  width: 100%;
+  height: 100%;
   border-radius: 0.47cqw;
   display: flex;
   flex-direction: column;
@@ -8,14 +54,6 @@
   justify-content: center;
   font-weight: 700;
   box-shadow: 0 0.08cqw 0.31cqw rgba(0, 0, 0, 0.3);
-  flex-shrink: 0;
-  position: relative;
-}
-
-/* Card face */
-.front {
-  background: #f8f9fc;
-  border: 0.08cqw solid #d4d8e8;
 }
 
 .red {
@@ -38,12 +76,6 @@
 
 .centerSuit {
   font-size: 4.2cqw;
-}
-
-/* Card back */
-.back {
-  background: #8b1a1a;
-  border: 0.08cqw solid #a02020;
 }
 
 .backDesign {

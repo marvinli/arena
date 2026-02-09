@@ -21,6 +21,8 @@ export function App() {
         communityCards={state.communityCards}
         pots={state.pots}
         speakingPlayerId={state.speakingPlayerId}
+        handNumber={state.handNumber}
+        button={state.button}
       />
       {state.status === "finished" && (
         <button
