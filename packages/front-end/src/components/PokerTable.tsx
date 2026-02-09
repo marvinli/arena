@@ -89,7 +89,7 @@ export function PokerTable({
         const betX = seat.x + dx * step;
         const yNudge = i === 3 || i === 7 ? -3 : 0;
         const betY = seat.y + dy * step + yNudge;
-        const showBet = player.lastAction && player.lastAction !== "fold";
+        const showBet = player.currentBet > 0;
 
         return (
           <div key={player.id}>

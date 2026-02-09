@@ -153,7 +153,8 @@ export enum InstructionType {
   GameStart = 'GAME_START',
   HandResult = 'HAND_RESULT',
   Leaderboard = 'LEADERBOARD',
-  PlayerAction = 'PLAYER_ACTION'
+  PlayerAction = 'PLAYER_ACTION',
+  PlayerTurn = 'PLAYER_TURN'
 }
 
 export type LeaderboardPayload = {
@@ -281,6 +282,12 @@ export enum PlayerStatus {
   Folded = 'FOLDED'
 }
 
+export type PlayerTurnPayload = {
+  __typename?: 'PlayerTurnPayload';
+  playerId: Scalars['ID']['output'];
+  playerName: Scalars['String']['output'];
+};
+
 export type Pot = {
   __typename?: 'Pot';
   eligiblePlayerIds: Array<Scalars['ID']['output']>;
@@ -351,6 +358,7 @@ export type RenderInstruction = {
   instructionId: Scalars['ID']['output'];
   leaderboard?: Maybe<LeaderboardPayload>;
   playerAction?: Maybe<PlayerActionPayload>;
+  playerTurn?: Maybe<PlayerTurnPayload>;
   timestamp: Scalars['String']['output'];
   type: InstructionType;
 };
@@ -521,6 +529,7 @@ export type ResolversTypes = {
   PlayerInfo: ResolverTypeWrapper<PlayerInfo>;
   PlayerInput: PlayerInput;
   PlayerStatus: PlayerStatus;
+  PlayerTurnPayload: ResolverTypeWrapper<PlayerTurnPayload>;
   Pot: ResolverTypeWrapper<Pot>;
   PotInfo: ResolverTypeWrapper<PotInfo>;
   ProctorGameState: ResolverTypeWrapper<ProctorGameState>;
@@ -566,6 +575,7 @@ export type ResolversParentTypes = {
   PlayerHand: PlayerHand;
   PlayerInfo: PlayerInfo;
   PlayerInput: PlayerInput;
+  PlayerTurnPayload: PlayerTurnPayload;
   Pot: Pot;
   PotInfo: PotInfo;
   ProctorGameState: ProctorGameState;
@@ -744,6 +754,12 @@ export type PlayerInfoResolvers<ContextType = Context, ParentType extends Resolv
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type PlayerTurnPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerTurnPayload'] = ResolversParentTypes['PlayerTurnPayload']> = {
+  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type PotResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Pot'] = ResolversParentTypes['Pot']> = {
   eligiblePlayerIds?: Resolver<Array<ResolversTypes['ID']>, ParentType, ContextType>;
   size?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
@@ -786,6 +802,7 @@ export type RenderInstructionResolvers<ContextType = Context, ParentType extends
   instructionId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   leaderboard?: Resolver<Maybe<ResolversTypes['LeaderboardPayload']>, ParentType, ContextType>;
   playerAction?: Resolver<Maybe<ResolversTypes['PlayerActionPayload']>, ParentType, ContextType>;
+  playerTurn?: Resolver<Maybe<ResolversTypes['PlayerTurnPayload']>, ParentType, ContextType>;
   timestamp?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['InstructionType'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
@@ -851,6 +868,7 @@ export type Resolvers<ContextType = Context> = {
   PlayerActionPayload?: PlayerActionPayloadResolvers<ContextType>;
   PlayerHand?: PlayerHandResolvers<ContextType>;
   PlayerInfo?: PlayerInfoResolvers<ContextType>;
+  PlayerTurnPayload?: PlayerTurnPayloadResolvers<ContextType>;
   Pot?: PotResolvers<ContextType>;
   PotInfo?: PotInfoResolvers<ContextType>;
   ProctorGameState?: ProctorGameStateResolvers<ContextType>;

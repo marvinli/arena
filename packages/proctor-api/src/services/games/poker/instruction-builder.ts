@@ -90,6 +90,19 @@ export function buildDealCommunity(
   };
 }
 
+export function buildPlayerTurn(
+  playerId: string,
+  playerName: string,
+): RenderInstruction {
+  return {
+    ...base(InstructionType.PlayerTurn),
+    playerTurn: {
+      playerId,
+      playerName,
+    },
+  };
+}
+
 export function buildPlayerAction(
   playerId: string,
   playerName: string,

@@ -14,6 +14,7 @@ import {
   buildHandResult,
   buildLeaderboard,
   buildPlayerAction,
+  buildPlayerTurn,
 } from "./instruction-builder.js";
 import {
   formatDealCommunity,
@@ -197,6 +198,9 @@ async function playTurn(
   const playerId = currentState.currentPlayerId as string;
   const playerName =
     currentState.players.find((p) => p.id === playerId)?.name ?? playerId;
+
+  // Signal the front-end that this player is about to act
+  await emit(ctx.session, buildPlayerTurn(playerId, playerName), ctx.signal);
 
   const { result, state } = await resolveAction(ctx, playerId);
   updateGameState(ctx.session, state);

@@ -3,6 +3,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     GAME_START
     DEAL_HANDS
     DEAL_COMMUNITY
+    PLAYER_TURN
     PLAYER_ACTION
     HAND_RESULT
     LEADERBOARD
@@ -60,6 +61,11 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     pots: [PotInfo!]!
   }
 
+  type PlayerTurnPayload {
+    playerId: ID!
+    playerName: String!
+  }
+
   type PlayerActionPayload {
     playerId: ID!
     playerName: String!
@@ -96,6 +102,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     gameStart: GameStartPayload
     dealHands: DealHandsPayload
     dealCommunity: DealCommunityPayload
+    playerTurn: PlayerTurnPayload
     playerAction: PlayerActionPayload
     handResult: HandResultPayload
     leaderboard: LeaderboardPayload

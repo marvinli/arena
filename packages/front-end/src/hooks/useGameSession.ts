@@ -60,6 +60,10 @@ interface GqlInstruction {
     communityCards: GqlCardInfo[];
     pots: GqlPotInfo[];
   } | null;
+  playerTurn?: {
+    playerId: string;
+    playerName: string;
+  } | null;
   playerAction?: {
     playerId: string;
     playerName: string;
@@ -149,6 +153,7 @@ const VOICE_IDS: Record<string, string> = {
 const INSTRUCTION_DELAYS: Record<string, number> = {
   GAME_START: 1500,
   DEAL_HANDS: 2000,
+  PLAYER_TURN: 500,
   PLAYER_ACTION: 1500,
   DEAL_COMMUNITY: 1500,
   HAND_RESULT: 3000,
@@ -360,7 +365,7 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
       const players = mapPlayers(dh.players, dh.button, state.players).map(
         (p) => ({
           ...p,
-          cards: null as [Card, Card] | null,
+          cards: holeCards.get(p.id) ?? null,
           lastAction: null as PlayerAction,
           isActive: false,
         }),
@@ -393,6 +398,16 @@ function handleInstruction(state: GameState, inst: GqlInstruction): GameState {
         pots: mapPots(dc.pots),
         players,
       };
+    }
+
+    case "PLAYER_TURN": {
+      const pt = inst.playerTurn;
+      if (!pt) return state;
+      const players = state.players.map((p) => ({
+        ...p,
+        isActive: p.id === pt.playerId,
+      }));
+      return { ...state, players };
     }
 
     case "PLAYER_ACTION": {

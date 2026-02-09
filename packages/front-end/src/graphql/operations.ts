@@ -56,6 +56,11 @@ export const RENDER_INSTRUCTIONS_SUB = `
         pots { size eligiblePlayerIds }
       }
 
+      playerTurn {
+        playerId
+        playerName
+      }
+
       playerAction {
         playerId
         playerName

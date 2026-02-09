@@ -31,6 +31,10 @@ export function PlayerSeat({
 
   const showCards = !player.isFolded;
 
+  const actionBadgeClass = player.lastAction
+    ? `${styles.actionBadge} ${player.lastAction === "fold" ? styles.actionFold : ""}`
+    : undefined;
+
   return (
     <div className={seatClass}>
       <div className={styles.topRow}>
@@ -79,6 +83,11 @@ export function PlayerSeat({
                 </div>
               </>
             )}
+          </div>
+        )}
+        {player.lastAction && actionBadgeClass && (
+          <div className={actionBadgeClass}>
+            {player.lastAction.toUpperCase()}
           </div>
         )}
         {player.isDealer && <div className={styles.dealerButton}>D</div>}

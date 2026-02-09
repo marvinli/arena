@@ -141,7 +141,7 @@ function buildPlayers(game: Game): Player[] {
     return {
       id: pm.id,
       name: pm.name,
-      chips: seat.totalChips,
+      chips: seat.totalChips - seat.betSize,
       bet: seat.betSize,
       status,
       seatIndex: pm.seatIndex,
