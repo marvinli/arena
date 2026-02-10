@@ -1,4 +1,4 @@
-import * as gm from "../../../services/games/poker/poker-engine.js";
+import * as gm from "../../../services/games/poker/poker-engine/index.js";
 import type { QueryResolvers } from "../../resolverTypes.js";
 
 const getHistory: QueryResolvers["getHistory"] = (

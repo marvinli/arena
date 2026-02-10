@@ -6,7 +6,7 @@ dotenv.config({ path: join(import.meta.dirname, "../../../.env") });
 
 import type { RenderInstruction } from "../src/gql/resolverTypes.js";
 import { LlmAgentRunner } from "../src/services/games/poker/llm-agent-runner.js";
-import { runSession } from "../src/services/games/poker/orchestrator.js";
+import { runSession } from "../src/services/games/poker/orchestrator/index.js";
 import * as pubsub from "../src/services/session/pubsub.js";
 import { createSession } from "../src/services/session/session-manager.js";
 

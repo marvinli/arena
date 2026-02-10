@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _resetGames } from "../src/services/games/poker/poker-engine.js";
+import { _resetGames } from "../src/services/games/poker/poker-engine/index.js";
 import { gql } from "./yoga-helper.js";
 
 const CREATE_GAME = /* GraphQL */ `

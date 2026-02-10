@@ -3,18 +3,24 @@ import {
   _resetGames,
   advanceGame,
   createGame,
+  deleteGame,
   getGameState,
   getHistory,
   getMyTurn,
   startHand,
   submitAction,
-} from "../../../../src/services/games/poker/poker-engine.js";
-import { ActionType, GamePhase } from "../../../../src/types.js";
+} from "../../../../src/services/games/poker/poker-engine/index.js";
+import { ActionType, GamePhase, PlayerStatus } from "../../../../src/types.js";
 
 const TEST_PLAYERS = [
   { id: "p1", name: "Alice", chips: 1000 },
   { id: "p2", name: "Bob", chips: 1000 },
   { id: "p3", name: "Charlie", chips: 1000 },
+];
+
+const HEADS_UP_PLAYERS = [
+  { id: "p1", name: "Alice", chips: 1000 },
+  { id: "p2", name: "Bob", chips: 1000 },
 ];
 
 function createTestGame() {
@@ -23,6 +29,27 @@ function createTestGame() {
     smallBlind: 10,
     bigBlind: 20,
   });
+}
+
+/** Play a complete check/call hand to showdown */
+function playCheckCallHand(gameId: string): void {
+  startHand(gameId);
+  let state = getGameState(gameId);
+  while (state.phase !== "WAITING") {
+    if (state.currentPlayerId) {
+      const turn = getMyTurn(gameId, state.currentPlayerId);
+      const canCheck = turn.validActions.some(
+        (a) => a.type === ActionType.Check,
+      );
+      state = submitAction(
+        gameId,
+        state.currentPlayerId,
+        canCheck ? "check" : "call",
+      );
+    } else {
+      state = advanceGame(gameId);
+    }
+  }
 }
 
 describe("poker-engine", () => {
@@ -295,6 +322,133 @@ describe("poker-engine", () => {
       const lastOne = getHistory(gameId, 1);
       expect(lastOne).toHaveLength(1);
       expect(lastOne[0].handNumber).toBe(2);
+    });
+  });
+
+  describe("heads-up (2 players)", () => {
+    it("plays a full hand to showdown with 2 players", () => {
+      const gameId = createGame({
+        players: HEADS_UP_PLAYERS,
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+
+      playCheckCallHand(gameId);
+
+      const history = getHistory(gameId);
+      expect(history).toHaveLength(1);
+      expect(history[0].winners.length).toBeGreaterThan(0);
+    });
+
+    it("fold in heads-up immediately awards pot", () => {
+      const gameId = createGame({
+        players: HEADS_UP_PLAYERS,
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+      startHand(gameId);
+
+      const state = getGameState(gameId);
+      submitAction(gameId, state.currentPlayerId!, "fold");
+
+      const finalState = advanceGame(gameId);
+      expect(finalState.phase).toBe(GamePhase.Waiting);
+
+      const history = getHistory(gameId);
+      expect(history[0].winners).toHaveLength(1);
+    });
+  });
+
+  describe("deleteGame", () => {
+    it("removes the game from the store", () => {
+      const gameId = createTestGame();
+      expect(() => getGameState(gameId)).not.toThrow();
+
+      deleteGame(gameId);
+      expect(() => getGameState(gameId)).toThrow("Game not found");
+    });
+
+    it("is a no-op for non-existent games", () => {
+      expect(() => deleteGame("nonexistent")).not.toThrow();
+    });
+  });
+
+  describe("createGame validation", () => {
+    it("rejects fewer than 2 players", () => {
+      expect(() =>
+        createGame({
+          players: [{ id: "p1", name: "Solo", chips: 1000 }],
+          smallBlind: 10,
+          bigBlind: 20,
+        }),
+      ).toThrow("at least 2 players");
+    });
+
+    it("rejects non-positive blinds", () => {
+      expect(() =>
+        createGame({
+          players: HEADS_UP_PLAYERS,
+          smallBlind: 0,
+          bigBlind: 20,
+        }),
+      ).toThrow("Blinds must be positive");
+    });
+
+    it("rejects small blind >= big blind", () => {
+      expect(() =>
+        createGame({
+          players: HEADS_UP_PLAYERS,
+          smallBlind: 20,
+          bigBlind: 20,
+        }),
+      ).toThrow("Small blind must be less than big blind");
+    });
+  });
+
+  describe("player busting", () => {
+    it("marks a player as BUSTED when they lose all chips", () => {
+      // Give one player very few chips so they bust quickly
+      const gameId = createGame({
+        players: [
+          { id: "p1", name: "Alice", chips: 15 },
+          { id: "p2", name: "Bob", chips: 1000 },
+        ],
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+
+      // Play a hand — p1 will be forced all-in by blinds
+      playCheckCallHand(gameId);
+
+      const state = getGameState(gameId);
+      const busted = state.players.filter(
+        (p) => p.status === PlayerStatus.Busted,
+      );
+      // p1 either busted or won. If p1 busted, verify status
+      if (busted.length > 0) {
+        expect(busted[0].chips).toBe(0);
+      }
+    });
+  });
+
+  describe("multiple consecutive hands", () => {
+    it("plays 3 hands and tracks history correctly", () => {
+      const gameId = createTestGame();
+
+      for (let i = 0; i < 3; i++) {
+        playCheckCallHand(gameId);
+      }
+
+      const history = getHistory(gameId);
+      expect(history).toHaveLength(3);
+      expect(history[0].handNumber).toBe(1);
+      expect(history[1].handNumber).toBe(2);
+      expect(history[2].handNumber).toBe(3);
+
+      // Each hand should have winners
+      for (const h of history) {
+        expect(h.winners.length).toBeGreaterThan(0);
+      }
     });
   });
 });

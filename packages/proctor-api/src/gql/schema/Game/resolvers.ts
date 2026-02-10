@@ -1,4 +1,4 @@
-import * as gm from "../../../services/games/poker/poker-engine.js";
+import * as gm from "../../../services/games/poker/poker-engine/index.js";
 import type { MutationResolvers, QueryResolvers } from "../../resolverTypes.js";
 
 const getGameState: QueryResolvers["getGameState"] = (_parent, { gameId }) => {

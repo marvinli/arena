@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RenderInstruction } from "../../../../src/gql/resolverTypes.js";
 import type { AgentRunner } from "../../../../src/services/games/poker/agent-runner.js";
-import { runSession } from "../../../../src/services/games/poker/orchestrator.js";
-import { _resetGames } from "../../../../src/services/games/poker/poker-engine.js";
+import { runSession } from "../../../../src/services/games/poker/orchestrator/index.js";
+import { _resetGames } from "../../../../src/services/games/poker/poker-engine/index.js";
 import * as pubsub from "../../../../src/services/session/pubsub.js";
 import { _resetPubSub } from "../../../../src/services/session/pubsub.js";
 import {
@@ -107,7 +107,7 @@ describe("orchestrator", () => {
     expect(session.status).toBe("FINISHED");
   });
 
-  it("hard errors after LLM retries exhausted", async () => {
+  it("auto-folds with fallback line after LLM retries exhausted", async () => {
     const session = createSession("test-channel", baseConfig);
 
     const failingRunner: AgentRunner = {
@@ -121,10 +121,20 @@ describe("orchestrator", () => {
       },
     };
 
-    spyOnPublish();
-    await expect(runSession(session, failingRunner)).rejects.toThrow(
-      /LLM unavailable/,
-    );
+    const instructions = spyOnPublish();
+    await runSession(session, failingRunner);
+
+    expect(session.status).toBe("FINISHED");
+
+    // Should have emitted a PLAYER_ACTION with FOLD (or CHECK) as fallback
+    const action = instructions.find((i) => i.type === "PLAYER_ACTION");
+    expect(action).toBeDefined();
+    expect(["FOLD", "CHECK"]).toContain(action!.playerAction!.action);
+
+    // Should have emitted a PLAYER_ANALYSIS with isApiError
+    const analysis = instructions.find((i) => i.type === "PLAYER_ANALYSIS");
+    expect(analysis).toBeDefined();
+    expect(analysis!.playerAnalysis!.isApiError).toBe(true);
   }, 30_000);
 
   it("stops on abort signal", async () => {
@@ -193,5 +203,97 @@ describe("orchestrator", () => {
       expect(inst.timestamp).toBeDefined();
       expect(inst.instructionId).toBeDefined();
     }
+  });
+
+  it("plays multiple hands and emits LEADERBOARD between them", async () => {
+    const session = createSession("test-channel", {
+      ...baseConfig,
+      handsPerGame: 2,
+    });
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+
+    const instructions = spyOnPublish();
+    await runSession(session, agentRunner);
+
+    expect(session.handNumber).toBe(2);
+
+    const leaderboards = instructions.filter((i) => i.type === "LEADERBOARD");
+    expect(leaderboards.length).toBeGreaterThanOrEqual(1);
+    expect(leaderboards[0].leaderboard!.players.length).toBe(2);
+
+    const dealHands = instructions.filter((i) => i.type === "DEAL_HANDS");
+    expect(dealHands).toHaveLength(2);
+  });
+
+  it("skips PLAYER_ANALYSIS when agent returns no analysis", async () => {
+    const session = createSession("test-channel", baseConfig);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+
+    const instructions = spyOnPublish();
+    await runSession(session, agentRunner);
+
+    const analyses = instructions.filter((i) => i.type === "PLAYER_ANALYSIS");
+    expect(analyses).toHaveLength(0);
+  });
+
+  it("retries and auto-folds on invalid action from agent", async () => {
+    const session = createSession("test-channel", baseConfig);
+
+    let callCount = 0;
+    const badActionRunner: AgentRunner = {
+      initAgent() {},
+      injectMessage() {},
+      async runTurn() {
+        callCount++;
+        // Always return an invalid action (BET without amount)
+        return { action: { type: "BET" }, analysis: "I bet big!" };
+      },
+      async rejectAction() {
+        // Still return bad action
+        return { action: { type: "BET" } };
+      },
+    };
+
+    const instructions = spyOnPublish();
+    await runSession(session, badActionRunner);
+
+    // Should have auto-folded after retries
+    expect(session.status).toBe("FINISHED");
+
+    // Agent should have been called at least once
+    expect(callCount).toBeGreaterThanOrEqual(1);
+
+    // The final action should be FOLD (auto-fold after retries)
+    const actions = instructions.filter((i) => i.type === "PLAYER_ACTION");
+    expect(actions.length).toBeGreaterThan(0);
+    expect(actions[0].playerAction!.action).toBe("FOLD");
+  });
+
+  it("injects opponent actions into other players' agents", async () => {
+    const session = createSession("test-channel", baseConfig);
+
+    const injectedMessages: Array<{ playerId: string; message: string }> = [];
+    const trackingRunner: AgentRunner = {
+      initAgent() {},
+      injectMessage(playerId, message) {
+        injectedMessages.push({ playerId, message });
+      },
+      async runTurn() {
+        return { action: { type: "FOLD" } };
+      },
+      async rejectAction() {
+        return { action: { type: "FOLD" } };
+      },
+    };
+
+    spyOnPublish();
+    await runSession(session, trackingRunner);
+
+    // The non-folding player should have received OPPONENT_ACTION
+    // formatOpponentAction lowercases: "Alice folds."
+    const opponentActions = injectedMessages.filter((m) =>
+      m.message.includes("folds"),
+    );
+    expect(opponentActions.length).toBeGreaterThan(0);
   });
 });

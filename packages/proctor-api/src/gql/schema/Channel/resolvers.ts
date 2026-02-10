@@ -1,5 +1,5 @@
 import { LlmAgentRunner } from "../../../services/games/poker/llm-agent-runner.js";
-import { runSession } from "../../../services/games/poker/orchestrator.js";
+import { runSession } from "../../../services/games/poker/orchestrator/index.js";
 import {
   createSession,
   getSession,

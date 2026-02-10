@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _resetGames } from "../src/services/games/poker/poker-engine.js";
+import { _resetGames } from "../src/services/games/poker/poker-engine/index.js";
 import { _resetPubSub } from "../src/services/session/pubsub.js";
 import { _resetSessions } from "../src/services/session/session-manager.js";
 import { gql } from "./yoga-helper.js";
