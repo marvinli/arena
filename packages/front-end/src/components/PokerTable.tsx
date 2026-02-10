@@ -6,7 +6,7 @@ import { ChipIcon } from "./ChipStack";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./PlayingCard";
 import styles from "./PokerTable.module.css";
-import { ProviderIcon } from "./ProviderIcon";
+import { BRAND_COLORS, ProviderIcon } from "./ProviderIcon";
 
 const SEAT_COLORS = [
   "#e05c5c",
@@ -63,7 +63,9 @@ export function PokerTable({
     ? players.findIndex((p) => p.id === speakingPlayerId)
     : -1;
   const speakingPlayer = speakingIdx >= 0 ? players[speakingIdx] : null;
-  const speakingColor = speakingIdx >= 0 ? SEAT_COLORS[speakingIdx] : undefined;
+  const speakingColor = speakingPlayer
+    ? (BRAND_COLORS[speakingPlayer.avatar] ?? SEAT_COLORS[speakingIdx])
+    : undefined;
 
   // If any player is active or speaking, dim everyone else
   const highlightedId =
@@ -117,6 +119,7 @@ export function PokerTable({
         {players.map((player, i) => {
           const seat = SEAT_POSITIONS[i];
           if (!seat) return null;
+          const seatColor = BRAND_COLORS[player.avatar] ?? SEAT_COLORS[i];
           // Position bet indicator toward center (50, 50)
           const cx = 50;
           const cy = 50;
@@ -125,7 +128,10 @@ export function PokerTable({
           const dist = Math.sqrt(dx * dx + dy * dy);
           const step = Math.min(0.35, 14 / dist);
           const betX = seat.x + dx * step;
-          const yNudge = i === 3 || i === 7 ? -3 : 0;
+          // Nudge bets away from player info to avoid overlap
+          const isTopRow = i >= 4 && i <= 6;
+          const isSideRow = i === 3 || i === 7;
+          const yNudge = isTopRow ? 4 : isSideRow ? -3 : 0;
           const betY = seat.y + dy * step + yNudge;
           const showBet = player.currentBet > 0;
 
@@ -141,7 +147,7 @@ export function PokerTable({
               >
                 <PlayerSeat
                   player={player}
-                  seatColor={SEAT_COLORS[i]}
+                  seatColor={seatColor}
                   holeCardSecondClass={styles.holeCardSecond}
                   isSpeaking={player.id === speakingPlayerId}
                   isDimmed={
@@ -157,16 +163,13 @@ export function PokerTable({
                   style={{
                     left: `${betX}%`,
                     top: `${betY}%`,
-                    borderColor: SEAT_COLORS[i],
+                    borderColor: seatColor,
                   }}
                 >
                   {player.isAllIn && (
                     <span className={styles.allInLabel}>ALL IN</span>
                   )}
-                  <ChipIcon
-                    className={styles.betChipIcon}
-                    color={SEAT_COLORS[i]}
-                  />
+                  <ChipIcon className={styles.betChipIcon} color={seatColor} />
                   <span className={styles.betAmount}>
                     {formatChips(player.currentBet)}
                   </span>

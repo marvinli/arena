@@ -7,16 +7,16 @@ export const DEFAULT_CONFIG = {
     {
       playerId: "agent-1",
       name: "Claude",
-      modelId: "claude-sonnet-4-5-20250929",
-      modelName: "Sonnet 4.5",
+      modelId: "claude-opus-4-6",
+      modelName: "Opus 4.6",
       provider: "anthropic",
       ttsVoice: "TX3LPaxmHKxFdv7VOQHJ", // Liam
     },
     {
       playerId: "agent-2",
       name: "ChatGPT",
-      modelId: "gpt-5-mini",
-      modelName: "5 Mini",
+      modelId: "gpt-5.2",
+      modelName: "5.2",
       provider: "openai",
       avatarUrl: "openai",
       ttsVoice: "t0jbNlBVZ17f02VDIeMI", // Jessica
@@ -24,8 +24,8 @@ export const DEFAULT_CONFIG = {
     {
       playerId: "agent-3",
       name: "Gemini",
-      modelId: "gemini-2.5-flash",
-      modelName: "2.5 Flash",
+      modelId: "gemini-2.5-pro",
+      modelName: "2.5 Pro",
       provider: "google",
       avatarUrl: "google",
       ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Sarah
@@ -33,11 +33,56 @@ export const DEFAULT_CONFIG = {
     {
       playerId: "agent-4",
       name: "Grok",
-      modelId: "grok-3-mini-fast",
-      modelName: "3 Mini",
+      modelId: "grok-4-1-fast-non-reasoning",
+      modelName: "4.1",
       provider: "xai",
       avatarUrl: "xai",
       ttsVoice: "iP95p4xoKVk53GoZ742B", // Chris
+    },
+    {
+      playerId: "agent-5",
+      name: "DeepSeek",
+      modelId: "deepseek.v3-v1:0",
+      modelName: "V3.1",
+      provider: "bedrock",
+      avatarUrl: "deepseek",
+      ttsVoice: "onwK4e9ZLuTAKqWW03F9", // Daniel
+    },
+    {
+      playerId: "agent-6",
+      name: "Llama",
+      modelId: "meta.llama4-maverick-17b-128e-instruct-v1:0",
+      modelName: "4 Maverick",
+      provider: "bedrock",
+      avatarUrl: "meta",
+      ttsVoice: "N2lVS1w4EtoT3dr4eOWO", // Callum
+    },
+    {
+      playerId: "agent-7",
+      name: "Mistral",
+      modelId: "mistral.mistral-large-3-675b-instruct",
+      modelName: "Large 3",
+      provider: "bedrock",
+      avatarUrl: "mistral",
+      ttsVoice: "bIHbv24MWmeRgasZH58o", // Will
+    },
+    {
+      playerId: "agent-8",
+      name: "Nova",
+      modelId: "amazon.nova-premier-v1:0",
+      modelName: "Premier",
+      provider: "bedrock",
+      avatarUrl: "nova",
+      ttsVoice: "cjVigY5qzO86Huf0OWal", // Eric
+    },
+    {
+      playerId: "agent-9",
+      name: "Qwen",
+      modelId: "qwen.qwen3-235b-a22b-2507-v1:0",
+      modelName: "3 235B",
+      provider: "bedrock",
+      avatarUrl: "qwen",
+      ttsVoice: "JBFqnCBsd6RMkjVDRZzb", // George
     },
   ],
   startingChips: 1000,

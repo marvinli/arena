@@ -5,7 +5,7 @@ import type { Card, Player, Pot } from "./types";
 const PLAYERS: Player[] = [
   {
     id: "agent-1",
-    name: "Claude Sonnet 4.5",
+    name: "Claude Opus 4.6",
     chips: 870,
     avatar: "",
     cards: [
@@ -21,7 +21,7 @@ const PLAYERS: Player[] = [
   },
   {
     id: "agent-2",
-    name: "ChatGPT 5 Mini",
+    name: "ChatGPT 5.2",
     chips: 940,
     avatar: "openai",
     cards: [
@@ -37,7 +37,7 @@ const PLAYERS: Player[] = [
   },
   {
     id: "agent-3",
-    name: "Gemini 2.5 Flash",
+    name: "Gemini 2.5 Pro",
     chips: 1020,
     avatar: "google",
     cards: [
@@ -45,15 +45,15 @@ const PLAYERS: Player[] = [
       { rank: "3", suit: "hearts" },
     ],
     isDealer: false,
-    isFolded: true,
+    isFolded: false,
     isActive: false,
     isAllIn: false,
-    lastAction: "fold",
-    currentBet: 0,
+    lastAction: "call",
+    currentBet: 80,
   },
   {
     id: "agent-4",
-    name: "Grok 3 Mini",
+    name: "Grok 4.1",
     chips: 650,
     avatar: "xai",
     cards: [
@@ -67,6 +67,86 @@ const PLAYERS: Player[] = [
     lastAction: "raise",
     currentBet: 80,
   },
+  {
+    id: "agent-5",
+    name: "DeepSeek V3.1",
+    chips: 520,
+    avatar: "deepseek",
+    cards: [
+      { rank: "Q", suit: "diamonds" },
+      { rank: "8", suit: "spades" },
+    ],
+    isDealer: false,
+    isFolded: false,
+    isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 80,
+  },
+  {
+    id: "agent-6",
+    name: "Llama 4 Maverick",
+    chips: 780,
+    avatar: "meta",
+    cards: [
+      { rank: "7", suit: "spades" },
+      { rank: "6", suit: "hearts" },
+    ],
+    isDealer: false,
+    isFolded: false,
+    isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 80,
+  },
+  {
+    id: "agent-7",
+    name: "Mistral Large 3",
+    chips: 1100,
+    avatar: "mistral",
+    cards: [
+      { rank: "J", suit: "spades" },
+      { rank: "10", suit: "spades" },
+    ],
+    isDealer: false,
+    isFolded: true,
+    isActive: false,
+    isAllIn: false,
+    lastAction: "fold",
+    currentBet: 0,
+  },
+  {
+    id: "agent-8",
+    name: "Nova Premier",
+    chips: 910,
+    avatar: "nova",
+    cards: [
+      { rank: "4", suit: "diamonds" },
+      { rank: "2", suit: "clubs" },
+    ],
+    isDealer: false,
+    isFolded: false,
+    isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 80,
+  },
+  {
+    id: "agent-9",
+    name: "Qwen3 235B",
+    chips: 850,
+    avatar: "qwen",
+    cards: [
+      { rank: "A", suit: "hearts" },
+      { rank: "3", suit: "diamonds" },
+    ],
+    isDealer: false,
+    isFolded: false,
+    isActive: false,
+    isAllIn: false,
+    lastAction: "call",
+    currentBet: 80,
+  },
 ];
 
 const COMMUNITY_CARDS: Card[] = [
@@ -75,7 +155,7 @@ const COMMUNITY_CARDS: Card[] = [
   { rank: "7", suit: "diamonds" },
 ];
 
-const POTS: Pot[] = [{ label: "Main Pot", amount: 320 }];
+const POTS: Pot[] = [{ label: "Main Pot", amount: 560 }];
 
 // ── Fixtures ────────────────────────────────────────────
 

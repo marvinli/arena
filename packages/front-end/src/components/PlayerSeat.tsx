@@ -82,9 +82,17 @@ export function PlayerSeat({
             >
               <div className={styles.avatar}>
                 {player.avatar &&
-                !["anthropic", "openai", "google", "xai"].includes(
-                  player.avatar,
-                ) ? (
+                ![
+                  "anthropic",
+                  "openai",
+                  "google",
+                  "xai",
+                  "deepseek",
+                  "meta",
+                  "mistral",
+                  "nova",
+                  "qwen",
+                ].includes(player.avatar) ? (
                   <img
                     src={player.avatar}
                     alt={player.name}
