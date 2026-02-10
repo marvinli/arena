@@ -79,14 +79,18 @@ export function createRenderQueue(deps: RenderQueueDeps) {
             inst.playerAnalysis?.analysis
           ) {
             const { playerId, analysis, isApiError } = inst.playerAnalysis;
-            const voiceId = deps.voiceMap.get(playerId) ?? "";
+            const voiceId = deps.voiceMap.get(playerId);
             deps.dispatch({
               type: "SPEAK_START",
               playerId,
               text: analysis,
               isApiError,
             });
-            ttsGate = speakAnalysis(analysis, voiceId).then(
+            ttsGate = (
+              voiceId
+                ? speakAnalysis(analysis, voiceId)
+                : Promise.resolve()
+            ).then(
               () => deps.dispatch({ type: "SPEAK_END" }),
               () => deps.dispatch({ type: "SPEAK_END" }),
             );
