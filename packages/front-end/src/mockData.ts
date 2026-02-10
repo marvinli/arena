@@ -83,23 +83,7 @@ const PLAYERS: Player[] = [
     lastAction: "call",
     currentBet: 80,
   },
-  {
-    id: "agent-6",
-    name: "Llama 4 Maverick",
-    chips: 780,
-    avatar: "meta",
-    cards: [
-      { rank: "7", suit: "spades" },
-      { rank: "6", suit: "hearts" },
-    ],
-    isDealer: false,
-    isFolded: false,
-    isActive: false,
-    isAllIn: false,
-    lastAction: "call",
-    currentBet: 80,
-  },
-  {
+{
     id: "agent-7",
     name: "Mistral Large 3",
     chips: 1100,

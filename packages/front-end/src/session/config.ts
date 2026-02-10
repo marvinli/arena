@@ -48,23 +48,14 @@ export const DEFAULT_CONFIG = {
       avatarUrl: "deepseek",
       ttsVoice: "yoZ06aMxZJJ28mfd3POQ", // Sam
     },
-    {
-      playerId: "agent-6",
-      name: "Llama",
-      modelId: "us.meta.llama4-maverick-17b-instruct-v1:0",
-      modelName: "4 Maverick",
-      provider: "bedrock",
-      avatarUrl: "meta",
-      ttsVoice: "N2lVS1w4EtoT3dr4eOWO", // Callum
-    },
-    {
+{
       playerId: "agent-7",
       name: "Mistral",
       modelId: "mistral.mistral-large-3-675b-instruct",
       modelName: "Large 3",
       provider: "bedrock",
       avatarUrl: "mistral",
-      ttsVoice: "XB0fDUnXU5powFXDhCwa", // Charlotte
+      ttsVoice: "xNtG3W2oqJs0cJZuTyBc", // Chloé
     },
     {
       playerId: "agent-8",
