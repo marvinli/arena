@@ -7,6 +7,7 @@ export const LLM_RETRY_DELAY_MS = 2000;
 
 export interface SessionContext {
   session: Session;
+  moduleId: string;
   gameId: string;
   agentRunner: AgentRunner;
   signal: AbortSignal;

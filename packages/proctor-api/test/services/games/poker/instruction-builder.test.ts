@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   buildDealCommunity,
   buildDealHands,
@@ -8,6 +8,7 @@ import {
   buildLeaderboard,
   buildPlayerAction,
   buildPlayerAnalysis,
+  resetTimestamp,
 } from "../../../../src/services/games/poker/instruction-builder.js";
 import type { GameState, RenderInstruction } from "../../../../src/types.js";
 import { InstructionType } from "../../../../src/types.js";
@@ -62,15 +63,17 @@ function verifyBaseInstruction(
   instruction: RenderInstruction,
   expectedType: InstructionType,
 ) {
-  expect(instruction.instructionId).toMatch(
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  );
+  // instructionId is now a timestamp string (milliseconds)
+  expect(instruction.instructionId).toMatch(/^\d+$/);
   expect(instruction.type).toBe(expectedType);
   expect(instruction.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   expect(new Date(instruction.timestamp).toString()).not.toBe("Invalid Date");
 }
 
 describe("instruction-builder", () => {
+  beforeEach(() => {
+    resetTimestamp();
+  });
   describe("buildGameStart", () => {
     it("returns correct type and has instructionId/timestamp", () => {
       const result = buildGameStart(

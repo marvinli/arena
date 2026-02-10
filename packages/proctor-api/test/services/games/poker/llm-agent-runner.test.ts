@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("../../../../src/persistence.js", () => ({
+  appendAgentMessage: vi.fn(),
+  getAgentMessages: vi.fn(() => []),
+}));
+
 vi.mock("ai", () => ({
   generateText: vi.fn(),
   tool: vi.fn((opts: unknown) => opts),
@@ -68,7 +73,7 @@ describe("LlmAgentRunner", () => {
   });
 
   it("initAgent stores agent config and creates empty message array", () => {
-    runner.initAgent("p1", config);
+    runner.initAgent("p1", config, "test-module");
 
     // Verify the agent was stored by calling injectMessage (no warn)
     // and runTurn (no throw) — indirectly confirms state exists
@@ -78,7 +83,7 @@ describe("LlmAgentRunner", () => {
   });
 
   it("injectMessage appends a user message to the agent conversation", async () => {
-    runner.initAgent("p1", config);
+    runner.initAgent("p1", config, "test-module");
     runner.injectMessage("p1", "Hand dealt. Your cards: A K");
 
     mockGenerateTextResult();
@@ -105,7 +110,7 @@ describe("LlmAgentRunner", () => {
   });
 
   it("runTurn appends YOUR_TURN message and calls generateText", async () => {
-    runner.initAgent("p1", config);
+    runner.initAgent("p1", config, "test-module");
     mockGenerateTextResult();
 
     await runner.runTurn("p1", context);
@@ -127,7 +132,7 @@ describe("LlmAgentRunner", () => {
   });
 
   it("runTurn returns analysis from text before tool call", async () => {
-    runner.initAgent("p1", config);
+    runner.initAgent("p1", config, "test-module");
     mockGenerateTextResult("CALL", "Pot odds favor a call here.");
 
     const result = await runner.runTurn("p1", context);
@@ -139,7 +144,7 @@ describe("LlmAgentRunner", () => {
   });
 
   it("runTurn throws when agent does not call submit_action", async () => {
-    runner.initAgent("p1", config);
+    runner.initAgent("p1", config, "test-module");
     mockGenerateText.mockResolvedValue({
       response: {
         messages: [{ role: "assistant", content: "Hmm..." }],
@@ -159,7 +164,7 @@ describe("LlmAgentRunner", () => {
   });
 
   it("rejectAction replaces last tool result with error and re-prompts", async () => {
-    runner.initAgent("p1", config);
+    runner.initAgent("p1", config, "test-module");
 
     // First turn: agent calls with an invalid action
     mockGenerateTextResult("BET", "I bet big!", "tc-first");
@@ -194,7 +199,7 @@ describe("LlmAgentRunner", () => {
   });
 
   it("conversation history accumulates across multiple turns", async () => {
-    runner.initAgent("p1", config);
+    runner.initAgent("p1", config, "test-module");
 
     // Turn 1
     mockGenerateTextResult("CHECK", "I check.", "tc-1");

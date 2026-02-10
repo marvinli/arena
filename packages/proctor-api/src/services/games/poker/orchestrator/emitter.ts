@@ -1,20 +1,22 @@
+import { insertInstruction } from "../../../../persistence.js";
 import type { GameState, RenderInstruction } from "../../../../types.js";
 import { publish } from "../../../session/pubsub.js";
 import type { Session } from "../../../session/session-manager.js";
-import { waitForRenderComplete } from "../../../session/session-manager.js";
 
-export async function emit(
+export function emit(
+  moduleId: string,
   session: Session,
   instruction: RenderInstruction,
-  signal: AbortSignal,
-): Promise<void> {
+): void {
   session.lastInstruction = instruction;
-  publish(session.channelKey, instruction);
-  await waitForRenderComplete(
-    session.channelKey,
-    instruction.instructionId,
-    signal,
+  insertInstruction(
+    moduleId,
+    Number(instruction.instructionId),
+    instruction.type,
+    instruction,
   );
+  const fullInstruction = { ...instruction, moduleId };
+  publish(session.channelKey, fullInstruction);
 }
 
 export function updateGameState(session: Session, state: GameState): void {

@@ -5,7 +5,6 @@ import { gameTypeDefs } from "./Game/typeDefs.js";
 import { gameStateTypeDefs } from "./GameState/typeDefs.js";
 import { handTypeDefs } from "./Hand/typeDefs.js";
 import { playerTypeDefs } from "./Player/typeDefs.js";
-import { renderCompleteTypeDefs } from "./RenderComplete/typeDefs.js";
 import { renderInstructionTypeDefs } from "./RenderInstruction/typeDefs.js";
 
 export const allTypeDefs = [
@@ -13,7 +12,6 @@ export const allTypeDefs = [
   channelTypeDefs,
   renderInstructionTypeDefs,
   gameStateTypeDefs,
-  renderCompleteTypeDefs,
   gameTypeDefs,
   playerTypeDefs,
   handTypeDefs,

@@ -1,6 +1,5 @@
 import type { GameState } from "../../../../types.js";
 import type { Session } from "../../../session/session-manager.js";
-import { deleteSession } from "../../../session/session-manager.js";
 import type { AgentRunner, PlayerConfig } from "../agent-runner.js";
 import {
   buildGameOver,
@@ -48,6 +47,7 @@ function buildPlayerConfig(agentConfig: {
 export async function runSession(
   session: Session,
   agentRunner: AgentRunner,
+  moduleId: string,
 ): Promise<void> {
   const signal = session.abortController.signal;
 
@@ -61,17 +61,24 @@ export async function runSession(
     bigBlind: session.config.bigBlind,
   });
 
-  const ctx: SessionContext = { session, gameId, agentRunner, signal };
+  const ctx: SessionContext = {
+    session,
+    moduleId,
+    gameId,
+    agentRunner,
+    signal,
+  };
 
   const createState = poker.getGameState(gameId);
   session.gameId = gameId;
   updateGameState(session, createState);
 
   for (const p of session.config.players) {
-    agentRunner.initAgent(p.playerId, buildPlayerConfig(p));
+    agentRunner.initAgent(p.playerId, buildPlayerConfig(p), moduleId);
   }
 
-  await emit(
+  emit(
+    moduleId,
     session,
     buildGameStart(
       gameId,
@@ -82,7 +89,6 @@ export async function runSession(
       },
       session.config.players,
     ),
-    signal,
   );
 
   while (!signal.aborted) {
@@ -103,7 +109,8 @@ export async function runSession(
         activePlayers.sort((a, b) => b.chips - a.chips)[0] ??
         postHandState.players[0];
 
-      await emit(
+      emit(
+        moduleId,
         session,
         buildGameOver(
           winner.id,
@@ -111,19 +118,17 @@ export async function runSession(
           postHandState.players,
           session.handNumber,
         ),
-        signal,
       );
 
       session.status = "FINISHED";
       poker.deleteGame(gameId);
-      deleteSession(session.channelKey);
       return;
     }
 
-    await emit(
+    emit(
+      moduleId,
       session,
       buildLeaderboard(postHandState.players, session.handNumber),
-      signal,
     );
   }
 
@@ -132,5 +137,4 @@ export async function runSession(
   }
 
   poker.deleteGame(gameId);
-  deleteSession(session.channelKey);
 }

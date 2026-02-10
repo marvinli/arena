@@ -14,15 +14,12 @@ import { emit, updateGameState } from "./emitter.js";
 import { playTurn } from "./turn-resolver.js";
 import type { SessionContext } from "./types.js";
 
-async function handleHandResult(
-  ctx: SessionContext,
-  advancedState: GameState,
-): Promise<void> {
+function handleHandResult(ctx: SessionContext, advancedState: GameState): void {
   const history = poker.getHistory(ctx.gameId, 1);
   const lastHand = history[0];
   const winners = lastHand?.winners ?? [];
 
-  await emit(ctx.session, buildHandResult(winners, advancedState), ctx.signal);
+  emit(ctx.moduleId, ctx.session, buildHandResult(winners, advancedState));
 
   for (const p of advancedState.players) {
     if (p.status === "BUSTED") continue;
@@ -33,14 +30,14 @@ async function handleHandResult(
   }
 }
 
-async function handlePhaseTransition(
+function handlePhaseTransition(
   ctx: SessionContext,
   advancedState: GameState,
-): Promise<void> {
-  await emit(
+): void {
+  emit(
+    ctx.moduleId,
     ctx.session,
     buildDealCommunity(advancedState.phase, advancedState),
-    ctx.signal,
   );
 
   for (const p of advancedState.players) {
@@ -53,7 +50,7 @@ async function handlePhaseTransition(
 }
 
 export async function playHand(ctx: SessionContext): Promise<void> {
-  const { session, gameId, agentRunner, signal } = ctx;
+  const { session, moduleId, gameId, agentRunner, signal } = ctx;
   session.handNumber++;
 
   const handState = poker.startHand(gameId);
@@ -72,10 +69,10 @@ export async function playHand(ctx: SessionContext): Promise<void> {
 
   session.currentHands = playerHands;
 
-  await emit(
+  emit(
+    moduleId,
     session,
     buildDealHands(session.handNumber, handState, playerHands),
-    signal,
   );
 
   const totalPot = handState.pots.reduce((sum, p) => sum + p.size, 0);
@@ -107,13 +104,13 @@ export async function playHand(ctx: SessionContext): Promise<void> {
     updateGameState(session, advancedState);
 
     if (advancedState.phase === "WAITING") {
-      await handleHandResult(ctx, advancedState);
+      handleHandResult(ctx, advancedState);
       session.currentHands = [];
       break;
     }
 
     if (advancedState.phase !== previousPhase) {
-      await handlePhaseTransition(ctx, advancedState);
+      handlePhaseTransition(ctx, advancedState);
       previousPhase = advancedState.phase;
     }
 

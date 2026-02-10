@@ -13,6 +13,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { logError } from "../../../logger.js";
+import { appendAgentMessage } from "../../../persistence.js";
 import type {
   AgentRunner,
   AgentTurnContext,
@@ -24,6 +25,7 @@ import { buildSystemPrompt } from "./prompt-template.js";
 
 interface AgentState {
   config: PlayerConfig;
+  moduleId: string;
   systemPrompt: string;
   messages: ModelMessage[];
   lastToolCallId?: string;
@@ -125,9 +127,10 @@ const submitActionTool = tool({
 export class LlmAgentRunner implements AgentRunner {
   private agents = new Map<string, AgentState>();
 
-  initAgent(playerId: string, config: PlayerConfig): void {
+  initAgent(playerId: string, config: PlayerConfig, moduleId: string): void {
     this.agents.set(playerId, {
       config,
+      moduleId,
       systemPrompt: buildSystemPrompt(config),
       messages: [],
     });
@@ -143,6 +146,7 @@ export class LlmAgentRunner implements AgentRunner {
       return;
     }
     agent.messages.push({ role: "user", content: message });
+    appendAgentMessage(agent.moduleId, playerId, "user", message);
   }
 
   async runTurn(
@@ -157,8 +161,9 @@ export class LlmAgentRunner implements AgentRunner {
     // Build and inject YOUR_TURN message
     const turnMessage = formatYourTurn(playerId, context);
     agent.messages.push({ role: "user", content: turnMessage });
+    appendAgentMessage(agent.moduleId, playerId, "user", turnMessage);
 
-    return this.promptAgent(agent);
+    return this.promptAgent(agent, playerId);
   }
 
   async rejectAction(
@@ -182,7 +187,7 @@ export class LlmAgentRunner implements AgentRunner {
       agent.messages.pop();
     }
     agent.messages.pop();
-    agent.messages.push({
+    const toolMsg: ModelMessage = {
       role: "tool",
       content: [
         {
@@ -195,12 +200,22 @@ export class LlmAgentRunner implements AgentRunner {
           },
         },
       ],
-    });
+    };
+    agent.messages.push(toolMsg);
+    appendAgentMessage(
+      agent.moduleId,
+      playerId,
+      "tool",
+      JSON.stringify(toolMsg.content),
+    );
 
-    return this.promptAgent(agent);
+    return this.promptAgent(agent, playerId);
   }
 
-  private async promptAgent(agent: AgentState): Promise<AgentTurnResult> {
+  private async promptAgent(
+    agent: AgentState,
+    playerId: string,
+  ): Promise<AgentTurnResult> {
     const model = resolveModel(agent.config.provider, agent.config.modelId);
 
     console.log(
@@ -226,6 +241,12 @@ export class LlmAgentRunner implements AgentRunner {
     // Append response messages to conversation history
     for (const msg of result.response.messages) {
       agent.messages.push(msg);
+      appendAgentMessage(
+        agent.moduleId,
+        playerId,
+        msg.role,
+        JSON.stringify(msg.content),
+      );
     }
 
     // Extract tool call
@@ -237,7 +258,7 @@ export class LlmAgentRunner implements AgentRunner {
       agent.lastToolCallId = toolCall.toolCallId;
 
       // Append tool result so the conversation is valid for the next turn
-      agent.messages.push({
+      const toolResultMsg: ModelMessage = {
         role: "tool",
         content: [
           {
@@ -247,7 +268,14 @@ export class LlmAgentRunner implements AgentRunner {
             output: { type: "text", value: "Action submitted." },
           },
         ],
-      });
+      };
+      agent.messages.push(toolResultMsg);
+      appendAgentMessage(
+        agent.moduleId,
+        playerId,
+        "tool",
+        JSON.stringify(toolResultMsg.content),
+      );
 
       // Some providers (Bedrock Llama/Mistral) require an assistant message
       // after a tool result before the next user message.
@@ -256,6 +284,12 @@ export class LlmAgentRunner implements AgentRunner {
           role: "assistant",
           content: "Action submitted.",
         });
+        appendAgentMessage(
+          agent.moduleId,
+          playerId,
+          "assistant",
+          "Action submitted.",
+        );
       }
 
       const analysis = result.text
@@ -286,10 +320,17 @@ export class LlmAgentRunner implements AgentRunner {
         `[llm-agent-runner] ${agent.config.name} parsed from text: action=${parsed.action}, analysis=${parsed.analysis ? `"${parsed.analysis.slice(0, 80)}"` : "(none)"}`,
       );
       // Replace the text-only assistant message with a clean one for history
+      const fallbackContent = parsed.analysis || "Action submitted.";
       agent.messages.push({
         role: "assistant",
-        content: parsed.analysis || "Action submitted.",
+        content: fallbackContent,
       });
+      appendAgentMessage(
+        agent.moduleId,
+        playerId,
+        "assistant",
+        fallbackContent,
+      );
 
       return {
         action: {

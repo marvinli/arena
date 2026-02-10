@@ -1,14 +1,2 @@
-import { recordRenderComplete } from "../../../services/session/session-manager.js";
-import type { MutationResolvers } from "../../resolverTypes.js";
-
-const renderComplete: MutationResolvers["renderComplete"] = (
-  _parent,
-  { channelKey, instructionId },
-) => {
-  recordRenderComplete(channelKey, instructionId);
-  return true;
-};
-
-export const renderCompleteResolvers = {
-  Mutation: { renderComplete },
-};
+// Replaced by completeInstruction in Channel resolvers
+export const renderCompleteResolvers = {};

@@ -111,6 +111,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
 
   type RenderInstruction {
     instructionId: ID!
+    moduleId: String!
     type: InstructionType!
     timestamp: String!
     gameStart: GameStartPayload

@@ -7,7 +7,9 @@ import type {
 } from "../graphql/generated";
 
 export type GqlInstruction =
-  RenderInstructionsSubscription["renderInstructions"];
+  RenderInstructionsSubscription["renderInstructions"] & {
+    moduleId?: string;
+  };
 export type GqlChannelState = GetChannelStateQuery["getChannelState"];
 export type GqlPlayerInfo = PlayerInfo;
 export type GqlCardInfo = CardInfo;

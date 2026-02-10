@@ -135,13 +135,14 @@ export async function playTurn(
   const playerName =
     currentState.players.find((p) => p.id === playerId)?.name ?? playerId;
 
-  await emit(ctx.session, buildPlayerTurn(playerId, playerName), ctx.signal);
+  emit(ctx.moduleId, ctx.session, buildPlayerTurn(playerId, playerName));
 
   const { result, state } = await resolveAction(ctx, playerId);
   updateGameState(ctx.session, state);
 
   if (result.analysis) {
-    await emit(
+    emit(
+      ctx.moduleId,
       ctx.session,
       buildPlayerAnalysis(
         playerId,
@@ -149,11 +150,11 @@ export async function playTurn(
         result.analysis,
         result.isApiError ?? false,
       ),
-      ctx.signal,
     );
   }
 
-  await emit(
+  emit(
+    ctx.moduleId,
     ctx.session,
     buildPlayerAction(
       playerId,
@@ -162,7 +163,6 @@ export async function playTurn(
       result.action.amount,
       state,
     ),
-    ctx.signal,
   );
 
   for (const p of state.players) {

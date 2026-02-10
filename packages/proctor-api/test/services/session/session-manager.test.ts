@@ -1,14 +1,27 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../src/persistence.js", () => ({
+  getChannelState: vi.fn(),
+  upsertChannelState: vi.fn(),
+  createModule: vi.fn(),
+  completeModule: vi.fn(),
+  insertInstruction: vi.fn(),
+  appendAgentMessage: vi.fn(),
+  getAgentMessages: vi.fn(() => []),
+}));
+
 import { GAME_CONFIG } from "../../../src/game-config.js";
 import {
+  getChannelState as mockGetChannelState,
+  upsertChannelState as mockUpsertChannelState,
+} from "../../../src/persistence.js";
+import {
   _resetSessions,
+  completeInstruction,
+  connect,
   createSession,
   getSession,
-  recordRenderComplete,
-  registerClient,
   stopSession,
-  unregisterClient,
-  waitForRenderComplete,
 } from "../../../src/services/session/session-manager.js";
 
 describe("session-manager", () => {
@@ -69,82 +82,46 @@ describe("session-manager", () => {
     });
   });
 
-  describe("client registration", () => {
-    it("tracks connected clients", () => {
-      const session = createSession("test-channel");
-      registerClient("test-channel", "client-1");
-      registerClient("test-channel", "client-2");
-      expect(session.connectedClients.size).toBe(2);
+  describe("connect", () => {
+    it("returns empty state for new channel", () => {
+      vi.mocked(mockGetChannelState).mockReturnValue(undefined);
+      const result = connect("new-channel");
+      expect(result.moduleId).toBe("");
+      expect(result.moduleType).toBe("poker");
+      expect(result.gameState).toBeNull();
     });
 
-    it("unregisters clients", () => {
-      const session = createSession("test-channel");
-      registerClient("test-channel", "client-1");
-      unregisterClient("test-channel", "client-1");
-      expect(session.connectedClients.size).toBe(0);
+    it("returns snapshot for returning channel", () => {
+      const snapshot = JSON.stringify({
+        channelKey: "test-channel",
+        handNumber: 3,
+        players: [],
+        communityCards: [],
+        pots: [],
+      });
+      vi.mocked(mockGetChannelState).mockReturnValue({
+        channelKey: "test-channel",
+        moduleId: "mod-abc",
+        instructionTs: 100,
+        stateSnapshot: snapshot,
+      });
+      const result = connect("test-channel");
+      expect(result.moduleId).toBe("mod-abc");
+      expect(result.moduleType).toBe("poker");
+      expect(result.gameState).toEqual(JSON.parse(snapshot));
     });
   });
 
-  describe("renderComplete tracking", () => {
-    it("auto-advances when no clients connected", async () => {
-      createSession("test-channel");
-      const ac = new AbortController();
-      // Should resolve immediately with no clients
-      await waitForRenderComplete("test-channel", "inst-1", ac.signal);
-    });
-
-    it("resolves when renderComplete is called", async () => {
-      createSession("test-channel");
-      registerClient("test-channel", "client-1");
-      const ac = new AbortController();
-
-      const promise = waitForRenderComplete(
+  describe("completeInstruction", () => {
+    it("returns true and persists bookmark", () => {
+      const result = completeInstruction("test-channel", "mod-1", "12345");
+      expect(result).toBe(true);
+      expect(mockUpsertChannelState).toHaveBeenCalledWith(
         "test-channel",
-        "inst-1",
-        ac.signal,
+        "mod-1",
+        12345,
+        null,
       );
-
-      recordRenderComplete("test-channel", "inst-1");
-      await promise;
-    });
-
-    it("resolves when client disconnects during wait", async () => {
-      createSession("test-channel");
-      registerClient("test-channel", "client-1");
-      const ac = new AbortController();
-
-      const promise = waitForRenderComplete(
-        "test-channel",
-        "inst-1",
-        ac.signal,
-      );
-
-      unregisterClient("test-channel", "client-1");
-      await promise;
-    });
-
-    it("resolves on abort signal", async () => {
-      createSession("test-channel");
-      registerClient("test-channel", "client-1");
-      const ac = new AbortController();
-
-      const promise = waitForRenderComplete(
-        "test-channel",
-        "inst-1",
-        ac.signal,
-      );
-
-      ac.abort();
-      await promise;
-    });
-
-    it("resolves on timeout", async () => {
-      createSession("test-channel");
-      registerClient("test-channel", "client-1");
-      const ac = new AbortController();
-
-      // Use a very short timeout
-      await waitForRenderComplete("test-channel", "inst-1", ac.signal, 10);
     });
   });
 });

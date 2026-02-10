@@ -1,8 +1,8 @@
 import { logError } from "../../../logger.js";
-import { LlmAgentRunner } from "../../../services/games/poker/llm-agent-runner.js";
-import { runSession } from "../../../services/games/poker/orchestrator/index.js";
+import { runProgrammingLoop } from "../../../services/session/programming.js";
 import {
-  createSession,
+  completeInstruction,
+  connect,
   getSession,
   stopSession,
 } from "../../../services/session/session-manager.js";
@@ -27,33 +27,33 @@ const getSessionQuery: QueryResolvers["getSession"] = (
   };
 };
 
-const startSessionMutation: MutationResolvers["startSession"] = (
-  _parent,
-  { channelKey },
-) => {
-  const session = createSession(channelKey);
-  return {
-    channelKey: session.channelKey,
-    gameId: session.gameId,
-    status: session.status as SessionStatus,
-    handNumber: session.handNumber,
-    players: session.players,
-  };
+const connectQuery: QueryResolvers["connect"] = (_parent, { channelKey }) => {
+  return connect(channelKey);
 };
 
-const runSessionMutation: MutationResolvers["runSession"] = (
+const startModuleMutation: MutationResolvers["startModule"] = (
   _parent,
   { channelKey },
 ) => {
   const session = getSession(channelKey);
-  if (!session) throw new Error(`Session not found: ${channelKey}`);
-  if (session.gameId) throw new Error(`Session already running: ${channelKey}`);
+  if (session) return true; // already running
 
-  void runSession(session, new LlmAgentRunner()).catch((err) => {
-    logError("runSession", "orchestrator failed:", err);
+  void runProgrammingLoop(channelKey).catch((err) => {
+    logError(
+      "startModule",
+      "programming loop failed:",
+      err instanceof Error ? err.message : String(err),
+    );
   });
 
   return true;
+};
+
+const completeInstructionMutation: MutationResolvers["completeInstruction"] = (
+  _parent,
+  { channelKey, moduleId, instructionId },
+) => {
+  return completeInstruction(channelKey, moduleId, instructionId);
 };
 
 const stopSessionMutation: MutationResolvers["stopSession"] = (
@@ -65,10 +65,13 @@ const stopSessionMutation: MutationResolvers["stopSession"] = (
 };
 
 export const channelResolvers = {
-  Query: { getSession: getSessionQuery },
+  Query: {
+    getSession: getSessionQuery,
+    connect: connectQuery,
+  },
   Mutation: {
-    startSession: startSessionMutation,
-    runSession: runSessionMutation,
+    startModule: startModuleMutation,
+    completeInstruction: completeInstructionMutation,
     stopSession: stopSessionMutation,
   },
 };

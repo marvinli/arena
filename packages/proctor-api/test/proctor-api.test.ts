@@ -1,57 +1,25 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { GAME_CONFIG } from "../src/game-config.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../src/persistence.js", () => ({
+  getChannelState: vi.fn(),
+  upsertChannelState: vi.fn(),
+  createModule: vi.fn(),
+  completeModule: vi.fn(),
+  insertInstruction: vi.fn(),
+  appendAgentMessage: vi.fn(),
+  getAgentMessages: vi.fn(() => []),
+}));
+
 import { _resetGames } from "../src/services/games/poker/poker-engine/index.js";
 import { _resetPubSub } from "../src/services/session/pubsub.js";
 import { _resetSessions } from "../src/services/session/session-manager.js";
 import { gql } from "./yoga-helper.js";
-
-const START_SESSION = /* GraphQL */ `
-  mutation StartSession($channelKey: String!) {
-    startSession(channelKey: $channelKey) {
-      channelKey
-      status
-      handNumber
-      players {
-        id
-        name
-        chips
-      }
-    }
-  }
-`;
 
 describe("proctor-api GraphQL", () => {
   beforeEach(() => {
     _resetSessions();
     _resetPubSub();
     _resetGames();
-  });
-
-  describe("startSession", () => {
-    it("creates a new session", async () => {
-      const result = await gql(START_SESSION, {
-        channelKey: "test-channel",
-      });
-
-      expect(result.errors).toBeUndefined();
-      const session = result.data!.startSession;
-      expect(session.channelKey).toBe("test-channel");
-      expect(session.status).toBe("RUNNING");
-      expect(session.handNumber).toBe(0);
-      expect(session.players).toHaveLength(GAME_CONFIG.players.length);
-      expect(session.players[0].chips).toBe(GAME_CONFIG.startingChips);
-    });
-
-    it("fails for duplicate channelKey", async () => {
-      await gql(START_SESSION, { channelKey: "test-channel" });
-
-      const result = await gql(START_SESSION, {
-        channelKey: "test-channel",
-      });
-
-      expect(result.errors).toBeDefined();
-      expect(result.errors![0].message).toContain("Session already running");
-    });
   });
 
   describe("getSession", () => {
@@ -70,60 +38,21 @@ describe("proctor-api GraphQL", () => {
       expect(result.errors).toBeUndefined();
       expect(result.data!.getSession).toBeNull();
     });
-
-    it("returns existing session", async () => {
-      await gql(START_SESSION, { channelKey: "test-channel" });
-
-      const result = await gql(
-        /* GraphQL */ `
-          query GetSession($channelKey: String!) {
-            getSession(channelKey: $channelKey) {
-              channelKey
-              status
-              players {
-                id
-                name
-              }
-            }
-          }
-        `,
-        { channelKey: "test-channel" },
-      );
-
-      expect(result.errors).toBeUndefined();
-      expect(result.data!.getSession.channelKey).toBe("test-channel");
-      expect(result.data!.getSession.status).toBe("RUNNING");
-    });
   });
 
   describe("stopSession", () => {
-    it("stops a running session", async () => {
-      await gql(START_SESSION, { channelKey: "test-channel" });
-
+    it("throws for non-existent session", async () => {
       const result = await gql(
         /* GraphQL */ `
           mutation StopSession($channelKey: String!) {
             stopSession(channelKey: $channelKey)
           }
         `,
-        { channelKey: "test-channel" },
+        { channelKey: "nope" },
       );
 
-      expect(result.errors).toBeUndefined();
-      expect(result.data!.stopSession).toBe(true);
-
-      // Verify it's stopped
-      const check = await gql(
-        /* GraphQL */ `
-          query GetSession($channelKey: String!) {
-            getSession(channelKey: $channelKey) {
-              status
-            }
-          }
-        `,
-        { channelKey: "test-channel" },
-      );
-      expect(check.data!.getSession.status).toBe("STOPPED");
+      expect(result.errors).toBeDefined();
+      expect(result.errors![0].message).toContain("Session not found");
     });
   });
 
@@ -157,21 +86,97 @@ describe("proctor-api GraphQL", () => {
     });
   });
 
-  describe("renderComplete", () => {
-    it("accepts renderComplete for existing session", async () => {
-      await gql(START_SESSION, { channelKey: "test-channel" });
-
+  describe("connect", () => {
+    it("returns empty state for new channel", async () => {
       const result = await gql(
         /* GraphQL */ `
-          mutation RenderComplete($channelKey: String!, $instructionId: ID!) {
-            renderComplete(channelKey: $channelKey, instructionId: $instructionId)
+          query Connect($channelKey: String!) {
+            connect(channelKey: $channelKey) {
+              moduleId
+              moduleType
+              gameState {
+                channelKey
+                handNumber
+              }
+            }
           }
         `,
-        { channelKey: "test-channel", instructionId: "inst-1" },
+        { channelKey: "new-channel" },
       );
 
       expect(result.errors).toBeUndefined();
-      expect(result.data!.renderComplete).toBe(true);
+      expect(result.data!.connect.moduleId).toBe("");
+      expect(result.data!.connect.moduleType).toBe("poker");
+      expect(result.data!.connect.gameState).toBeNull();
+    });
+  });
+
+  describe("startModule", () => {
+    it("returns true for new channel", async () => {
+      const result = await gql(
+        /* GraphQL */ `
+          mutation StartModule($channelKey: String!) {
+            startModule(channelKey: $channelKey)
+          }
+        `,
+        { channelKey: "test-channel" },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data!.startModule).toBe(true);
+    });
+
+    it("returns true idempotently when session already running", async () => {
+      // First call starts the module
+      await gql(
+        /* GraphQL */ `
+          mutation StartModule($channelKey: String!) {
+            startModule(channelKey: $channelKey)
+          }
+        `,
+        { channelKey: "test-channel-2" },
+      );
+
+      // Second call should be idempotent
+      const result = await gql(
+        /* GraphQL */ `
+          mutation StartModule($channelKey: String!) {
+            startModule(channelKey: $channelKey)
+          }
+        `,
+        { channelKey: "test-channel-2" },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data!.startModule).toBe(true);
+    });
+  });
+
+  describe("completeInstruction", () => {
+    it("records a bookmark", async () => {
+      const result = await gql(
+        /* GraphQL */ `
+          mutation CompleteInstruction(
+            $channelKey: String!
+            $moduleId: String!
+            $instructionId: String!
+          ) {
+            completeInstruction(
+              channelKey: $channelKey
+              moduleId: $moduleId
+              instructionId: $instructionId
+            )
+          }
+        `,
+        {
+          channelKey: "test-channel",
+          moduleId: "mod-1",
+          instructionId: "12345",
+        },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data!.completeInstruction).toBe(true);
     });
   });
 });

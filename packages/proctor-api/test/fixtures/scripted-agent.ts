@@ -13,7 +13,7 @@ export class ScriptedAgentRunner implements AgentRunner {
     this.actions = actions;
   }
 
-  initAgent(_playerId: string, _config: PlayerConfig): void {
+  initAgent(_playerId: string, _config: PlayerConfig, _moduleId: string): void {
     // no-op for scripted runner
   }
 

@@ -38,7 +38,7 @@ export interface AgentTurnResult {
 
 export interface AgentRunner {
   /** Initialize a new agent for a game. Called once per player at session start. */
-  initAgent(playerId: string, config: PlayerConfig): void;
+  initAgent(playerId: string, config: PlayerConfig, moduleId: string): void;
 
   /** Append a game event message to an agent's conversation. */
   injectMessage(playerId: string, message: string): void;

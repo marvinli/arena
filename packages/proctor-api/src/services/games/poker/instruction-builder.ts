@@ -2,14 +2,23 @@ import type { RenderInstruction } from "../../../gql/resolverTypes.js";
 import type { GameState } from "../../../types.js";
 import { InstructionType } from "../../../types.js";
 
+let lastTimestamp = 0;
+
 function base(
   type: InstructionType,
 ): Pick<RenderInstruction, "instructionId" | "type" | "timestamp"> {
+  let ts = Date.now();
+  if (ts <= lastTimestamp) ts = lastTimestamp + 1;
+  lastTimestamp = ts;
   return {
-    instructionId: crypto.randomUUID(),
+    instructionId: ts.toString(),
     type,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date(ts).toISOString(),
   };
+}
+
+export function resetTimestamp(): void {
+  lastTimestamp = 0;
 }
 
 function toPlayerInfos(

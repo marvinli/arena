@@ -164,11 +164,10 @@ export type Mutation = {
   __typename?: 'Mutation';
   _empty?: Maybe<Scalars['String']['output']>;
   advanceGame: GameState;
+  completeInstruction: Scalars['Boolean']['output'];
   createGame: GameState;
-  renderComplete: Scalars['Boolean']['output'];
-  runSession: Scalars['Boolean']['output'];
   startHand: GameState;
-  startSession: Session;
+  startModule: Scalars['Boolean']['output'];
   stopSession: Scalars['Boolean']['output'];
   submitAction: GameState;
 };
@@ -184,14 +183,10 @@ export type MutationCreateGameArgs = {
 };
 
 
-export type MutationRenderCompleteArgs = {
+export type MutationCompleteInstructionArgs = {
   channelKey: Scalars['String']['input'];
-  instructionId: Scalars['ID']['input'];
-};
-
-
-export type MutationRunSessionArgs = {
-  channelKey: Scalars['String']['input'];
+  moduleId: Scalars['String']['input'];
+  instructionId: Scalars['String']['input'];
 };
 
 
@@ -200,7 +195,7 @@ export type MutationStartHandArgs = {
 };
 
 
-export type MutationStartSessionArgs = {
+export type MutationStartModuleArgs = {
   channelKey: Scalars['String']['input'];
 };
 
@@ -335,14 +330,27 @@ export type ProctorGameState = {
   status?: Maybe<Scalars['String']['output']>;
 };
 
+export type ChannelConnection = {
+  __typename?: 'ChannelConnection';
+  moduleId: Scalars['String']['output'];
+  moduleType: Scalars['String']['output'];
+  gameState?: Maybe<ProctorGameState>;
+};
+
 export type Query = {
   __typename?: 'Query';
   _empty?: Maybe<Scalars['String']['output']>;
+  connect: ChannelConnection;
   getChannelState: ProctorGameState;
   getGameState: GameState;
   getHistory: Array<HandRecord>;
   getMyTurn: MyTurnResponse;
   getSession?: Maybe<Session>;
+};
+
+
+export type QueryConnectArgs = {
+  channelKey: Scalars['String']['input'];
 };
 
 
@@ -380,6 +388,7 @@ export type RenderInstruction = {
   handResult?: Maybe<HandResultPayload>;
   instructionId: Scalars['ID']['output'];
   leaderboard?: Maybe<LeaderboardPayload>;
+  moduleId?: Maybe<Scalars['String']['output']>;
   playerAction?: Maybe<PlayerActionPayload>;
   playerAnalysis?: Maybe<PlayerAnalysisPayload>;
   playerTurn?: Maybe<PlayerTurnPayload>;
@@ -519,6 +528,7 @@ export type ResolversTypes = {
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Card: ResolverTypeWrapper<Card>;
   CardInfo: ResolverTypeWrapper<CardInfo>;
+  ChannelConnection: ResolverTypeWrapper<ChannelConnection>;
   CreateGameInput: CreateGameInput;
   DealCommunityPayload: ResolverTypeWrapper<DealCommunityPayload>;
   DealHandsPayload: ResolverTypeWrapper<DealHandsPayload>;
@@ -569,6 +579,7 @@ export type ResolversParentTypes = {
   Boolean: Scalars['Boolean']['output'];
   Card: Card;
   CardInfo: CardInfo;
+  ChannelConnection: ChannelConnection;
   CreateGameInput: CreateGameInput;
   DealCommunityPayload: DealCommunityPayload;
   DealHandsPayload: DealHandsPayload;
@@ -625,6 +636,13 @@ export type CardResolvers<ContextType = Context, ParentType extends ResolversPar
 export type CardInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['CardInfo'] = ResolversParentTypes['CardInfo']> = {
   rank?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   suit?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type ChannelConnectionResolvers<ContextType = Context, ParentType extends ResolversParentTypes['ChannelConnection'] = ResolversParentTypes['ChannelConnection']> = {
+  moduleId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  moduleType?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  gameState?: Resolver<Maybe<ResolversTypes['ProctorGameState']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -720,11 +738,10 @@ export type LeaderboardPayloadResolvers<ContextType = Context, ParentType extend
 export type MutationResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   advanceGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationAdvanceGameArgs, 'gameId'>>;
+  completeInstruction?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCompleteInstructionArgs, 'channelKey' | 'moduleId' | 'instructionId'>>;
   createGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationCreateGameArgs, 'input'>>;
-  renderComplete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRenderCompleteArgs, 'channelKey' | 'instructionId'>>;
-  runSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRunSessionArgs, 'channelKey'>>;
   startHand?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationStartHandArgs, 'gameId'>>;
-  startSession?: Resolver<ResolversTypes['Session'], ParentType, ContextType, RequireFields<MutationStartSessionArgs, 'channelKey'>>;
+  startModule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStartModuleArgs, 'channelKey'>>;
   stopSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStopSessionArgs, 'channelKey'>>;
   submitAction?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationSubmitActionArgs, 'action' | 'gameId'>>;
 };
@@ -838,6 +855,7 @@ export type ProctorGameStateResolvers<ContextType = Context, ParentType extends 
 
 export type QueryResolvers<ContextType = Context, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   _empty?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  connect?: Resolver<ResolversTypes['ChannelConnection'], ParentType, ContextType, RequireFields<QueryConnectArgs, 'channelKey'>>;
   getChannelState?: Resolver<ResolversTypes['ProctorGameState'], ParentType, ContextType, RequireFields<QueryGetChannelStateArgs, 'channelKey'>>;
   getGameState?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<QueryGetGameStateArgs, 'gameId'>>;
   getHistory?: Resolver<Array<ResolversTypes['HandRecord']>, ParentType, ContextType, RequireFields<QueryGetHistoryArgs, 'gameId'>>;
@@ -853,6 +871,7 @@ export type RenderInstructionResolvers<ContextType = Context, ParentType extends
   handResult?: Resolver<Maybe<ResolversTypes['HandResultPayload']>, ParentType, ContextType>;
   instructionId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   leaderboard?: Resolver<Maybe<ResolversTypes['LeaderboardPayload']>, ParentType, ContextType>;
+  moduleId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   playerAction?: Resolver<Maybe<ResolversTypes['PlayerActionPayload']>, ParentType, ContextType>;
   playerAnalysis?: Resolver<Maybe<ResolversTypes['PlayerAnalysisPayload']>, ParentType, ContextType>;
   playerTurn?: Resolver<Maybe<ResolversTypes['PlayerTurnPayload']>, ParentType, ContextType>;
@@ -904,6 +923,7 @@ export type Resolvers<ContextType = Context> = {
   ActionRecord?: ActionRecordResolvers<ContextType>;
   Card?: CardResolvers<ContextType>;
   CardInfo?: CardInfoResolvers<ContextType>;
+  ChannelConnection?: ChannelConnectionResolvers<ContextType>;
   DealCommunityPayload?: DealCommunityPayloadResolvers<ContextType>;
   DealHandsPayload?: DealHandsPayloadResolvers<ContextType>;
   GameOverPayload?: GameOverPayloadResolvers<ContextType>;

@@ -1,4 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../../src/persistence.js", () => ({
+  insertInstruction: vi.fn(),
+  createModule: vi.fn(),
+  completeModule: vi.fn(),
+  upsertChannelState: vi.fn(),
+  getChannelState: vi.fn(),
+  appendAgentMessage: vi.fn(),
+  getAgentMessages: vi.fn(() => []),
+}));
+
 import type { RenderInstruction } from "../../../../src/gql/resolverTypes.js";
 import type { AgentRunner } from "../../../../src/services/games/poker/agent-runner.js";
 import { runSession } from "../../../../src/services/games/poker/orchestrator/index.js";
@@ -66,7 +77,7 @@ describe("orchestrator", () => {
 
     const instructions = spyOnPublish();
 
-    await runSession(session, agentRunner);
+    await runSession(session, agentRunner, "test-module");
 
     // Verify instruction sequence:
     // GAME_START -> DEAL_HANDS -> PLAYER_TURN -> PLAYER_ANALYSIS -> PLAYER_ACTION(fold) -> HAND_RESULT -> GAME_OVER
@@ -102,7 +113,7 @@ describe("orchestrator", () => {
     const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
 
     spyOnPublish();
-    await runSession(session, agentRunner);
+    await runSession(session, agentRunner, "test-module");
 
     expect(session.status).toBe("FINISHED");
   });
@@ -122,7 +133,7 @@ describe("orchestrator", () => {
     };
 
     const instructions = spyOnPublish();
-    await runSession(session, failingRunner);
+    await runSession(session, failingRunner, "test-module");
 
     expect(session.status).toBe("FINISHED");
 
@@ -159,7 +170,7 @@ describe("orchestrator", () => {
     spyOnPublish();
     setTimeout(() => session.abortController.abort(), 20);
 
-    await runSession(session, slowRunner);
+    await runSession(session, slowRunner, "test-module");
 
     expect(session.status).toBe("STOPPED");
   });
@@ -169,7 +180,7 @@ describe("orchestrator", () => {
     const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
 
     spyOnPublish();
-    await runSession(session, agentRunner);
+    await runSession(session, agentRunner, "test-module");
 
     expect(session.gameId).toBeDefined();
     expect(session.gameId).not.toBeNull();
@@ -181,7 +192,7 @@ describe("orchestrator", () => {
     const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
 
     const instructions = spyOnPublish();
-    await runSession(session, agentRunner);
+    await runSession(session, agentRunner, "test-module");
 
     const gameOver = instructions.find((i) => i.type === "GAME_OVER");
     expect(gameOver).toBeDefined();
@@ -194,7 +205,7 @@ describe("orchestrator", () => {
     const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
 
     const instructions = spyOnPublish();
-    await runSession(session, agentRunner);
+    await runSession(session, agentRunner, "test-module");
 
     const ids = instructions.map((i) => i.instructionId);
     expect(new Set(ids).size).toBe(ids.length);
@@ -213,7 +224,7 @@ describe("orchestrator", () => {
     const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
 
     const instructions = spyOnPublish();
-    await runSession(session, agentRunner);
+    await runSession(session, agentRunner, "test-module");
 
     expect(session.handNumber).toBe(2);
 
@@ -230,7 +241,7 @@ describe("orchestrator", () => {
     const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
 
     const instructions = spyOnPublish();
-    await runSession(session, agentRunner);
+    await runSession(session, agentRunner, "test-module");
 
     const analyses = instructions.filter((i) => i.type === "PLAYER_ANALYSIS");
     expect(analyses).toHaveLength(0);
@@ -255,7 +266,7 @@ describe("orchestrator", () => {
     };
 
     const instructions = spyOnPublish();
-    await runSession(session, badActionRunner);
+    await runSession(session, badActionRunner, "test-module");
 
     // Should have auto-folded after retries
     expect(session.status).toBe("FINISHED");
@@ -287,7 +298,7 @@ describe("orchestrator", () => {
     };
 
     spyOnPublish();
-    await runSession(session, trackingRunner);
+    await runSession(session, trackingRunner, "test-module");
 
     // The non-folding player should have received OPPONENT_ACTION
     // formatOpponentAction lowercases: "Alice folds."

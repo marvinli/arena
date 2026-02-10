@@ -1,15 +1,29 @@
-export const START_SESSION_MUT = /* GraphQL */ `
-  mutation StartSession($channelKey: String!) {
-    startSession(channelKey: $channelKey) {
-      channelKey
-      status
+export const CONNECT_QUERY = /* GraphQL */ `
+  query Connect($channelKey: String!) {
+    connect(channelKey: $channelKey) {
+      moduleId
+      moduleType
+      gameState {
+        status
+        gameId
+        handNumber
+        phase
+        button
+        smallBlind
+        bigBlind
+        players { id name chips bet status seatIndex }
+        communityCards { rank suit }
+        pots { size eligiblePlayerIds }
+        hands { playerId cards { rank suit } }
+        playerMeta { id ttsVoice avatarUrl }
+      }
     }
   }
 `;
 
-export const RUN_SESSION_MUT = /* GraphQL */ `
-  mutation RunSession($channelKey: String!) {
-    runSession(channelKey: $channelKey)
+export const START_MODULE_MUT = /* GraphQL */ `
+  mutation StartModule($channelKey: String!) {
+    startModule(channelKey: $channelKey)
   }
 `;
 
@@ -19,9 +33,9 @@ export const STOP_SESSION_MUT = /* GraphQL */ `
   }
 `;
 
-export const RENDER_COMPLETE_MUT = /* GraphQL */ `
-  mutation RenderComplete($channelKey: String!, $instructionId: ID!) {
-    renderComplete(channelKey: $channelKey, instructionId: $instructionId)
+export const COMPLETE_INSTRUCTION_MUT = /* GraphQL */ `
+  mutation CompleteInstruction($channelKey: String!, $moduleId: String!, $instructionId: String!) {
+    completeInstruction(channelKey: $channelKey, moduleId: $moduleId, instructionId: $instructionId)
   }
 `;
 
@@ -48,6 +62,7 @@ export const RENDER_INSTRUCTIONS_SUB = /* GraphQL */ `
   subscription RenderInstructions($channelKey: String!) {
     renderInstructions(channelKey: $channelKey) {
       instructionId
+      moduleId
       type
       timestamp
 

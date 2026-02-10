@@ -22,13 +22,20 @@ export const channelTypeDefs = /* GraphQL */ `
     players: [SessionPlayer!]!
   }
 
+  type ChannelConnection {
+    moduleId: String!
+    moduleType: String!
+    gameState: ProctorGameState
+  }
+
   extend type Query {
     getSession(channelKey: String!): Session
+    connect(channelKey: String!): ChannelConnection!
   }
 
   extend type Mutation {
-    startSession(channelKey: String!): Session!
-    runSession(channelKey: String!): Boolean!
+    startModule(channelKey: String!): Boolean!
+    completeInstruction(channelKey: String!, moduleId: String!, instructionId: String!): Boolean!
     stopSession(channelKey: String!): Boolean!
   }
 `;

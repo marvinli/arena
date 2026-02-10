@@ -1,16 +1,24 @@
 import { useCallback } from "react";
 import { gqlFetch } from "../graphql/client";
 import {
-  RENDER_COMPLETE_MUT,
+  COMPLETE_INSTRUCTION_MUT,
+  CONNECT_QUERY,
   RENDER_INSTRUCTIONS_SUB,
 } from "../graphql/operations";
 import { CHANNEL_KEY, delay } from "../session/config";
 import type { Action } from "../session/reducer";
 import { createRenderQueue } from "../session/renderQueue";
-import { fetchChannelState, sseSubscribe } from "../session/sseClient";
+import { sseSubscribe } from "../session/sseClient";
+import type { GqlChannelState } from "../session/types";
+
+interface ConnectResult {
+  moduleId: string;
+  moduleType: string;
+  gameState: GqlChannelState | null;
+}
 
 /**
- * Encapsulates the SSE subscribe → ack → drain loop with reconnection logic.
+ * Encapsulates the SSE subscribe -> ack -> drain loop with reconnection logic.
  * Returns a stable `startSSELoop` callback.
  */
 export function useSSELoop(dispatch: (action: Action) => void) {
@@ -39,20 +47,27 @@ export function useSSELoop(dispatch: (action: Action) => void) {
 
             // Ack immediately so the proctor can pipeline the
             // next LLM call while we render at our own pace.
-            await gqlFetch(RENDER_COMPLETE_MUT, {
+            await gqlFetch(COMPLETE_INSTRUCTION_MUT, {
               channelKey: CHANNEL_KEY,
+              moduleId: instruction.moduleId,
               instructionId: instruction.instructionId,
             });
           }
 
-          // SSE stream ended normally — check if game is still running
+          // SSE stream ended normally — reconnect
           if (!abort.signal.aborted) {
-            const cs = await fetchChannelState();
-            if (cs.status === "RUNNING") {
-              startSSELoop(abort, voiceMap);
-            } else if (cs.status === "FINISHED") {
-              dispatch({ type: "RECONNECT", channelState: cs });
+            const result = await gqlFetch(CONNECT_QUERY, {
+              channelKey: CHANNEL_KEY,
+            });
+            const conn = (result as { connect: ConnectResult }).connect;
+            const gs = conn.gameState;
+            if (gs) {
+              for (const meta of gs.playerMeta ?? []) {
+                if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+              }
+              dispatch({ type: "RECONNECT", channelState: gs });
             }
+            startSSELoop(abort, voiceMap, onConnected);
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === "AbortError") return;
@@ -64,19 +79,19 @@ export function useSSELoop(dispatch: (action: Action) => void) {
             await delay(1000, abort.signal);
             if (abort.signal.aborted) return;
 
-            const cs = await fetchChannelState();
-            if (cs.status === "RUNNING") {
-              for (const meta of cs.playerMeta) {
+            const result = await gqlFetch(CONNECT_QUERY, {
+              channelKey: CHANNEL_KEY,
+            });
+            const conn = (result as { connect: ConnectResult }).connect;
+            const gs = conn.gameState;
+            if (gs) {
+              for (const meta of gs.playerMeta ?? []) {
                 if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
               }
-              dispatch({ type: "RECONNECT", channelState: cs });
-              startSSELoop(abort, voiceMap);
-            } else if (cs.status === "FINISHED") {
-              dispatch({ type: "RECONNECT", channelState: cs });
-            } else {
-              const message = err instanceof Error ? err.message : String(err);
-              dispatch({ type: "ERROR", error: message });
+              dispatch({ type: "RECONNECT", channelState: gs });
+              if (gs.status === "FINISHED") return;
             }
+            startSSELoop(abort, voiceMap, onConnected);
           } catch {
             const message = err instanceof Error ? err.message : String(err);
             dispatch({ type: "ERROR", error: message });

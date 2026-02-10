@@ -1,84 +1,61 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { gqlFetch } from "../graphql/client";
-import {
-  RUN_SESSION_MUT,
-  START_SESSION_MUT,
-  STOP_SESSION_MUT,
-} from "../graphql/operations";
+import { CONNECT_QUERY, START_MODULE_MUT } from "../graphql/operations";
 import { CHANNEL_KEY } from "../session/config";
 import { INITIAL_STATE, reducer } from "../session/reducer";
-import { fetchChannelState } from "../session/sseClient";
+import type { GqlChannelState } from "../session/types";
 import { useSSELoop } from "./useSSELoop";
+
+interface ConnectResult {
+  moduleId: string;
+  moduleType: string;
+  gameState: GqlChannelState | null;
+}
 
 export function useGameSession() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const startSSELoop = useSSELoop(dispatch);
+  const connectingRef = useRef(false);
 
-  const startGame = useCallback(async () => {
-    dispatch({ type: "START", channelKey: CHANNEL_KEY });
+  useEffect(() => {
+    if (connectingRef.current) return;
+    connectingRef.current = true;
 
-    try {
-      // Check for an existing running session
-      const cs = await fetchChannelState();
+    const abort = new AbortController();
+    abortRef.current = abort;
 
-      const abort = new AbortController();
-      abortRef.current = abort;
+    (async () => {
+      try {
+        dispatch({ type: "START", channelKey: CHANNEL_KEY });
 
-      if (cs.status === "RUNNING" || cs.status === "FINISHED") {
-        // ── Reconnect to existing session ──────────────
+        const result = await gqlFetch(CONNECT_QUERY, {
+          channelKey: CHANNEL_KEY,
+        });
+        const conn = (result as { connect: ConnectResult }).connect;
+
         const voiceMap = new Map<string, string>();
-        for (const meta of cs.playerMeta) {
-          if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+        if (conn.gameState) {
+          for (const meta of conn.gameState.playerMeta ?? []) {
+            if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+          }
+          dispatch({ type: "RECONNECT", channelState: conn.gameState });
         }
-        dispatch({ type: "RECONNECT", channelState: cs });
 
-        if (cs.status === "RUNNING") {
-          startSSELoop(abort, voiceMap);
-        }
-        return;
+        startSSELoop(abort, voiceMap, async () => {
+          await gqlFetch(START_MODULE_MUT, { channelKey: CHANNEL_KEY });
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        dispatch({ type: "ERROR", error: message });
       }
+    })();
 
-      // ── No session — create a new one ──────────────
-      await gqlFetch(START_SESSION_MUT, {
-        channelKey: CHANNEL_KEY,
-      });
-
-      // Wait for SSE connection to be established before starting the game
-      let resolveConnected: () => void = () => {};
-      const connected = new Promise<void>((r) => {
-        resolveConnected = r;
-      });
-
-      const voiceMap = new Map<string, string>();
-      startSSELoop(abort, voiceMap, resolveConnected);
-
-      // Wait for SSE connection, then start the orchestrator
-      await connected;
-      await gqlFetch(RUN_SESSION_MUT, { channelKey: CHANNEL_KEY });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      dispatch({ type: "ERROR", error: message });
-    }
+    return () => {
+      abort.abort();
+      connectingRef.current = false;
+    };
   }, [startSSELoop]);
 
-  const stopGame = useCallback(async () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    try {
-      await gqlFetch(STOP_SESSION_MUT, { channelKey: CHANNEL_KEY });
-    } catch {
-      // Ignore stop errors
-    }
-    dispatch({ type: "RESET" });
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, []);
-
-  return { state, startGame, stopGame };
+  return { state };
 }
