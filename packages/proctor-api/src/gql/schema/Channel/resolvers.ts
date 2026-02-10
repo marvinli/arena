@@ -1,3 +1,4 @@
+import { logError } from "../../../logger.js";
 import { LlmAgentRunner } from "../../../services/games/poker/llm-agent-runner.js";
 import { runSession } from "../../../services/games/poker/orchestrator/index.js";
 import {
@@ -49,7 +50,7 @@ const runSessionMutation: MutationResolvers["runSession"] = (
   if (session.gameId) throw new Error(`Session already running: ${channelKey}`);
 
   void runSession(session, new LlmAgentRunner()).catch((err) => {
-    console.error("[runSession] orchestrator failed:", err);
+    logError("runSession", "orchestrator failed:", err);
   });
 
   return true;

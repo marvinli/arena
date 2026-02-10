@@ -153,6 +153,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: #e0e4ef;
 }
 
 .sidePanelName {

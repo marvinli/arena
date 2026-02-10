@@ -1,3 +1,4 @@
+import { logError } from "../../../../logger.js";
 import type { GameState } from "../../../../types.js";
 import { fallbackCheckLine, fallbackFoldLine } from "../fallback-lines.js";
 import {
@@ -48,8 +49,9 @@ export async function resolveAction(
       break;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[orchestrator] Agent ${playerId} LLM call failed (attempt ${llmAttempt + 1}/${MAX_LLM_RETRIES}):`,
+      logError(
+        "orchestrator",
+        `Agent ${playerId} LLM call failed (attempt ${llmAttempt + 1}/${MAX_LLM_RETRIES}):`,
         msg,
       );
       if (llmAttempt >= MAX_LLM_RETRIES - 1) {
@@ -58,8 +60,9 @@ export async function resolveAction(
         );
         const fallback = canCheck ? "CHECK" : "FOLD";
         const analysis = canCheck ? fallbackCheckLine() : fallbackFoldLine();
-        console.error(
-          `[orchestrator] Max LLM retries for ${playerId}, auto-${fallback.toLowerCase()}ing`,
+        logError(
+          "orchestrator",
+          `Max LLM retries for ${playerId}, auto-${fallback.toLowerCase()}ing`,
         );
         const state = poker.submitAction(ctx.gameId, playerId, fallback);
         return {
@@ -86,14 +89,16 @@ export async function resolveAction(
       return { result, state };
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[orchestrator] Invalid action from ${playerId} (attempt ${attempt + 1}):`,
+      logError(
+        "orchestrator",
+        `Invalid action from ${playerId} (attempt ${attempt + 1}):`,
         errorMsg,
       );
 
       if (attempt >= MAX_ACTION_RETRIES) {
-        console.error(
-          `[orchestrator] Max retries reached for ${playerId}, auto-folding`,
+        logError(
+          "orchestrator",
+          `Max retries reached for ${playerId}, auto-folding`,
         );
         result = { action: { type: "FOLD" } };
         const state = poker.submitAction(ctx.gameId, playerId, "FOLD");
@@ -105,8 +110,9 @@ export async function resolveAction(
       } catch (retryErr) {
         const retryMsg =
           retryErr instanceof Error ? retryErr.message : String(retryErr);
-        console.error(
-          `[orchestrator] Agent ${playerId} rejectAction failed, auto-folding:`,
+        logError(
+          "orchestrator",
+          `Agent ${playerId} rejectAction failed, auto-folding:`,
           retryMsg,
         );
         result = {

@@ -1,6 +1,7 @@
 import { bedrock } from "@ai-sdk/amazon-bedrock";
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
+import { deepseek } from "@ai-sdk/deepseek";
 import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
 import {
@@ -11,6 +12,7 @@ import {
   tool,
 } from "ai";
 import { z } from "zod";
+import { logError } from "../../../logger.js";
 import type {
   AgentRunner,
   AgentTurnContext,
@@ -39,6 +41,8 @@ function resolveModel(provider: string, modelId: string) {
       return xai(modelId);
     case "bedrock":
       return bedrock(modelId);
+    case "deepseek":
+      return deepseek(modelId);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -54,9 +58,9 @@ function getProviderOptions(
     case "openai":
       return { openai: { reasoningEffort: "none" } };
     case "google":
-      return { google: { thinkingConfig: { thinkingBudget: 0 } } };
+      return { google: { thinkingConfig: { thinkingBudget: 128 } } };
     case "bedrock":
-      if (config.modelId.startsWith("qwen.")) {
+      if (config.modelId.includes("qwen")) {
         return {
           bedrock: {
             additionalModelRequestFields: { enable_thinking: false },
@@ -66,6 +70,37 @@ function getProviderOptions(
       return undefined;
     default:
       return undefined;
+  }
+}
+
+const VALID_ACTIONS = new Set(["FOLD", "CHECK", "CALL", "BET", "RAISE"]);
+
+/** Parse a tool call emitted as JSON text (Llama 4 on Bedrock does this). */
+function parseToolCallFromText(text: string): {
+  action: string;
+  amount?: number;
+  analysis: string;
+} | null {
+  // Match JSON like {"name":"submit_action","parameters":{"action":"RAISE","amount":80}}
+  const jsonMatch = text.match(
+    /\{[^{}]*"name"\s*:\s*"submit_action"[^{}]*"parameters"\s*:\s*\{[^{}]*\}[^{}]*\}/s,
+  );
+  if (!jsonMatch) return null;
+
+  try {
+    const parsed = JSON.parse(jsonMatch[0]);
+    const params = parsed.parameters ?? parsed.input;
+    if (!params?.action || !VALID_ACTIONS.has(params.action)) return null;
+
+    // Everything before the JSON blob is the analysis
+    const analysis = text.slice(0, jsonMatch.index).trim();
+    return {
+      action: params.action,
+      amount: params.amount != null ? Number(params.amount) : undefined,
+      analysis: analysis || undefined,
+    } as { action: string; amount?: number; analysis: string };
+  } catch {
+    return null;
   }
 }
 
@@ -96,8 +131,9 @@ export class LlmAgentRunner implements AgentRunner {
   injectMessage(playerId: string, message: string): void {
     const agent = this.agents.get(playerId);
     if (!agent) {
-      console.warn(
-        `[llm-agent-runner] injectMessage called for unknown agent: ${playerId}`,
+      logError(
+        "llm-agent-runner",
+        `injectMessage called for unknown agent: ${playerId}`,
       );
       return;
     }
@@ -133,7 +169,13 @@ export class LlmAgentRunner implements AgentRunner {
       throw new Error(`No previous tool call to reject for ${playerId}`);
     }
 
-    // Replace the "Action submitted." tool result with the error
+    // Remove the assistant bridge message (if present) and the tool result
+    if (
+      agent.config.provider === "bedrock" &&
+      agent.messages.at(-1)?.role === "assistant"
+    ) {
+      agent.messages.pop();
+    }
     agent.messages.pop();
     agent.messages.push({
       role: "tool",
@@ -167,6 +209,7 @@ export class LlmAgentRunner implements AgentRunner {
       messages: agent.messages,
       tools: { submit_action: submitActionTool },
       temperature: agent.config.temperature,
+      maxOutputTokens: 512,
       stopWhen: [hasToolCall("submit_action"), stepCountIs(3)],
       providerOptions: getProviderOptions(agent.config),
     });
@@ -185,33 +228,58 @@ export class LlmAgentRunner implements AgentRunner {
       (tc) => tc.toolName === "submit_action",
     );
 
-    if (!toolCall) {
-      throw new Error("Agent did not call submit_action");
+    if (toolCall) {
+      agent.lastToolCallId = toolCall.toolCallId;
+
+      // Append tool result so the conversation is valid for the next turn
+      agent.messages.push({
+        role: "tool",
+        content: [
+          {
+            type: "tool-result",
+            toolCallId: toolCall.toolCallId,
+            toolName: "submit_action",
+            output: { type: "text", value: "Action submitted." },
+          },
+        ],
+      });
+
+      // Some providers (Bedrock Llama/Mistral) require an assistant message
+      // after a tool result before the next user message.
+      if (agent.config.provider === "bedrock") {
+        agent.messages.push({
+          role: "assistant",
+          content: "Action submitted.",
+        });
+      }
+
+      const analysis = result.text?.trim() || undefined;
+
+      return {
+        action: {
+          type: toolCall.input.action,
+          amount: toolCall.input.amount,
+        },
+        analysis,
+      };
     }
 
-    agent.lastToolCallId = toolCall.toolCallId;
+    // Fallback: some models (e.g. Llama 4 on Bedrock) emit tool calls as
+    // JSON text instead of structured tool calls. Try to parse it.
+    const parsed = parseToolCallFromText(result.text ?? "");
+    if (parsed) {
+      // Replace the text-only assistant message with a clean one for history
+      agent.messages.push({ role: "assistant", content: parsed.analysis || "Action submitted." });
 
-    // Append tool result so the conversation is valid for the next turn
-    agent.messages.push({
-      role: "tool",
-      content: [
-        {
-          type: "tool-result",
-          toolCallId: toolCall.toolCallId,
-          toolName: "submit_action",
-          output: { type: "text", value: "Action submitted." },
+      return {
+        action: {
+          type: parsed.action,
+          amount: parsed.amount,
         },
-      ],
-    });
+        analysis: parsed.analysis || undefined,
+      };
+    }
 
-    const analysis = result.text?.trim() || undefined;
-
-    return {
-      action: {
-        type: toolCall.input.action,
-        amount: toolCall.input.amount,
-      },
-      analysis,
-    };
+    throw new Error("Agent did not call submit_action");
   }
 }

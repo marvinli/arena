@@ -117,7 +117,7 @@ const PLAYERS: Player[] = [
   },
   {
     id: "agent-8",
-    name: "Nova Premier",
+    name: "Nova Pro",
     chips: 910,
     avatar: "nova",
     cards: [

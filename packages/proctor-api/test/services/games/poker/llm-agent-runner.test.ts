@@ -96,9 +96,10 @@ describe("LlmAgentRunner", () => {
   });
 
   it("injectMessage warns on unknown agent", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     runner.injectMessage("unknown-id", "hello");
-    expect(warnSpy).toHaveBeenCalledWith(
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("llm-agent-runner"),
       expect.stringContaining("unknown agent: unknown-id"),
     );
   });

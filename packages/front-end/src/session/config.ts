@@ -42,16 +42,16 @@ export const DEFAULT_CONFIG = {
     {
       playerId: "agent-5",
       name: "DeepSeek",
-      modelId: "deepseek.v3-v1:0",
-      modelName: "V3.1",
-      provider: "bedrock",
+      modelId: "deepseek-chat",
+      modelName: "V3",
+      provider: "deepseek",
       avatarUrl: "deepseek",
       ttsVoice: "onwK4e9ZLuTAKqWW03F9", // Daniel
     },
     {
       playerId: "agent-6",
       name: "Llama",
-      modelId: "meta.llama4-maverick-17b-128e-instruct-v1:0",
+      modelId: "us.meta.llama4-maverick-17b-instruct-v1:0",
       modelName: "4 Maverick",
       provider: "bedrock",
       avatarUrl: "meta",
@@ -69,8 +69,8 @@ export const DEFAULT_CONFIG = {
     {
       playerId: "agent-8",
       name: "Nova",
-      modelId: "amazon.nova-premier-v1:0",
-      modelName: "Premier",
+      modelId: "us.amazon.nova-pro-v1:0",
+      modelName: "Pro",
       provider: "bedrock",
       avatarUrl: "nova",
       ttsVoice: "cjVigY5qzO86Huf0OWal", // Eric
@@ -78,8 +78,8 @@ export const DEFAULT_CONFIG = {
     {
       playerId: "agent-9",
       name: "Qwen",
-      modelId: "qwen.qwen3-235b-a22b-2507-v1:0",
-      modelName: "3 235B",
+      modelId: "qwen.qwen3-32b-v1:0",
+      modelName: "3 32B",
       provider: "bedrock",
       avatarUrl: "qwen",
       ttsVoice: "JBFqnCBsd6RMkjVDRZzb", // George
