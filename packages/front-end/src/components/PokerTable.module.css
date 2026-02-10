@@ -1,8 +1,18 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  gap: 1.5rem;
+}
+
 .scene {
   position: relative;
-  width: min(calc(100vw - 8vw), calc((100vh - 10vh) * 16 / 9));
-  height: min(calc(100vh - 10vh), calc((100vw - 8vw) * 9 / 16));
+  width: min(calc(100vw - 25vw), calc((100vh - 10vh) * 16 / 9));
+  height: min(calc(100vh - 10vh), calc((100vw - 25vw) * 9 / 16));
   container-type: inline-size;
+  flex-shrink: 0;
 }
 
 /* ── Community cards ──────────────────────────────────── */
@@ -91,6 +101,50 @@
   font-weight: 800;
   color: #ff6b6b;
   letter-spacing: 0.06cqw;
+}
+
+/* ── Analysis side panel ─────────────────────────────── */
+
+.sidePanel {
+  width: 18vw;
+  height: calc(100vh - 10vh);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  overflow-y: auto;
+}
+
+.sidePanelAvatar {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: rgba(15, 20, 25, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidePanelName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #e0e4ef;
+  text-align: center;
+}
+
+.sidePanelText {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #c0c4cf;
+  line-height: 1.6;
+  text-align: left;
+  width: 100%;
 }
 
 /* ── Hole-card overlap on second card ─────────────────── */

@@ -1,3 +1,7 @@
+import Claude from "@lobehub/icons/es/Claude";
+import Gemini from "@lobehub/icons/es/Gemini";
+import Grok from "@lobehub/icons/es/Grok";
+import OpenAI from "@lobehub/icons/es/OpenAI";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import type { Card, Player, Pot } from "../types";
 import { PlayerSeat } from "./PlayerSeat";
@@ -37,11 +41,20 @@ function formatChips(amount: number): string {
   return `$${amount.toLocaleString()}`;
 }
 
+function SpeakerIcon({ avatar }: { avatar: string }) {
+  const size = { width: "60%", height: "60%" };
+  if (avatar === "openai") return <OpenAI style={size} />;
+  if (avatar === "google") return <Gemini.Color style={size} />;
+  if (avatar === "xai") return <Grok style={size} />;
+  return <Claude.Color style={size} />;
+}
+
 export function PokerTable({
   players,
   communityCards,
   pots,
   speakingPlayerId,
+  analysisText,
   handNumber,
   button,
 }: {
@@ -49,153 +62,173 @@ export function PokerTable({
   communityCards: Card[];
   pots: Pot[];
   speakingPlayerId: string | null;
+  analysisText: string | null;
   handNumber: number;
   button: number | null;
 }) {
   const dealAnimation = useDealAnimation(handNumber, button, players);
 
+  const speakingPlayer = speakingPlayerId
+    ? (players.find((p) => p.id === speakingPlayerId) ?? null)
+    : null;
+
   // If any player is active or speaking, dim everyone else
   const highlightedId =
     speakingPlayerId ?? players.find((p) => p.isActive)?.id ?? null;
   return (
-    <div className={styles.scene}>
-      {/* Community cards + pot */}
-      <div className={styles.communityArea}>
-        <div className={styles.potLabels}>
-          {pots.map((pot) => (
-            <div key={pot.label} className={styles.potLabel}>
-              {pot.label}: {formatChips(pot.amount)}
-            </div>
-          ))}
+    <div className={styles.wrapper}>
+      <div className={styles.scene}>
+        {/* Community cards + pot */}
+        <div className={styles.communityArea}>
+          <div className={styles.potLabels}>
+            {pots.map((pot) => (
+              <div key={pot.label} className={styles.potLabel}>
+                {pot.label}: {formatChips(pot.amount)}
+              </div>
+            ))}
+          </div>
+          <div className={styles.communityCards}>
+            {/* All 5 slots: indices 0-2 = flop, 3 = turn, 4 = river */}
+            {Array.from({ length: 5 }, (_, i) => {
+              const card = communityCards[i] ?? null;
+              const needsGap = i === 3 || i === 4;
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: fixed-position card slots never reorder
+                <span key={`slot-${i}`} style={{ display: "contents" }}>
+                  {needsGap && <div className={styles.streetGap} />}
+                  {card ? (
+                    <PlayingCard card={card} />
+                  ) : (
+                    <div className={styles.emptySlot} />
+                  )}
+                </span>
+              );
+            })}
+          </div>
         </div>
-        <div className={styles.communityCards}>
-          {/* All 5 slots: indices 0-2 = flop, 3 = turn, 4 = river */}
-          {Array.from({ length: 5 }, (_, i) => {
-            const card = communityCards[i] ?? null;
-            const needsGap = i === 3 || i === 4;
-            return (
-              // biome-ignore lint/suspicious/noArrayIndexKey: fixed-position card slots never reorder
-              <span key={`slot-${i}`} style={{ display: "contents" }}>
-                {needsGap && <div className={styles.streetGap} />}
-                {card ? (
-                  <PlayingCard card={card} />
-                ) : (
-                  <div className={styles.emptySlot} />
-                )}
-              </span>
-            );
-          })}
-        </div>
-      </div>
 
-      {players.map((player, i) => {
-        const seat = SEAT_POSITIONS[i];
-        if (!seat) return null;
-        // Position bet indicator toward center (50, 50)
-        const cx = 50;
-        const cy = 50;
-        const dx = cx - seat.x;
-        const dy = cy - seat.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const step = Math.min(0.35, 14 / dist);
-        const betX = seat.x + dx * step;
-        const yNudge = i === 3 || i === 7 ? -3 : 0;
-        const betY = seat.y + dy * step + yNudge;
-        const showBet = player.currentBet > 0;
+        {players.map((player, i) => {
+          const seat = SEAT_POSITIONS[i];
+          if (!seat) return null;
+          // Position bet indicator toward center (50, 50)
+          const cx = 50;
+          const cy = 50;
+          const dx = cx - seat.x;
+          const dy = cy - seat.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const step = Math.min(0.35, 14 / dist);
+          const betX = seat.x + dx * step;
+          const yNudge = i === 3 || i === 7 ? -3 : 0;
+          const betY = seat.y + dy * step + yNudge;
+          const showBet = player.currentBet > 0;
 
-        return (
-          <div key={player.id}>
-            <div
-              style={{
-                position: "absolute",
-                left: `${seat.x}%`,
-                top: `${seat.y}%`,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <PlayerSeat
-                player={player}
-                seatColor={SEAT_COLORS[i]}
-                holeCardSecondClass={styles.holeCardSecond}
-                isSpeaking={player.id === speakingPlayerId}
-                isDimmed={highlightedId !== null && player.id !== highlightedId}
-                visibleCards={dealAnimation.get(i)?.visibleCards ?? 2}
-                faceUp={dealAnimation.get(i)?.faceUp ?? true}
-              />
-            </div>
-            {showBet && player.currentBet > 0 && (
+          return (
+            <div key={player.id}>
               <div
-                className={`${styles.betIndicator} ${player.isAllIn ? styles.allIn : ""}`}
                 style={{
-                  left: `${betX}%`,
-                  top: `${betY}%`,
-                  borderColor: SEAT_COLORS[i],
+                  position: "absolute",
+                  left: `${seat.x}%`,
+                  top: `${seat.y}%`,
+                  transform: "translate(-50%, -50%)",
                 }}
               >
-                {player.isAllIn && (
-                  <span className={styles.allInLabel}>ALL IN</span>
-                )}
-                <svg
-                  className={styles.betChipIcon}
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="10"
-                    cy="10"
-                    r="8.5"
-                    stroke={SEAT_COLORS[i]}
-                    strokeWidth="1.5"
-                  />
-                  <circle
-                    cx="10"
-                    cy="10"
-                    r="5.5"
-                    stroke={SEAT_COLORS[i]}
-                    strokeWidth="1"
-                  />
-                  <line
-                    x1="10"
-                    y1="1"
-                    x2="10"
-                    y2="4"
-                    stroke={SEAT_COLORS[i]}
-                    strokeWidth="1.5"
-                  />
-                  <line
-                    x1="10"
-                    y1="16"
-                    x2="10"
-                    y2="19"
-                    stroke={SEAT_COLORS[i]}
-                    strokeWidth="1.5"
-                  />
-                  <line
-                    x1="1"
-                    y1="10"
-                    x2="4"
-                    y2="10"
-                    stroke={SEAT_COLORS[i]}
-                    strokeWidth="1.5"
-                  />
-                  <line
-                    x1="16"
-                    y1="10"
-                    x2="19"
-                    y2="10"
-                    stroke={SEAT_COLORS[i]}
-                    strokeWidth="1.5"
-                  />
-                </svg>
-                <span className={styles.betAmount}>
-                  {formatChips(player.currentBet)}
-                </span>
+                <PlayerSeat
+                  player={player}
+                  seatColor={SEAT_COLORS[i]}
+                  holeCardSecondClass={styles.holeCardSecond}
+                  isSpeaking={player.id === speakingPlayerId}
+                  isDimmed={
+                    highlightedId !== null && player.id !== highlightedId
+                  }
+                  visibleCards={dealAnimation.get(i)?.visibleCards ?? 2}
+                  faceUp={dealAnimation.get(i)?.faceUp ?? true}
+                />
               </div>
-            )}
-          </div>
-        );
-      })}
+              {showBet && player.currentBet > 0 && (
+                <div
+                  className={`${styles.betIndicator} ${player.isAllIn ? styles.allIn : ""}`}
+                  style={{
+                    left: `${betX}%`,
+                    top: `${betY}%`,
+                    borderColor: SEAT_COLORS[i],
+                  }}
+                >
+                  {player.isAllIn && (
+                    <span className={styles.allInLabel}>ALL IN</span>
+                  )}
+                  <svg
+                    className={styles.betChipIcon}
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="8.5"
+                      stroke={SEAT_COLORS[i]}
+                      strokeWidth="1.5"
+                    />
+                    <circle
+                      cx="10"
+                      cy="10"
+                      r="5.5"
+                      stroke={SEAT_COLORS[i]}
+                      strokeWidth="1"
+                    />
+                    <line
+                      x1="10"
+                      y1="1"
+                      x2="10"
+                      y2="4"
+                      stroke={SEAT_COLORS[i]}
+                      strokeWidth="1.5"
+                    />
+                    <line
+                      x1="10"
+                      y1="16"
+                      x2="10"
+                      y2="19"
+                      stroke={SEAT_COLORS[i]}
+                      strokeWidth="1.5"
+                    />
+                    <line
+                      x1="1"
+                      y1="10"
+                      x2="4"
+                      y2="10"
+                      stroke={SEAT_COLORS[i]}
+                      strokeWidth="1.5"
+                    />
+                    <line
+                      x1="16"
+                      y1="10"
+                      x2="19"
+                      y2="10"
+                      stroke={SEAT_COLORS[i]}
+                      strokeWidth="1.5"
+                    />
+                  </svg>
+                  <span className={styles.betAmount}>
+                    {formatChips(player.currentBet)}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className={styles.sidePanel}>
+        {speakingPlayer && analysisText && (
+          <>
+            <div className={styles.sidePanelAvatar}>
+              <SpeakerIcon avatar={speakingPlayer.avatar} />
+            </div>
+            <div className={styles.sidePanelName}>{speakingPlayer.name}</div>
+            <div className={styles.sidePanelText}>{analysisText}</div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

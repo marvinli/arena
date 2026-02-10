@@ -1,10 +1,29 @@
 import { PokerTable } from "./components/PokerTable";
 import { StartScreen } from "./components/StartScreen";
 import { useGameSession } from "./hooks/useGameSession";
+import { mockCommunityCards, mockPlayers, mockPots } from "./mockData";
 import "./styles/global.css";
+
+const isMock = new URLSearchParams(window.location.search).has("mock");
 
 export function App() {
   const { state, startGame, stopGame } = useGameSession();
+
+  if (isMock) {
+    return (
+      <div className="app">
+        <PokerTable
+          players={mockPlayers}
+          communityCards={mockCommunityCards}
+          pots={mockPots}
+          speakingPlayerId={null}
+          analysisText={null}
+          handNumber={1}
+          button={0}
+        />
+      </div>
+    );
+  }
 
   if (state.status === "idle" || state.status === "error") {
     return (
@@ -21,6 +40,7 @@ export function App() {
         communityCards={state.communityCards}
         pots={state.pots}
         speakingPlayerId={state.speakingPlayerId}
+        analysisText={state.analysisText}
         handNumber={state.handNumber}
         button={state.button}
       />

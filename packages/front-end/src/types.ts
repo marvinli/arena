@@ -58,5 +58,6 @@ export interface GameState {
   pots: Pot[];
   holeCards: Map<string, [Card, Card]>;
   speakingPlayerId: string | null;
+  analysisText: string | null;
   error: string | null;
 }

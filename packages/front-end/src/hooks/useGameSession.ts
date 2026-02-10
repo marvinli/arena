@@ -334,7 +334,7 @@ type Action =
   | { type: "RESET" }
   | { type: "INSTRUCTION"; instruction: GqlInstruction }
   | { type: "RECONNECT"; channelState: GqlChannelState }
-  | { type: "SPEAK_START"; playerId: string }
+  | { type: "SPEAK_START"; playerId: string; text: string }
   | { type: "SPEAK_END" };
 
 const INITIAL_STATE: GameState = {
@@ -351,6 +351,7 @@ const INITIAL_STATE: GameState = {
   pots: [],
   holeCards: new Map(),
   speakingPlayerId: null,
+  analysisText: null,
   error: null,
 };
 
@@ -376,10 +377,14 @@ function reducer(state: GameState, action: Action): GameState {
       return handleReconnect(action.channelState);
 
     case "SPEAK_START":
-      return { ...state, speakingPlayerId: action.playerId };
+      return {
+        ...state,
+        speakingPlayerId: action.playerId,
+        analysisText: action.text,
+      };
 
     case "SPEAK_END":
-      return { ...state, speakingPlayerId: null };
+      return { ...state, speakingPlayerId: null, analysisText: null };
   }
 }
 
@@ -653,7 +658,7 @@ export function useGameSession() {
             ) {
               const { playerId, analysis } = inst.playerAnalysis;
               const voiceId = voiceMap.get(playerId) ?? "";
-              dispatch({ type: "SPEAK_START", playerId });
+              dispatch({ type: "SPEAK_START", playerId, text: analysis });
               ttsGate = speakAnalysis(analysis, voiceId).then(
                 () => dispatch({ type: "SPEAK_END" }),
                 () => dispatch({ type: "SPEAK_END" }),
