@@ -115,22 +115,6 @@ const PLAYERS: Player[] = [
     lastAction: "call",
     currentBet: 80,
   },
-  {
-    id: "agent-9",
-    name: "Qwen3 235B",
-    chips: 850,
-    avatar: "qwen",
-    cards: [
-      { rank: "A", suit: "hearts" },
-      { rank: "3", suit: "diamonds" },
-    ],
-    isDealer: false,
-    isFolded: false,
-    isActive: false,
-    isAllIn: false,
-    lastAction: "call",
-    currentBet: 80,
-  },
 ];
 
 const COMMUNITY_CARDS: Card[] = [

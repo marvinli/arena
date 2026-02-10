@@ -66,15 +66,6 @@ export const DEFAULT_CONFIG = {
       avatarUrl: "nova",
       ttsVoice: "onyx", // deep male
     },
-    {
-      playerId: "agent-9",
-      name: "Qwen",
-      modelId: "qwen.qwen3-32b-v1:0",
-      modelName: "3 32B",
-      provider: "bedrock",
-      avatarUrl: "qwen",
-      ttsVoice: "sage", // female
-    },
   ],
   startingChips: 1000,
   smallBlind: 10,
