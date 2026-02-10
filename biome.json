@@ -13,6 +13,7 @@
     "includes": [
       "**",
       "!packages/proctor-api/src/gql/resolverTypes.ts",
+      "!packages/front-end/src/graphql/generated.ts",
       "!logs",
       "!**/dist"
     ]

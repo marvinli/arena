@@ -18,108 +18,21 @@ import type {
   Pot,
 } from "../types";
 
-// ── GraphQL response shapes ─────────────────────────────
+// ── GraphQL response shapes (generated) ─────────────────
 
-interface GqlPlayerInfo {
-  id: string;
-  name: string;
-  chips: number;
-  bet: number;
-  status: string;
-  seatIndex: number;
-}
+import type {
+  CardInfo,
+  GetChannelStateQuery,
+  PlayerInfo,
+  PotInfo,
+  RenderInstructionsSubscription,
+} from "../graphql/generated";
 
-interface GqlCardInfo {
-  rank: string;
-  suit: string;
-}
-
-interface GqlPotInfo {
-  size: number;
-  eligiblePlayerIds: string[];
-}
-
-interface GqlInstruction {
-  instructionId: string;
-  type: string;
-  timestamp: string;
-  gameStart?: {
-    gameId: string;
-    players: GqlPlayerInfo[];
-    playerMeta: {
-      id: string;
-      ttsVoice: string | null;
-      avatarUrl: string | null;
-    }[];
-    smallBlind: number;
-    bigBlind: number;
-  } | null;
-  dealHands?: {
-    handNumber: number;
-    players: GqlPlayerInfo[];
-    hands: { playerId: string; cards: GqlCardInfo[] }[];
-    button: number | null;
-    pots: GqlPotInfo[];
-  } | null;
-  dealCommunity?: {
-    phase: string;
-    communityCards: GqlCardInfo[];
-    pots: GqlPotInfo[];
-  } | null;
-  playerTurn?: {
-    playerId: string;
-    playerName: string;
-  } | null;
-  playerAnalysis?: {
-    playerId: string;
-    playerName: string;
-    analysis: string;
-    isApiError: boolean;
-  } | null;
-  playerAction?: {
-    playerId: string;
-    playerName: string;
-    action: string;
-    amount: number | null;
-    pots: GqlPotInfo[];
-    players: GqlPlayerInfo[];
-  } | null;
-  handResult?: {
-    winners: { playerId: string; amount: number; hand: string | null }[];
-    pots: GqlPotInfo[];
-    players: GqlPlayerInfo[];
-    communityCards: GqlCardInfo[];
-  } | null;
-  leaderboard?: {
-    players: GqlPlayerInfo[];
-    handsPlayed: number;
-  } | null;
-  gameOver?: {
-    winnerId: string;
-    winnerName: string;
-    players: GqlPlayerInfo[];
-    handsPlayed: number;
-  } | null;
-}
-
-interface GqlChannelState {
-  status: string | null;
-  gameId: string | null;
-  handNumber: number;
-  phase: string | null;
-  button: number | null;
-  smallBlind: number;
-  bigBlind: number;
-  players: GqlPlayerInfo[];
-  communityCards: GqlCardInfo[];
-  pots: GqlPotInfo[];
-  hands: { playerId: string; cards: GqlCardInfo[] }[];
-  playerMeta: {
-    id: string;
-    ttsVoice: string | null;
-    avatarUrl: string | null;
-  }[];
-}
+type GqlInstruction = RenderInstructionsSubscription["renderInstructions"];
+type GqlChannelState = GetChannelStateQuery["getChannelState"];
+type GqlPlayerInfo = PlayerInfo;
+type GqlCardInfo = CardInfo;
+type GqlPotInfo = PotInfo;
 
 // ── Session config ──────────────────────────────────────
 

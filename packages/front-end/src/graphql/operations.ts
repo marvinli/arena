@@ -1,4 +1,4 @@
-export const START_SESSION_MUT = `
+export const START_SESSION_MUT = /* GraphQL */ `
   mutation StartSession($channelKey: String!, $config: SessionConfig!) {
     startSession(channelKey: $channelKey, config: $config) {
       channelKey
@@ -10,25 +10,25 @@ export const START_SESSION_MUT = `
   }
 `;
 
-export const RUN_SESSION_MUT = `
+export const RUN_SESSION_MUT = /* GraphQL */ `
   mutation RunSession($channelKey: String!) {
     runSession(channelKey: $channelKey)
   }
 `;
 
-export const STOP_SESSION_MUT = `
+export const STOP_SESSION_MUT = /* GraphQL */ `
   mutation StopSession($channelKey: String!) {
     stopSession(channelKey: $channelKey)
   }
 `;
 
-export const RENDER_COMPLETE_MUT = `
+export const RENDER_COMPLETE_MUT = /* GraphQL */ `
   mutation RenderComplete($channelKey: String!, $instructionId: ID!) {
     renderComplete(channelKey: $channelKey, instructionId: $instructionId)
   }
 `;
 
-export const GET_CHANNEL_STATE = `
+export const GET_CHANNEL_STATE = /* GraphQL */ `
   query GetChannelState($channelKey: String!) {
     getChannelState(channelKey: $channelKey) {
       status
@@ -47,7 +47,7 @@ export const GET_CHANNEL_STATE = `
   }
 `;
 
-export const RENDER_INSTRUCTIONS_SUB = `
+export const RENDER_INSTRUCTIONS_SUB = /* GraphQL */ `
   subscription RenderInstructions($channelKey: String!) {
     renderInstructions(channelKey: $channelKey) {
       instructionId
