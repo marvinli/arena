@@ -106,7 +106,7 @@ export function PlayerSeat({
           </div>
           <div className={styles.infoBadge}>
             <span className={styles.name}>{player.name}</span>
-            <ChipStackDisplay amount={player.chips} />
+            <ChipStackDisplay amount={player.chips} color={seatColor} />
           </div>
         </div>
         <div className={cardsClass}>

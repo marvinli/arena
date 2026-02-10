@@ -1,58 +1,41 @@
 import { formatChips } from "../chips";
 import styles from "./ChipStack.module.css";
 
-function ChipIcon() {
+export function ChipIcon({
+  className,
+  color = "currentColor",
+}: {
+  className?: string;
+  color?: string;
+}) {
   return (
     <svg
-      className={styles.icon}
+      className={className}
       viewBox="0 0 20 20"
       fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+      stroke={color}
+      strokeWidth="1.4"
       aria-hidden="true"
     >
-      <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="10" cy="10" r="5.5" stroke="currentColor" strokeWidth="1" />
-      <line
-        x1="10"
-        y1="1"
-        x2="10"
-        y2="4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <line
-        x1="10"
-        y1="16"
-        x2="10"
-        y2="19"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <line
-        x1="1"
-        y1="10"
-        x2="4"
-        y2="10"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <line
-        x1="16"
-        y1="10"
-        x2="19"
-        y2="10"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
+      <ellipse cx="10" cy="5" rx="6.5" ry="2.5" />
+      <path d="M3.5 5v10c0 1.38 2.9 2.5 6.5 2.5s6.5-1.12 6.5-2.5V5" />
+      <path d="M3.5 8.5c0 1.38 2.9 2.5 6.5 2.5s6.5-1.12 6.5-2.5" />
+      <path d="M3.5 12c0 1.38 2.9 2.5 6.5 2.5s6.5-1.12 6.5-2.5" />
     </svg>
   );
 }
 
-export function ChipStackDisplay({ amount }: { amount: number }) {
+export function ChipStackDisplay({
+  amount,
+  color,
+}: {
+  amount: number;
+  color?: string;
+}) {
   return (
     <div className={styles.chipArea}>
       <span className={styles.label}>
-        <ChipIcon />
+        <ChipIcon className={styles.icon} color={color} />
         {formatChips(amount)}
       </span>
     </div>

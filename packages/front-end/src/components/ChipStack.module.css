@@ -15,8 +15,9 @@
 }
 
 .icon {
-  width: 1.2cqw;
-  height: 1.2cqw;
+  width: 1.5cqw;
+  height: 1.5cqw;
   flex-shrink: 0;
-  opacity: 0.45;
+  vertical-align: baseline;
+
 }

@@ -77,9 +77,10 @@
 }
 
 .betChipIcon {
-  width: 1.4cqw;
-  height: 1.4cqw;
+  width: 1.5cqw;
+  height: 1.5cqw;
   flex-shrink: 0;
+
 }
 
 .betAmount {

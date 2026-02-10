@@ -2,6 +2,7 @@ import { formatChips } from "../chips";
 import { useCommunityDealAnimation } from "../hooks/useCommunityDealAnimation";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import type { Card, Player, Pot } from "../types";
+import { ChipIcon } from "./ChipStack";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./PlayingCard";
 import styles from "./PokerTable.module.css";
@@ -162,59 +163,10 @@ export function PokerTable({
                   {player.isAllIn && (
                     <span className={styles.allInLabel}>ALL IN</span>
                   )}
-                  <svg
+                  <ChipIcon
                     className={styles.betChipIcon}
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    aria-hidden="true"
-                  >
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="8.5"
-                      stroke={SEAT_COLORS[i]}
-                      strokeWidth="1.5"
-                    />
-                    <circle
-                      cx="10"
-                      cy="10"
-                      r="5.5"
-                      stroke={SEAT_COLORS[i]}
-                      strokeWidth="1"
-                    />
-                    <line
-                      x1="10"
-                      y1="1"
-                      x2="10"
-                      y2="4"
-                      stroke={SEAT_COLORS[i]}
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="10"
-                      y1="16"
-                      x2="10"
-                      y2="19"
-                      stroke={SEAT_COLORS[i]}
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="1"
-                      y1="10"
-                      x2="4"
-                      y2="10"
-                      stroke={SEAT_COLORS[i]}
-                      strokeWidth="1.5"
-                    />
-                    <line
-                      x1="16"
-                      y1="10"
-                      x2="19"
-                      y2="10"
-                      stroke={SEAT_COLORS[i]}
-                      strokeWidth="1.5"
-                    />
-                  </svg>
+                    color={SEAT_COLORS[i]}
+                  />
                   <span className={styles.betAmount}>
                     {formatChips(player.currentBet)}
                   </span>
