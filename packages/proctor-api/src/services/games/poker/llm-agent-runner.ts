@@ -73,6 +73,11 @@ function getProviderOptions(
   }
 }
 
+/** Strip XML-style tags some models (Nova) wrap around output. */
+function stripTags(text: string): string {
+  return text.replace(/<\/?[a-zA-Z][a-zA-Z0-9_-]*(?:\s[^>]*)?\s*>/g, "").trim();
+}
+
 const VALID_ACTIONS = new Set(["FOLD", "CHECK", "CALL", "BET", "RAISE"]);
 
 /** Parse a tool call emitted as JSON text (Llama 4 on Bedrock does this). */
@@ -253,7 +258,13 @@ export class LlmAgentRunner implements AgentRunner {
         });
       }
 
-      const analysis = result.text?.trim() || undefined;
+      const analysis = result.text
+        ? stripTags(result.text) || undefined
+        : undefined;
+
+      console.log(
+        `[llm-agent-runner] ${agent.config.name} structured tool call: action=${toolCall.input.action}, analysis=${analysis ? `"${analysis.slice(0, 80)}"` : "(none)"}`,
+      );
 
       return {
         action: {
@@ -266,8 +277,14 @@ export class LlmAgentRunner implements AgentRunner {
 
     // Fallback: some models (e.g. Llama 4 on Bedrock) emit tool calls as
     // JSON text instead of structured tool calls. Try to parse it.
+    console.log(
+      `[llm-agent-runner] ${agent.config.name} no structured tool call, text: "${(result.text ?? "").slice(0, 200)}"`,
+    );
     const parsed = parseToolCallFromText(result.text ?? "");
     if (parsed) {
+      console.log(
+        `[llm-agent-runner] ${agent.config.name} parsed from text: action=${parsed.action}, analysis=${parsed.analysis ? `"${parsed.analysis.slice(0, 80)}"` : "(none)"}`,
+      );
       // Replace the text-only assistant message with a clean one for history
       agent.messages.push({
         role: "assistant",
