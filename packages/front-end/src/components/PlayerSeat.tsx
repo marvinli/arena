@@ -3,7 +3,7 @@ import type { Player } from "../types";
 import { ChipStackDisplay } from "./ChipStack";
 import styles from "./PlayerSeat.module.css";
 import { PlayingCard } from "./PlayingCard";
-import { ProviderIcon } from "./ProviderIcon";
+import { KNOWN_PROVIDERS, ProviderIcon } from "./ProviderIcon";
 
 export function PlayerSeat({
   player,
@@ -81,18 +81,7 @@ export function PlayerSeat({
               style={{ "--seat-color": seatColor } as React.CSSProperties}
             >
               <div className={styles.avatar}>
-                {player.avatar &&
-                ![
-                  "anthropic",
-                  "openai",
-                  "google",
-                  "xai",
-                  "deepseek",
-                  "meta",
-                  "mistral",
-                  "nova",
-                  "qwen",
-                ].includes(player.avatar) ? (
+                {player.avatar && !KNOWN_PROVIDERS.has(player.avatar) ? (
                   <img
                     src={player.avatar}
                     alt={player.name}

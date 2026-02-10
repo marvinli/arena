@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  DEAL_INTERVAL_MS,
+  FLIP_DURATION_MS,
+  FLIP_PAUSE_MS,
+} from "../session/timing";
 import type { Player } from "../types";
 
 export interface DealAnimationState {
@@ -7,10 +12,6 @@ export interface DealAnimationState {
   /** Whether visible cards should show face-up (true) or face-down (false) */
   faceUp: boolean;
 }
-
-const DEAL_INTERVAL_MS = 150;
-const FLIP_PAUSE_MS = 300;
-const FLIP_DURATION_MS = 400;
 
 /**
  * Compute deal order: clockwise starting from the player after the dealer,

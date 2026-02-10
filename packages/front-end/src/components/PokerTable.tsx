@@ -1,41 +1,13 @@
-import { formatChips } from "../chips";
 import { useCommunityDealAnimation } from "../hooks/useCommunityDealAnimation";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import type { Card, Player, Pot } from "../types";
-import { ChipIcon } from "./ChipStack";
+import { BetIndicator } from "./BetIndicator";
+import { CommunityArea } from "./CommunityArea";
+import { SEAT_COLORS, SEAT_POSITIONS } from "./layout";
 import { PlayerSeat } from "./PlayerSeat";
-import { PlayingCard } from "./PlayingCard";
 import styles from "./PokerTable.module.css";
-import { BRAND_COLORS, ProviderIcon } from "./ProviderIcon";
-
-const SEAT_COLORS = [
-  "#e05c5c",
-  "#5cb8e0",
-  "#e0a05c",
-  "#5ce08a",
-  "#c05ce0",
-  "#e05ca0",
-  "#5ce0d4",
-  "#e0d45c",
-  "#5c6ee0",
-  "#e07c5c",
-];
-
-/**
- * 10-seat positions as percentages of the 16:9 container.
- * Evenly distributed around an ellipse, clockwise from bottom center.
- */
-const SEAT_COUNT = 10;
-const SEAT_POSITIONS: { x: number; y: number }[] = Array.from(
-  { length: SEAT_COUNT },
-  (_, i) => {
-    const angle = Math.PI / 2 + (i * 2 * Math.PI) / SEAT_COUNT;
-    return {
-      x: Math.round((50 + 36 * Math.cos(angle)) * 10) / 10,
-      y: Math.round((50 + 38 * Math.sin(angle)) * 10) / 10,
-    };
-  },
-);
+import { BRAND_COLORS } from "./ProviderIcon";
+import { SidePanel } from "./SidePanel";
 
 export function PokerTable({
   players,
@@ -70,38 +42,15 @@ export function PokerTable({
   // If any player is active or speaking, dim everyone else
   const highlightedId =
     speakingPlayerId ?? players.find((p) => p.isActive)?.id ?? null;
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.scene}>
-        {/* Community cards + pot */}
-        <div className={styles.communityArea}>
-          <div className={styles.potLabels}>
-            {pots.map((pot) => (
-              <div key={pot.label} className={styles.potLabel}>
-                {pot.label}: {formatChips(pot.amount)}
-              </div>
-            ))}
-          </div>
-          <div className={styles.communityCards}>
-            {/* All 5 slots: indices 0-2 = flop, 3 = turn, 4 = river */}
-            {Array.from({ length: 5 }, (_, i) => {
-              const card = communityCards[i] ?? null;
-              const anim = communityAnim.get(i);
-              const needsGap = i === 3 || i === 4;
-              return (
-                // biome-ignore lint/suspicious/noArrayIndexKey: fixed-position card slots never reorder
-                <span key={`slot-${i}`} style={{ display: "contents" }}>
-                  {needsGap && <div className={styles.streetGap} />}
-                  {card && anim?.visible ? (
-                    <PlayingCard card={card} faceUp={anim.faceUp} />
-                  ) : (
-                    <div className={styles.emptySlot} />
-                  )}
-                </span>
-              );
-            })}
-          </div>
-        </div>
+        <CommunityArea
+          communityCards={communityCards}
+          pots={pots}
+          communityAnim={communityAnim}
+        />
 
         {/* Empty seat placeholders */}
         {SEAT_POSITIONS.slice(players.length).map((seat, i) => (
@@ -120,20 +69,6 @@ export function PokerTable({
           const seat = SEAT_POSITIONS[i];
           if (!seat) return null;
           const seatColor = BRAND_COLORS[player.avatar] ?? SEAT_COLORS[i];
-          // Position bet indicator toward center (50, 50)
-          const cx = 50;
-          const cy = 50;
-          const dx = cx - seat.x;
-          const dy = cy - seat.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const step = Math.min(0.35, 14 / dist);
-          const betX = seat.x + dx * step;
-          // Nudge bets away from player info to avoid overlap
-          const isTopRow = i >= 4 && i <= 6;
-          const isSideRow = i === 3 || i === 7;
-          const yNudge = isTopRow ? 4 : isSideRow ? -3 : 0;
-          const betY = seat.y + dy * step + yNudge;
-          const showBet = player.currentBet > 0;
 
           return (
             <div key={player.id}>
@@ -157,52 +92,26 @@ export function PokerTable({
                   faceUp={dealAnimation.get(i)?.faceUp ?? true}
                 />
               </div>
-              {showBet && player.currentBet > 0 && (
-                <div
-                  className={`${styles.betIndicator} ${player.isAllIn ? styles.allIn : ""}`}
-                  style={{
-                    left: `${betX}%`,
-                    top: `${betY}%`,
-                    borderColor: seatColor,
-                  }}
-                >
-                  {player.isAllIn && (
-                    <span className={styles.allInLabel}>ALL IN</span>
-                  )}
-                  <ChipIcon className={styles.betChipIcon} color={seatColor} />
-                  <span className={styles.betAmount}>
-                    {formatChips(player.currentBet)}
-                  </span>
-                </div>
+              {player.currentBet > 0 && (
+                <BetIndicator
+                  amount={player.currentBet}
+                  isAllIn={player.isAllIn}
+                  seatColor={seatColor}
+                  seatX={seat.x}
+                  seatY={seat.y}
+                  seatIndex={i}
+                />
               )}
             </div>
           );
         })}
       </div>
-      <div className={styles.sidePanel}>
-        <div
-          className={`${styles.sidePanelContent} ${speakingPlayer && analysisText ? styles.sidePanelVisible : ""}`}
-        >
-          {speakingPlayer && (
-            <>
-              <div
-                className={styles.sidePanelAvatar}
-                style={{ "--seat-color": speakingColor } as React.CSSProperties}
-              >
-                <ProviderIcon
-                  avatar={speakingPlayer.avatar}
-                  style={{ width: "60%", height: "60%" }}
-                />
-              </div>
-              <div className={styles.sidePanelName}>{speakingPlayer.name}</div>
-            </>
-          )}
-          {isApiError && <div className={styles.apiErrorPill}>API Error</div>}
-          {analysisText && (
-            <div className={styles.sidePanelText}>{analysisText}</div>
-          )}
-        </div>
-      </div>
+      <SidePanel
+        speakingPlayer={speakingPlayer}
+        speakingColor={speakingColor}
+        analysisText={analysisText}
+        isApiError={isApiError}
+      />
     </div>
   );
 }

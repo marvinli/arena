@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  DEAL_INTERVAL_MS,
+  FLIP_DURATION_MS,
+  FLIP_PAUSE_MS,
+} from "../session/timing";
 import type { Card } from "../types";
 
 export interface CommunityCardState {
   visible: boolean;
   faceUp: boolean;
 }
-
-const DEAL_INTERVAL_MS = 150;
-const FLIP_PAUSE_MS = 300;
-const FLIP_DURATION_MS = 400;
 
 /**
  * Animates community cards as they're dealt: cards appear one at a time

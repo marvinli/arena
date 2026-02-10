@@ -20,6 +20,8 @@ export const BRAND_COLORS: Record<string, string> = {
   qwen: "#615ced",
 };
 
+export const KNOWN_PROVIDERS = new Set(Object.keys(BRAND_COLORS));
+
 export function ProviderIcon({
   avatar,
   style,

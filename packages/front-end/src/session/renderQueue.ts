@@ -1,42 +1,18 @@
 import { speakAnalysis } from "../tts";
 import { delay } from "./config";
 import type { Action } from "./reducer";
+import {
+  communityAnimDuration,
+  dealAnimDuration,
+  LEADERBOARD_DISPLAY_MS,
+  SHOWDOWN_DISPLAY_MS,
+} from "./timing";
 import type { GqlInstruction } from "./types";
 
 export interface RenderQueueDeps {
   dispatch: (action: Action) => void;
   voiceMap: Map<string, string>;
   signal: AbortSignal;
-}
-
-// ── Animation timing (must match useDealAnimation / useCommunityDealAnimation)
-const DEAL_INTERVAL_MS = 150;
-const FLIP_PAUSE_MS = 300;
-const FLIP_DURATION_MS = 400;
-const ANIM_BUFFER_MS = 100;
-
-// Display time for states that need to be visible before the next instruction
-const SHOWDOWN_DISPLAY_MS = 5000;
-const LEADERBOARD_DISPLAY_MS = 3000;
-
-function dealAnimDuration(playerCount: number): number {
-  if (playerCount <= 0) return 0;
-  return (
-    playerCount * 2 * DEAL_INTERVAL_MS +
-    FLIP_PAUSE_MS +
-    FLIP_DURATION_MS +
-    ANIM_BUFFER_MS
-  );
-}
-
-function communityAnimDuration(newCardCount: number): number {
-  if (newCardCount <= 0) return 0;
-  return (
-    newCardCount * DEAL_INTERVAL_MS +
-    FLIP_PAUSE_MS +
-    FLIP_DURATION_MS +
-    ANIM_BUFFER_MS
-  );
 }
 
 export function createRenderQueue(deps: RenderQueueDeps) {
