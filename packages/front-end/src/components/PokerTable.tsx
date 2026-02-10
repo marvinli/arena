@@ -232,15 +232,21 @@ export function PokerTable({
         })}
       </div>
       <div className={styles.sidePanel}>
-        {speakingPlayer && analysisText && (
-          <>
-            <div className={styles.sidePanelAvatar}>
-              <SpeakerIcon avatar={speakingPlayer.avatar} />
-            </div>
-            <div className={styles.sidePanelName}>{speakingPlayer.name}</div>
+        <div
+          className={`${styles.sidePanelContent} ${speakingPlayer && analysisText ? styles.sidePanelVisible : ""}`}
+        >
+          {speakingPlayer && (
+            <>
+              <div className={styles.sidePanelAvatar}>
+                <SpeakerIcon avatar={speakingPlayer.avatar} />
+              </div>
+              <div className={styles.sidePanelName}>{speakingPlayer.name}</div>
+            </>
+          )}
+          {analysisText && (
             <div className={styles.sidePanelText}>{analysisText}</div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

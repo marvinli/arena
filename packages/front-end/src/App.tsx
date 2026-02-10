@@ -16,8 +16,8 @@ export function App() {
           players={mockPlayers}
           communityCards={mockCommunityCards}
           pots={mockPots}
-          speakingPlayerId={null}
-          analysisText={null}
+          speakingPlayerId="agent-1"
+          analysisText="Ace-king suited on the button — this is a premium hand. With Gemini folding and only Grok and ChatGPT left to act behind me, I'm in great position. The flop gives me two overcards and a backdoor flush draw. I like my equity here. Let me put in a raise to 80 and see who wants to play."
           handNumber={1}
           button={0}
         />

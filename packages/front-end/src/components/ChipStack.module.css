@@ -8,15 +8,15 @@
   display: flex;
   align-items: center;
   gap: 0.31cqw;
-  font-size: 1.05cqw;
+  font-size: 1.7cqw;
   font-weight: 600;
-  color: #a0a4b8;
+  color: #e0e4ef;
   white-space: nowrap;
 }
 
 .icon {
-  width: 0.94cqw;
-  height: 0.94cqw;
+  width: 1.2cqw;
+  height: 1.2cqw;
   flex-shrink: 0;
   opacity: 0.45;
 }

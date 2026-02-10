@@ -176,10 +176,10 @@
 }
 
 .name {
-  font-size: 0.86cqw;
+  font-size: 1.1cqw;
   font-weight: 700;
   color: #e0e4ef;
-  max-width: 9.38cqw;
+  max-width: 12cqw;
   text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;

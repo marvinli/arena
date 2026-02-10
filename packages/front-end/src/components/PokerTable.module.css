@@ -35,13 +35,13 @@
 }
 
 .potLabel {
-  font-size: 1.25cqw;
+  font-size: 1.7cqw;
   font-weight: 700;
   color: #e0e4ef;
   text-shadow: 0 0.08cqw 0.47cqw rgba(0, 0, 0, 0.6);
   letter-spacing: 0.04cqw;
   background: rgba(0, 0, 0, 0.4);
-  padding: 0.2cqw 0.6cqw;
+  padding: 0.25cqw 0.7cqw;
   border-radius: 0.47cqw;
 }
 
@@ -80,13 +80,13 @@
 }
 
 .betChipIcon {
-  width: 1.1cqw;
-  height: 1.1cqw;
+  width: 1.4cqw;
+  height: 1.4cqw;
   flex-shrink: 0;
 }
 
 .betAmount {
-  font-size: 1.1cqw;
+  font-size: 1.7cqw;
   font-weight: 700;
   color: #e0e4ef;
 }
@@ -132,6 +132,20 @@
   overflow-y: auto;
 }
 
+.sidePanelContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.sidePanelVisible {
+  opacity: 1;
+}
+
 .sidePanelAvatar {
   width: 3.5rem;
   height: 3.5rem;
@@ -151,7 +165,7 @@
 }
 
 .sidePanelText {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 400;
   color: #c0c4cf;
   line-height: 1.6;
