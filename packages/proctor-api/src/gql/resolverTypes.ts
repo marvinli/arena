@@ -32,17 +32,6 @@ export enum ActionType {
   Raise = 'RAISE'
 }
 
-export type AgentConfig = {
-  avatarUrl?: InputMaybe<Scalars['String']['input']>;
-  modelId: Scalars['String']['input'];
-  modelName: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  playerId: Scalars['ID']['input'];
-  provider: Scalars['String']['input'];
-  temperature?: InputMaybe<Scalars['Float']['input']>;
-  ttsVoice?: InputMaybe<Scalars['String']['input']>;
-};
-
 export type Card = {
   __typename?: 'Card';
   rank: Scalars['String']['output'];
@@ -213,7 +202,6 @@ export type MutationStartHandArgs = {
 
 export type MutationStartSessionArgs = {
   channelKey: Scalars['String']['input'];
-  config: SessionConfig;
 };
 
 
@@ -408,14 +396,6 @@ export type Session = {
   status: SessionStatus;
 };
 
-export type SessionConfig = {
-  bigBlind: Scalars['Int']['input'];
-  handsPerGame?: InputMaybe<Scalars['Int']['input']>;
-  players: Array<AgentConfig>;
-  smallBlind: Scalars['Int']['input'];
-  startingChips: Scalars['Int']['input'];
-};
-
 export type SessionPlayer = {
   __typename?: 'SessionPlayer';
   chips: Scalars['Int']['output'];
@@ -536,14 +516,12 @@ export type DirectiveResolverFn<TResult = {}, TParent = {}, TContext = {}, TArgs
 export type ResolversTypes = {
   ActionRecord: ResolverTypeWrapper<ActionRecord>;
   ActionType: ActionType;
-  AgentConfig: AgentConfig;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   Card: ResolverTypeWrapper<Card>;
   CardInfo: ResolverTypeWrapper<CardInfo>;
   CreateGameInput: CreateGameInput;
   DealCommunityPayload: ResolverTypeWrapper<DealCommunityPayload>;
   DealHandsPayload: ResolverTypeWrapper<DealHandsPayload>;
-  Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   GameOverPayload: ResolverTypeWrapper<GameOverPayload>;
   GamePhase: GamePhase;
   GameStartPayload: ResolverTypeWrapper<GameStartPayload>;
@@ -576,7 +554,6 @@ export type ResolversTypes = {
   Query: ResolverTypeWrapper<{}>;
   RenderInstruction: ResolverTypeWrapper<RenderInstruction>;
   Session: ResolverTypeWrapper<Session>;
-  SessionConfig: SessionConfig;
   SessionPlayer: ResolverTypeWrapper<SessionPlayer>;
   SessionStatus: SessionStatus;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
@@ -589,14 +566,12 @@ export type ResolversTypes = {
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
   ActionRecord: ActionRecord;
-  AgentConfig: AgentConfig;
   Boolean: Scalars['Boolean']['output'];
   Card: Card;
   CardInfo: CardInfo;
   CreateGameInput: CreateGameInput;
   DealCommunityPayload: DealCommunityPayload;
   DealHandsPayload: DealHandsPayload;
-  Float: Scalars['Float']['output'];
   GameOverPayload: GameOverPayload;
   GameStartPayload: GameStartPayload;
   GameState: GameState;
@@ -626,7 +601,6 @@ export type ResolversParentTypes = {
   Query: {};
   RenderInstruction: RenderInstruction;
   Session: Session;
-  SessionConfig: SessionConfig;
   SessionPlayer: SessionPlayer;
   String: Scalars['String']['output'];
   SubmitActionInput: SubmitActionInput;
@@ -750,7 +724,7 @@ export type MutationResolvers<ContextType = Context, ParentType extends Resolver
   renderComplete?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRenderCompleteArgs, 'channelKey' | 'instructionId'>>;
   runSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationRunSessionArgs, 'channelKey'>>;
   startHand?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationStartHandArgs, 'gameId'>>;
-  startSession?: Resolver<ResolversTypes['Session'], ParentType, ContextType, RequireFields<MutationStartSessionArgs, 'channelKey' | 'config'>>;
+  startSession?: Resolver<ResolversTypes['Session'], ParentType, ContextType, RequireFields<MutationStartSessionArgs, 'channelKey'>>;
   stopSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStopSessionArgs, 'channelKey'>>;
   submitAction?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationSubmitActionArgs, 'action' | 'gameId'>>;
 };

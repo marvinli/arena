@@ -1,30 +1,24 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { GAME_CONFIG } from "../src/game-config.js";
 import { _resetGames } from "../src/services/games/poker/poker-engine/index.js";
 import { _resetPubSub } from "../src/services/session/pubsub.js";
 import { _resetSessions } from "../src/services/session/session-manager.js";
 import { gql } from "./yoga-helper.js";
 
-const SESSION_CONFIG = {
-  players: [
-    {
-      playerId: "p1",
-      name: "Alice",
-      modelId: "test-model",
-      modelName: "Test Model",
-      provider: "openai",
-    },
-    {
-      playerId: "p2",
-      name: "Bob",
-      modelId: "test-model",
-      modelName: "Test Model",
-      provider: "openai",
-    },
-  ],
-  startingChips: 1000,
-  smallBlind: 5,
-  bigBlind: 10,
-};
+const START_SESSION = /* GraphQL */ `
+  mutation StartSession($channelKey: String!) {
+    startSession(channelKey: $channelKey) {
+      channelKey
+      status
+      handNumber
+      players {
+        id
+        name
+        chips
+      }
+    }
+  }
+`;
 
 describe("proctor-api GraphQL", () => {
   beforeEach(() => {
@@ -35,75 +29,25 @@ describe("proctor-api GraphQL", () => {
 
   describe("startSession", () => {
     it("creates a new session", async () => {
-      const result = await gql(
-        /* GraphQL */ `
-          mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-            startSession(channelKey: $channelKey, config: $config) {
-              channelKey
-              status
-              handNumber
-              players {
-                id
-                name
-                chips
-                modelId
-                modelName
-                provider
-              }
-            }
-          }
-        `,
-        { channelKey: "test-channel", config: SESSION_CONFIG },
-      );
+      const result = await gql(START_SESSION, {
+        channelKey: "test-channel",
+      });
 
       expect(result.errors).toBeUndefined();
-      expect(result.data!.startSession).toEqual({
-        channelKey: "test-channel",
-        status: "RUNNING",
-        handNumber: 0,
-        players: [
-          {
-            id: "p1",
-            name: "Alice",
-            chips: 1000,
-            modelId: "test-model",
-            modelName: "Test Model",
-            provider: "openai",
-          },
-          {
-            id: "p2",
-            name: "Bob",
-            chips: 1000,
-            modelId: "test-model",
-            modelName: "Test Model",
-            provider: "openai",
-          },
-        ],
-      });
+      const session = result.data!.startSession;
+      expect(session.channelKey).toBe("test-channel");
+      expect(session.status).toBe("RUNNING");
+      expect(session.handNumber).toBe(0);
+      expect(session.players).toHaveLength(GAME_CONFIG.players.length);
+      expect(session.players[0].chips).toBe(GAME_CONFIG.startingChips);
     });
 
     it("fails for duplicate channelKey", async () => {
-      await gql(
-        /* GraphQL */ `
-          mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-            startSession(channelKey: $channelKey, config: $config) {
-              channelKey
-            }
-          }
-        `,
-        { channelKey: "test-channel", config: SESSION_CONFIG },
-      );
+      await gql(START_SESSION, { channelKey: "test-channel" });
 
-      const result = await gql(
-        /* GraphQL */ `
-          mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-            startSession(channelKey: $channelKey, config: $config) {
-              channelKey
-            }
-          }
-        `,
-        { channelKey: "test-channel", config: SESSION_CONFIG },
-      );
+      const result = await gql(START_SESSION, {
+        channelKey: "test-channel",
+      });
 
       expect(result.errors).toBeDefined();
       expect(result.errors![0].message).toContain("Session already running");
@@ -128,16 +72,7 @@ describe("proctor-api GraphQL", () => {
     });
 
     it("returns existing session", async () => {
-      await gql(
-        /* GraphQL */ `
-          mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-            startSession(channelKey: $channelKey, config: $config) {
-              channelKey
-            }
-          }
-        `,
-        { channelKey: "test-channel", config: SESSION_CONFIG },
-      );
+      await gql(START_SESSION, { channelKey: "test-channel" });
 
       const result = await gql(
         /* GraphQL */ `
@@ -163,16 +98,7 @@ describe("proctor-api GraphQL", () => {
 
   describe("stopSession", () => {
     it("stops a running session", async () => {
-      await gql(
-        /* GraphQL */ `
-          mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-            startSession(channelKey: $channelKey, config: $config) {
-              channelKey
-            }
-          }
-        `,
-        { channelKey: "test-channel", config: SESSION_CONFIG },
-      );
+      await gql(START_SESSION, { channelKey: "test-channel" });
 
       const result = await gql(
         /* GraphQL */ `
@@ -233,16 +159,7 @@ describe("proctor-api GraphQL", () => {
 
   describe("renderComplete", () => {
     it("accepts renderComplete for existing session", async () => {
-      await gql(
-        /* GraphQL */ `
-          mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-            startSession(channelKey: $channelKey, config: $config) {
-              channelKey
-            }
-          }
-        `,
-        { channelKey: "test-channel", config: SESSION_CONFIG },
-      );
+      await gql(START_SESSION, { channelKey: "test-channel" });
 
       const result = await gql(
         /* GraphQL */ `

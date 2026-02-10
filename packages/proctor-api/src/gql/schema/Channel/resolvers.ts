@@ -29,9 +29,9 @@ const getSessionQuery: QueryResolvers["getSession"] = (
 
 const startSessionMutation: MutationResolvers["startSession"] = (
   _parent,
-  { channelKey, config },
+  { channelKey },
 ) => {
-  const session = createSession(channelKey, config);
+  const session = createSession(channelKey);
   return {
     channelKey: session.channelKey,
     gameId: session.gameId,

@@ -1,17 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_CONFIG, DISPLAY_NAMES, delay } from "../../src/session/config";
-
-describe("DISPLAY_NAMES", () => {
-  it("derives display names from config", () => {
-    for (const p of DEFAULT_CONFIG.players) {
-      expect(DISPLAY_NAMES.get(p.playerId)).toBe(`${p.name} ${p.modelName}`);
-    }
-  });
-
-  it("returns undefined for unknown ids", () => {
-    expect(DISPLAY_NAMES.get("unknown")).toBeUndefined();
-  });
-});
+import { delay } from "../../src/session/config";
 
 describe("delay", () => {
   beforeEach(() => {

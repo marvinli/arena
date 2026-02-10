@@ -1,7 +1,5 @@
-import type {
-  RenderInstruction,
-  SessionConfig,
-} from "../../gql/resolverTypes.js";
+import { GAME_CONFIG, type GameConfig } from "../../game-config.js";
+import type { RenderInstruction } from "../../gql/resolverTypes.js";
 
 export interface SessionPlayer {
   id: string;
@@ -29,7 +27,7 @@ export interface GameStateSnapshot {
 
 export interface Session {
   channelKey: string;
-  config: SessionConfig;
+  config: GameConfig;
   gameId: string | null;
   status: "RUNNING" | "STOPPED" | "FINISHED";
   handNumber: number;
@@ -53,8 +51,9 @@ const sessions = new Map<string, Session>();
 
 export function createSession(
   channelKey: string,
-  config: SessionConfig,
+  configOverride?: GameConfig,
 ): Session {
+  const config = configOverride ?? GAME_CONFIG;
   const existing = sessions.get(channelKey);
   if (existing) {
     if (existing.status === "RUNNING") {

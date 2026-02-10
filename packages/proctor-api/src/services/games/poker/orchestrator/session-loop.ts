@@ -54,7 +54,7 @@ export async function runSession(
   const gameId = poker.createGame({
     players: session.config.players.map((p) => ({
       id: p.playerId,
-      name: p.name,
+      name: `${p.name} ${p.modelName}`,
       chips: session.config.startingChips,
     })),
     smallBlind: session.config.smallBlind,

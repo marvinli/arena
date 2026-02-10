@@ -1,23 +1,4 @@
 export const channelTypeDefs = /* GraphQL */ `
-  input AgentConfig {
-    playerId: ID!
-    name: String!
-    modelId: String!
-    modelName: String!
-    provider: String!
-    avatarUrl: String
-    ttsVoice: String
-    temperature: Float
-  }
-
-  input SessionConfig {
-    players: [AgentConfig!]!
-    startingChips: Int!
-    smallBlind: Int!
-    bigBlind: Int!
-    handsPerGame: Int
-  }
-
   type SessionPlayer {
     id: ID!
     name: String!
@@ -46,7 +27,7 @@ export const channelTypeDefs = /* GraphQL */ `
   }
 
   extend type Mutation {
-    startSession(channelKey: String!, config: SessionConfig!): Session!
+    startSession(channelKey: String!): Session!
     runSession(channelKey: String!): Boolean!
     stopSession(channelKey: String!): Boolean!
   }

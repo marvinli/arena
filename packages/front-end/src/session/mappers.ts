@@ -1,5 +1,4 @@
 import type { Card, Player, Pot } from "../types";
-import { DISPLAY_NAMES } from "./config";
 import type { GqlCardInfo, GqlPlayerInfo, GqlPotInfo } from "./types";
 
 export function mapPots(gqlPots: GqlPotInfo[]): Pot[] {
@@ -20,7 +19,7 @@ export function mapPlayer(
 ): Player {
   return {
     id: info.id,
-    name: DISPLAY_NAMES.get(info.id) ?? info.name,
+    name: existing?.name ?? info.name,
     chips: info.chips,
     avatar: existing?.avatar ?? "",
     cards: existing?.cards ?? null,

@@ -2,7 +2,6 @@
 // Poker types
 export type {
   ActionRecord,
-  AgentConfig,
   Card,
   CardInfo,
   CreateGameInput,
@@ -26,7 +25,6 @@ export type {
   ProctorGameState,
   RenderInstruction,
   Session,
-  SessionConfig,
   SessionPlayer,
   SubmitActionInput,
   ValidAction,

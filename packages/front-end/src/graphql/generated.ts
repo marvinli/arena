@@ -28,17 +28,6 @@ export type ActionType =
   | 'FOLD'
   | 'RAISE';
 
-export type AgentConfig = {
-  avatarUrl: InputMaybe<Scalars['String']['input']>;
-  modelId: Scalars['String']['input'];
-  modelName: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  playerId: Scalars['ID']['input'];
-  provider: Scalars['String']['input'];
-  temperature: InputMaybe<Scalars['Float']['input']>;
-  ttsVoice: InputMaybe<Scalars['String']['input']>;
-};
-
 export type Card = {
   __typename?: 'Card';
   rank: Scalars['String']['output'];
@@ -207,7 +196,6 @@ export type MutationStartHandArgs = {
 
 export type MutationStartSessionArgs = {
   channelKey: Scalars['String']['input'];
-  config: SessionConfig;
 };
 
 
@@ -401,14 +389,6 @@ export type Session = {
   status: SessionStatus;
 };
 
-export type SessionConfig = {
-  bigBlind: Scalars['Int']['input'];
-  handsPerGame: InputMaybe<Scalars['Int']['input']>;
-  players: Array<AgentConfig>;
-  smallBlind: Scalars['Int']['input'];
-  startingChips: Scalars['Int']['input'];
-};
-
 export type SessionPlayer = {
   __typename?: 'SessionPlayer';
   chips: Scalars['Int']['output'];
@@ -457,11 +437,10 @@ export type WinnerInfo = {
 
 export type StartSessionMutationVariables = Exact<{
   channelKey: Scalars['String']['input'];
-  config: SessionConfig;
 }>;
 
 
-export type StartSessionMutation = { __typename?: 'Mutation', startSession: { __typename?: 'Session', channelKey: string, gameId: string | null, status: SessionStatus, handNumber: number, players: Array<{ __typename?: 'SessionPlayer', id: string, name: string, chips: number, modelId: string, modelName: string, provider: string }> } };
+export type StartSessionMutation = { __typename?: 'Mutation', startSession: { __typename?: 'Session', channelKey: string, status: SessionStatus } };
 
 export type RunSessionMutationVariables = Exact<{
   channelKey: Scalars['String']['input'];

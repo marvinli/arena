@@ -1,11 +1,8 @@
 export const START_SESSION_MUT = /* GraphQL */ `
-  mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-    startSession(channelKey: $channelKey, config: $config) {
+  mutation StartSession($channelKey: String!) {
+    startSession(channelKey: $channelKey) {
       channelKey
-      gameId
       status
-      handNumber
-      players { id name chips modelId modelName provider }
     }
   }
 `;
