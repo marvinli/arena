@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG = {
       modelName: "5.2",
       provider: "openai",
       avatarUrl: "openai",
-      ttsVoice: "t0jbNlBVZ17f02VDIeMI", // Jessica
+      ttsVoice: "VR6AewLTigWG4xSOukaG", // Arnold
     },
     {
       playerId: "agent-3",
@@ -37,7 +37,7 @@ export const DEFAULT_CONFIG = {
       modelName: "4.1",
       provider: "xai",
       avatarUrl: "xai",
-      ttsVoice: "iP95p4xoKVk53GoZ742B", // Chris
+      ttsVoice: "jsCqWAovK2LkecY7zXl4", // Freya
     },
     {
       playerId: "agent-5",
@@ -46,7 +46,7 @@ export const DEFAULT_CONFIG = {
       modelName: "V3",
       provider: "deepseek",
       avatarUrl: "deepseek",
-      ttsVoice: "onwK4e9ZLuTAKqWW03F9", // Daniel
+      ttsVoice: "yoZ06aMxZJJ28mfd3POQ", // Sam
     },
     {
       playerId: "agent-6",
@@ -64,7 +64,7 @@ export const DEFAULT_CONFIG = {
       modelName: "Large 3",
       provider: "bedrock",
       avatarUrl: "mistral",
-      ttsVoice: "bIHbv24MWmeRgasZH58o", // Will
+      ttsVoice: "XB0fDUnXU5powFXDhCwa", // Charlotte
     },
     {
       playerId: "agent-8",
@@ -82,7 +82,7 @@ export const DEFAULT_CONFIG = {
       modelName: "3 32B",
       provider: "bedrock",
       avatarUrl: "qwen",
-      ttsVoice: "JBFqnCBsd6RMkjVDRZzb", // George
+      ttsVoice: "pFZP5JQG7iQjIQuC4Bku", // Lily
     },
   ],
   startingChips: 1000,
