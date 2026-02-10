@@ -2,6 +2,7 @@ import Claude from "@lobehub/icons/es/Claude";
 import Gemini from "@lobehub/icons/es/Gemini";
 import Grok from "@lobehub/icons/es/Grok";
 import OpenAI from "@lobehub/icons/es/OpenAI";
+import { useCommunityDealAnimation } from "../hooks/useCommunityDealAnimation";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import type { Card, Player, Pot } from "../types";
 import { PlayerSeat } from "./PlayerSeat";
@@ -67,6 +68,7 @@ export function PokerTable({
   button: number | null;
 }) {
   const dealAnimation = useDealAnimation(handNumber, button, players);
+  const communityAnim = useCommunityDealAnimation(communityCards);
 
   const speakingPlayer = speakingPlayerId
     ? (players.find((p) => p.id === speakingPlayerId) ?? null)
@@ -91,13 +93,14 @@ export function PokerTable({
             {/* All 5 slots: indices 0-2 = flop, 3 = turn, 4 = river */}
             {Array.from({ length: 5 }, (_, i) => {
               const card = communityCards[i] ?? null;
+              const anim = communityAnim.get(i);
               const needsGap = i === 3 || i === 4;
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: fixed-position card slots never reorder
                 <span key={`slot-${i}`} style={{ display: "contents" }}>
                   {needsGap && <div className={styles.streetGap} />}
-                  {card ? (
-                    <PlayingCard card={card} />
+                  {card && anim?.visible ? (
+                    <PlayingCard card={card} faceUp={anim.faceUp} />
                   ) : (
                     <div className={styles.emptySlot} />
                   )}
