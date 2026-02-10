@@ -30,56 +30,22 @@ The GraphQL endpoint is `http://localhost:4001/graphql` for queries/mutations. S
 
 ## Step 1: Start a Session
 
-Create the session before subscribing, so the server is ready when the subscription connects.
+Create the session before subscribing, so the server is ready when the subscription connects. Game configuration (players, blinds, chips) lives server-side in `game-config.ts` — the front-end only provides a channel key.
 
 ```graphql
-mutation StartSession($channelKey: String!, $config: SessionConfig!) {
-  startSession(channelKey: $channelKey, config: $config) {
+mutation StartSession($channelKey: String!) {
+  startSession(channelKey: $channelKey) {
     channelKey
-    gameId
     status
-    handNumber
-    players { id name chips modelId modelName provider }
   }
 }
 ```
-
-Example config:
 
 ```json
 {
-  "channelKey": "poker-stream-1",
-  "config": {
-    "players": [
-      {
-        "playerId": "agent-1",
-        "name": "Alice",
-        "modelId": "claude-haiku-4-5-20251001",
-        "modelName": "Claude Haiku",
-        "provider": "anthropic",
-        "avatarUrl": "https://example.com/alice.png",
-        "ttsVoice": "TX3LPaxmHKxFdv7VOQHJ",
-        "temperature": 0.9
-      },
-      {
-        "playerId": "agent-2",
-        "name": "Bob",
-        "modelId": "gpt-4o-mini",
-        "modelName": "GPT-4o Mini",
-        "provider": "openai",
-        "avatarUrl": "https://example.com/bob.png",
-        "ttsVoice": "t0jbNlBVZ17f02VDIeMI"
-      }
-    ],
-    "startingChips": 1000,
-    "smallBlind": 5,
-    "bigBlind": 10,
-    "handsPerGame": 20
-  }
+  "channelKey": "poker-stream-1"
 }
 ```
-
-Set `handsPerGame` to `null` to play until one player has all the chips.
 
 ---
 
@@ -125,6 +91,7 @@ subscription RenderInstructions($channelKey: String!) {
       playerId
       playerName
       analysis
+      isApiError
     }
 
     playerAction {
@@ -289,8 +256,9 @@ Emitted when a player has analysis (audience-facing commentary). Only emitted if
 | `playerId` | `ID!` | Who is speaking |
 | `playerName` | `String!` | Display name |
 | `analysis` | `String!` | Audience-facing commentary |
+| `isApiError` | `Boolean!` | Whether the analysis was generated due to an API error (e.g., agent LLM call failed) |
 
-**Render:** Display the analysis text (e.g., in a speech bubble). Convert to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via ElevenLabs TTS. The front-end can fire-and-forget the TTS and ack immediately — this lets the proctor pipeline the next instruction while audio plays.
+**Render:** Display the analysis text (e.g., in a speech bubble). Convert to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via OpenAI TTS. The front-end can fire-and-forget the TTS and ack immediately — this lets the proctor pipeline the next instruction while audio plays. If `isApiError` is true, display an error indicator.
 
 ### PLAYER_ACTION
 
@@ -375,8 +343,8 @@ Per-player metadata, included in `GAME_START`. Store these for the duration of t
 ```typescript
 {
   id: string            // Player ID
-  ttsVoice: string      // ElevenLabs voice ID (nullable)
-  avatarUrl: string     // Avatar image URL (nullable)
+  ttsVoice: string      // OpenAI TTS voice name (nullable)
+  avatarUrl: string     // Avatar key or image URL (nullable)
 }
 ```
 
@@ -492,7 +460,7 @@ interface UIPlayer {
 | `DEAL_HANDS` | Set `handNumber`, `button`. Store each player's `holeCards` (from `hands`). Update `players` from payload. Set `phase` to `"PREFLOP"`. Reset `lastAction` and `currentBet` for all players. |
 | `DEAL_COMMUNITY` | Set `phase` from payload. Update `communityCards`. Update `pots`. Reset `lastAction` and `currentBet` for all players (new betting round). |
 | `PLAYER_TURN` | Set `isActive` true for the acting player, false for all others. |
-| `PLAYER_ANALYSIS` | Set `speakingPlayerId`. Trigger TTS. (State update is minimal — TTS is a side effect.) |
+| `PLAYER_ANALYSIS` | Set `speakingPlayerId`. Trigger TTS. If `isApiError`, show error indicator. (State update is minimal — TTS is a side effect.) |
 | `PLAYER_ACTION` | Update the acting player's `lastAction`, `status`, `chips`, `currentBet`. Update `pots`. Set `isActive` false. |
 | `HAND_RESULT` | Set `phase` to `"SHOWDOWN"`. Reveal all `holeCards`. Update `players` chip counts. |
 | `LEADERBOARD` | Update all player chip counts. Set `phase` to `"WAITING"`. Clear `communityCards`, `pots`, `holeCards`. |
@@ -502,38 +470,30 @@ interface UIPlayer {
 
 ## TTS Integration
 
-When a `PLAYER_ANALYSIS` instruction arrives, convert the analysis text to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via ElevenLabs.
+When a `PLAYER_ANALYSIS` instruction arrives, convert the analysis text to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via OpenAI TTS. The implementation streams raw PCM audio and pipes it directly to Web Audio API for low-latency playback.
 
 ```typescript
-async function speakAnalysis(text: string, voiceId: string): Promise<void> {
-  if (!voiceId || !ELEVENLABS_API_KEY) return;
-
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "xi-api-key": ELEVENLABS_API_KEY,
-      },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_turbo_v2_5",
-      }),
+async function speakOpenAI(text: string, voice: string): Promise<void> {
+  const res = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
     },
-  );
-
-  if (!response.ok) return;
-
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const audio = new Audio(url);
-
-  return new Promise((resolve) => {
-    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-    audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
-    audio.play().catch(() => { URL.revokeObjectURL(url); resolve(); });
+    body: JSON.stringify({
+      model: "gpt-4o-mini-tts",
+      voice,
+      input: text,
+      response_format: "pcm",
+    }),
   });
+
+  if (!res.ok || !res.body) return;
+
+  const ctx = new AudioContext({ sampleRate: 24000 });
+  const reader = res.body.getReader();
+  // Stream PCM chunks → Float32 → AudioBufferSource → scheduled playback
+  // See src/tts.ts for full implementation
 }
 ```
 
@@ -542,8 +502,6 @@ The rendering flow for a player turn:
 1. Receive `PLAYER_TURN` → highlight player seat → ack
 2. Receive `PLAYER_ANALYSIS` → display text, fire-and-forget TTS → ack (TTS plays in background)
 3. Receive `PLAYER_ACTION` → animate action → ack
-
-TTS can be disabled via the `VITE_DISABLE_TTS=true` environment variable.
 
 ---
 
@@ -574,34 +532,23 @@ The `lastInstruction` field in `getChannelState` tells you what was last emitted
 ```graphql
 query GetChannelState($channelKey: String!) {
   getChannelState(channelKey: $channelKey) {
-    channelKey
+    status
     gameId
     handNumber
     phase
-    players {
-      id
-      name
-      chips
-      bet
-      status
-      seatIndex
-    }
-    communityCards {
-      rank
-      suit
-    }
-    pots {
-      size
-      eligiblePlayerIds
-    }
-    lastInstruction {
-      instructionId
-      type
-      timestamp
-    }
+    button
+    smallBlind
+    bigBlind
+    players { id name chips bet status seatIndex }
+    communityCards { rank suit }
+    pots { size eligiblePlayerIds }
+    hands { playerId cards { rank suit } }
+    playerMeta { id ttsVoice avatarUrl }
   }
 }
 ```
+
+The `hands` and `playerMeta` fields allow the front-end to reconstruct hole cards and voice/avatar maps on reconnect without needing a separate `GAME_START` instruction.
 
 ---
 
@@ -682,7 +629,7 @@ The Vite dev server proxies `/graphql` to `http://localhost:4001`, so no CORS co
 
 | Operation | Type | Purpose |
 |---|---|---|
-| `startSession(channelKey, config)` | Mutation | Create a game session |
+| `startSession(channelKey)` | Mutation | Create a game session |
 | `runSession(channelKey)` | Mutation | Start the orchestrator game loop |
 | `stopSession(channelKey)` | Mutation | Stop a running game |
 | `getSession(channelKey)` | Query | Session metadata and status |

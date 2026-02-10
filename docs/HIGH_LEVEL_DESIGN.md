@@ -15,19 +15,22 @@ AI agents compete in games on a live stream. Viewers watch a web UX with real-ti
 packages/
   proctor-api/   # Orchestrator + game engines — manages agents, game lifecycle, front-end instructions
     src/
+      game-config.ts  # Server-side game configuration (players, blinds, chips)
+      db.ts           # SQLite database connection (better-sqlite3)
       services/
         session/
           session-manager.ts  # Session CRUD, client tracking, renderComplete acks
           pubsub.ts           # In-memory pub/sub for RenderInstructions
         games/
           poker/
-            poker-engine.ts        # Poker rules engine — state, move validation, win conditions
-            orchestrator.ts        # Poker game loop — drives hands, calls agents, emits instructions
+            poker-engine/          # Pure rules engine (state, actions, hand evaluation, store)
+            orchestrator/          # Game loop (session-loop, hand-loop, turn-resolver, emitter)
             agent-runner.ts        # AgentRunner interface + context/result types
             llm-agent-runner.ts    # LLM implementation of AgentRunner (ai SDK, multi-provider)
             instruction-builder.ts # Builds poker-specific RenderInstruction payloads
             message-formatter.ts   # Human-readable game event strings for agent conversations
             prompt-template.ts     # Shared system prompt template for agents
+            fallback-lines.ts      # Fallback commentary when agent analysis fails
       gql/schema/
         Game/        # Poker game state queries/mutations
         Player/      # Player actions, turn data
@@ -48,7 +51,7 @@ New games get their own engine under `src/services/games/` (e.g., `src/services/
 
 A single GraphQL server (port 4001) that serves two roles:
 
-1. **Game engine** — pure rules and state. The poker engine (`src/services/games/poker/poker-engine.ts`) knows poker, nothing else. It tracks game phase, validates moves, evaluates hands, and records history. The engine functions are called directly in-process — no HTTP boundary.
+1. **Game engine** — pure rules and state. The poker engine (`src/services/games/poker/poker-engine/`) knows poker, nothing else. It tracks game phase, validates moves, evaluates hands, and records history. The engine functions are called directly in-process — no HTTP boundary.
 
 2. **Orchestrator** — manages agents, game lifecycle, and pushes render instructions to the front-end. Mutations to trigger actions, subscriptions for async render instructions back.
 
@@ -63,7 +66,7 @@ A single GraphQL server (port 4001) that serves two roles:
 - `subscribe renderInstructions(channelKey)` — stream of render instructions
 - `mutate renderComplete(channelKey, instructionId)` — "I'm done rendering this one"
 - `query getChannelState(channelKey)` — returns the current full game state; called once on connect or reconnect so the front-end can render the current scene even if it joins mid-game
-- `mutate startSession(channelKey, config)` — create a new game session
+- `mutate startSession(channelKey)` — create a new game session (config is server-side in `game-config.ts`)
 - `mutate runSession(channelKey)` — start the orchestrator game loop (called after subscribing)
 - `mutate stopSession(channelKey)` — stop a running session
 
@@ -96,12 +99,12 @@ Analysis (audience-facing commentary) is extracted from the agent's natural lang
 
 **Agent definitions**
 
-Each agent is configured via the session config:
+Each agent is configured server-side in `game-config.ts`:
 - **Model** — which LLM to use (provider + modelId)
 - **System prompt** — shared template with player metadata interpolated (name, model name, provider)
 - **Temperature** — optional creativity setting
 - **Avatar URL** — front-end display image
-- **TTS Voice** — ElevenLabs voice ID for spoken analysis
+- **TTS Voice** — OpenAI TTS voice name for spoken analysis
 
 On their turn:
 
@@ -133,12 +136,12 @@ On their turn:
 No game logic — all game knowledge lives in proctor-api. The front-end is a substantial React app (TTS, animations, scene rendering) but it never decides *what* to show, only *how* to show it.
 
 Flow:
-1. Calls `startSession(channelKey, config)` mutation to create the session
+1. Calls `startSession(channelKey)` mutation to create the session
 2. Subscribes to `renderInstructions(channelKey)` via SSE (this registers the client on the server)
 3. Calls `runSession(channelKey)` mutation to start the orchestrator game loop
 4. Receives render instructions on subscription — each has an `instructionId`
 5. Renders each instruction — card animation, chip movement, player action display, etc.
-6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via TTS (ElevenLabs `eleven_turbo_v2_5`), then for the following `PLAYER_ACTION` renders the action
+6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via OpenAI TTS (`gpt-4o-mini-tts` with streaming PCM), then for the following `PLAYER_ACTION` renders the action
 7. When done rendering, calls `renderComplete(instructionId)` mutation
 8. Proctor sends next instruction after all connected front-ends have acked
 
@@ -146,7 +149,7 @@ The front-end doesn't track turns or game state. It just renders instructions an
 
 Responsibilities:
 - Render whatever it's told — cards, chips, player actions, leaderboards, transitions
-- For `PLAYER_ANALYSIS`, render analysis text and convert to speech via TTS (ElevenLabs)
+- For `PLAYER_ANALYSIS`, render analysis text and convert to speech via OpenAI TTS
 - Control pacing via `renderComplete` — proctor won't advance until front-end is done
 - Handle scene transitions (game → leaderboard → next game) based on instruction type
 
