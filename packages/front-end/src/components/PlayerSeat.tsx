@@ -1,5 +1,6 @@
 import Claude from "@lobehub/icons/es/Claude";
 import Gemini from "@lobehub/icons/es/Gemini";
+import Grok from "@lobehub/icons/es/Grok";
 import OpenAI from "@lobehub/icons/es/OpenAI";
 import { useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
@@ -84,7 +85,9 @@ export function PlayerSeat({
             >
               <div className={styles.avatar}>
                 {player.avatar &&
-                !["anthropic", "openai", "google"].includes(player.avatar) ? (
+                !["anthropic", "openai", "google", "xai"].includes(
+                  player.avatar,
+                ) ? (
                   <img
                     src={player.avatar}
                     alt={player.name}
@@ -98,6 +101,8 @@ export function PlayerSeat({
                   <OpenAI style={{ width: "55%", height: "55%" }} />
                 ) : player.avatar === "google" ? (
                   <Gemini.Color style={{ width: "65%", height: "65%" }} />
+                ) : player.avatar === "xai" ? (
+                  <Grok style={{ width: "55%", height: "55%" }} />
                 ) : (
                   <Claude.Color style={{ width: "65%", height: "65%" }} />
                 )}

@@ -14,8 +14,9 @@ describe("buildSystemPrompt", () => {
 
     const prompt = buildSystemPrompt(config);
 
-    expect(prompt).toContain("You are Alice, a professional poker player");
-    expect(prompt).toContain("powered by Claude Opus 4.6 from Anthropic");
+    expect(prompt).toContain(
+      "You are Alice from Anthropic, a professional poker player",
+    );
   });
 
   it("contains key instruction phrases", () => {
@@ -78,9 +79,8 @@ describe("buildSystemPrompt", () => {
     for (const config of configs) {
       const prompt = buildSystemPrompt(config);
 
-      expect(prompt).toContain(`You are ${config.name}`);
       expect(prompt).toContain(
-        `powered by ${config.modelName} from ${config.provider}`,
+        `You are ${config.name} from ${config.provider}`,
       );
       expect(prompt).not.toMatch(/\{\{.*?\}\}/);
     }

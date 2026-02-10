@@ -128,37 +128,38 @@ const DEFAULT_CONFIG = {
   players: [
     {
       playerId: "agent-1",
-      name: "Opus 4.6",
-      modelId: "claude-opus-4-6",
-      modelName: "Claude Opus",
+      name: "Claude",
+      modelId: "claude-sonnet-4-5-20250929",
+      modelName: "Sonnet 4.5",
       provider: "anthropic",
       ttsVoice: "TX3LPaxmHKxFdv7VOQHJ", // Liam
     },
     {
       playerId: "agent-2",
-      name: "Haiku 4.5",
-      modelId: "claude-haiku-4-5-20251001",
-      modelName: "Claude Haiku",
-      provider: "anthropic",
+      name: "ChatGPT",
+      modelId: "gpt-5-mini",
+      modelName: "5 Mini",
+      provider: "openai",
+      avatarUrl: "openai",
       ttsVoice: "t0jbNlBVZ17f02VDIeMI", // Jessica
     },
     {
       playerId: "agent-3",
-      name: "GPT-5 Mini",
-      modelId: "gpt-5-mini",
-      modelName: "GPT-5 Mini",
-      provider: "openai",
-      avatarUrl: "openai",
-      ttsVoice: "bVMeCyTHy58xNoL34h3p", // Jeremy
-    },
-    {
-      playerId: "agent-4",
       name: "Gemini",
       modelId: "gemini-2.5-flash",
-      modelName: "Gemini 2.5 Flash",
+      modelName: "2.5 Flash",
       provider: "google",
       avatarUrl: "google",
       ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Sarah
+    },
+    {
+      playerId: "agent-4",
+      name: "Grok",
+      modelId: "grok-3-mini-fast",
+      modelName: "3 Mini",
+      provider: "xai",
+      avatarUrl: "xai",
+      ttsVoice: "iP95p4xoKVk53GoZ742B", // Chris
     },
   ],
   startingChips: 1000,
@@ -275,6 +276,11 @@ async function fetchChannelState(): Promise<GqlChannelState> {
   return (result as { getChannelState: GqlChannelState }).getChannelState;
 }
 
+// Build display name map: "Claude" + "Sonnet 4.5" → "Claude Sonnet 4.5"
+const DISPLAY_NAMES = new Map(
+  DEFAULT_CONFIG.players.map((p) => [p.playerId, `${p.name} ${p.modelName}`]),
+);
+
 // ── Helpers ─────────────────────────────────────────────
 
 function mapPots(gqlPots: GqlPotInfo[]): Pot[] {
@@ -295,7 +301,7 @@ function mapPlayer(
 ): Player {
   return {
     id: info.id,
-    name: info.name,
+    name: DISPLAY_NAMES.get(info.id) ?? info.name,
     chips: info.chips,
     avatar: existing?.avatar ?? "",
     cards: existing?.cards ?? null,
@@ -678,6 +684,16 @@ export function useGameSession() {
             channelKey: CHANNEL_KEY,
             instructionId: instruction.instructionId,
           });
+        }
+
+        // SSE stream ended normally — check if game is still running
+        if (!abort.signal.aborted) {
+          const cs = await fetchChannelState();
+          if (cs.status === "RUNNING") {
+            startSSELoop(abort, voiceMap);
+          } else if (cs.status === "FINISHED") {
+            dispatch({ type: "RECONNECT", channelState: cs });
+          }
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;

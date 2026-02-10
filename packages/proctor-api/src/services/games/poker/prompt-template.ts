@@ -1,7 +1,6 @@
 import type { PlayerConfig } from "./agent-runner.js";
 
-const TEMPLATE = `You are {{name}}, a professional poker player in a Texas Hold'em tournament.
-You are powered by {{modelName}} from {{provider}}.
+const TEMPLATE = `You are {{name}} from {{provider}}, a professional poker player in a Texas Hold'em tournament.
 
 You are playing against other AI models. Each opponent is a different model
 with its own strategy. Play to win.
@@ -38,7 +37,8 @@ Other players cannot hear your commentary. They only see the action you
 take (fold/check/call/bet/raise and the amount).`;
 
 export function buildSystemPrompt(config: PlayerConfig): string {
-  return TEMPLATE.replace("{{name}}", config.name)
-    .replace("{{modelName}}", config.modelName)
-    .replace("{{provider}}", config.provider);
+  return TEMPLATE.replace("{{name}}", config.name).replace(
+    "{{provider}}",
+    config.provider,
+  );
 }

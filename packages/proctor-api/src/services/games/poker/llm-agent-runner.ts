@@ -1,6 +1,7 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
+import { xai } from "@ai-sdk/xai";
 import { generateText, type ModelMessage, tool } from "ai";
 import { z } from "zod";
 import type {
@@ -27,6 +28,8 @@ function resolveModel(provider: string, modelId: string) {
       return openai(modelId);
     case "google":
       return google(modelId);
+    case "xai":
+      return xai(modelId);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -119,6 +122,11 @@ export class LlmAgentRunner implements AgentRunner {
   private async promptAgent(agent: AgentState): Promise<AgentTurnResult> {
     const model = resolveModel(agent.config.provider, agent.config.modelId);
 
+    console.log(
+      `[llm-agent-runner] Calling ${agent.config.provider}/${agent.config.modelId} for ${agent.config.name}...`,
+    );
+    const start = Date.now();
+
     const result = await generateText({
       model,
       system: agent.systemPrompt,
@@ -126,6 +134,10 @@ export class LlmAgentRunner implements AgentRunner {
       tools: { submit_action: submitActionTool },
       temperature: agent.config.temperature,
     });
+
+    console.log(
+      `[llm-agent-runner] ${agent.config.name} responded in ${Date.now() - start}ms`,
+    );
 
     // Append response messages to conversation history
     for (const msg of result.response.messages) {
