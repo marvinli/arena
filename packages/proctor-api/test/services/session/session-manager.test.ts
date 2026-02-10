@@ -49,11 +49,18 @@ describe("session-manager", () => {
       expect(session.players[0].chips).toBe(1000);
     });
 
-    it("throws on duplicate channelKey", () => {
+    it("throws on duplicate running session", () => {
       createSession("test-channel", baseConfig);
       expect(() => createSession("test-channel", baseConfig)).toThrow(
-        "Session already exists",
+        "Session already running",
       );
+    });
+
+    it("replaces stopped session", () => {
+      createSession("test-channel", baseConfig);
+      stopSession("test-channel");
+      const session = createSession("test-channel", baseConfig);
+      expect(session.status).toBe("RUNNING");
     });
   });
 

@@ -14,6 +14,7 @@ export interface SessionPlayer {
 
 export interface GameStateSnapshot {
   phase: string;
+  button: number | null;
   players: Array<{
     id: string;
     name: string;
@@ -32,10 +33,17 @@ export interface Session {
   gameId: string | null;
   status: "RUNNING" | "STOPPED" | "FINISHED";
   handNumber: number;
+  button: number | null;
   players: SessionPlayer[];
+  currentHands: Array<{
+    playerId: string;
+    cards: Array<{ rank: string; suit: string }>;
+  }>;
   lastInstruction: RenderInstruction | null;
   lastGameState: GameStateSnapshot | null;
   connectedClients: Set<string>;
+  hadClients: boolean;
+  clientConnectResolver: (() => void) | null;
   pendingAcks: Map<string, Set<string>>;
   pendingAckResolvers: Map<string, () => void>;
   abortController: AbortController;
@@ -47,8 +55,13 @@ export function createSession(
   channelKey: string,
   config: SessionConfig,
 ): Session {
-  if (sessions.has(channelKey)) {
-    throw new Error(`Session already exists: ${channelKey}`);
+  const existing = sessions.get(channelKey);
+  if (existing) {
+    if (existing.status === "RUNNING") {
+      throw new Error(`Session already running: ${channelKey}`);
+    }
+    existing.abortController.abort();
+    sessions.delete(channelKey);
   }
 
   const players: SessionPlayer[] = config.players.map((p) => ({
@@ -66,10 +79,14 @@ export function createSession(
     gameId: null,
     status: "RUNNING",
     handNumber: 0,
+    button: null,
     players,
+    currentHands: [],
     lastInstruction: null,
     lastGameState: null,
     connectedClients: new Set(),
+    hadClients: false,
+    clientConnectResolver: null,
     pendingAcks: new Map(),
     pendingAckResolvers: new Map(),
     abortController: new AbortController(),
@@ -98,6 +115,14 @@ export function registerClient(channelKey: string, clientId: string): void {
   const session = sessions.get(channelKey);
   if (!session) return;
   session.connectedClients.add(clientId);
+  session.hadClients = true;
+
+  // Wake the orchestrator if it paused waiting for a client reconnect
+  if (session.clientConnectResolver) {
+    const resolver = session.clientConnectResolver;
+    session.clientConnectResolver = null;
+    resolver();
+  }
 }
 
 export function unregisterClient(channelKey: string, clientId: string): void {
@@ -151,16 +176,35 @@ export function waitForRenderComplete(
   const session = sessions.get(channelKey);
   if (!session) return Promise.resolve();
 
-  // No connected clients → auto-advance (CLI mode)
+  // No connected clients
   if (session.connectedClients.size === 0) {
-    return Promise.resolve();
+    if (!session.hadClients) {
+      // Never had clients → auto-advance (CLI / headless mode)
+      return Promise.resolve();
+    }
+
+    // Clients previously connected but all disconnected — pause orchestrator
+    // and wait for a client to reconnect (or abort / timeout).
+    return new Promise<void>((resolve) => {
+      let resolved = false;
+      const cleanup = () => {
+        if (resolved) return;
+        resolved = true;
+        session.clientConnectResolver = null;
+        clearTimeout(timer);
+        signal.removeEventListener("abort", onAbort);
+        resolve();
+      };
+
+      const onAbort = () => cleanup();
+      signal.addEventListener("abort", onAbort, { once: true });
+      const timer = setTimeout(cleanup, timeout);
+      session.clientConnectResolver = cleanup;
+    });
   }
 
   // Snapshot connected clients to avoid race with unregisterClient
   const clients = new Set(session.connectedClients);
-  if (clients.size === 0) {
-    return Promise.resolve();
-  }
   session.pendingAcks.set(instructionId, clients);
 
   return new Promise<void>((resolve) => {

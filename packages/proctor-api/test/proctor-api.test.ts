@@ -106,7 +106,7 @@ describe("proctor-api GraphQL", () => {
       );
 
       expect(result.errors).toBeDefined();
-      expect(result.errors![0].message).toContain("Session already exists");
+      expect(result.errors![0].message).toContain("Session already running");
     });
   });
 

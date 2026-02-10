@@ -54,6 +54,7 @@ function updateGameState(session: Session, state: GameState): void {
   session.gameId = state.gameId;
   session.lastGameState = {
     phase: state.phase,
+    button: state.button ?? null,
     players: state.players.map((p) => ({
       id: p.id,
       name: p.name,
@@ -286,6 +287,7 @@ async function playHand(ctx: SessionContext): Promise<void> {
 
   const handState = poker.startHand(gameId);
   updateGameState(session, handState);
+  session.button = handState.button ?? null;
 
   // Gather hole cards for all active players
   const playerHands: Array<{
@@ -297,6 +299,8 @@ async function playHand(ctx: SessionContext): Promise<void> {
     const myHand = poker.getMyTurn(gameId, player.id).myHand;
     playerHands.push({ playerId: player.id, cards: myHand });
   }
+
+  session.currentHands = playerHands;
 
   await emit(
     session,
@@ -337,6 +341,7 @@ async function playHand(ctx: SessionContext): Promise<void> {
 
     if (advancedState.phase === "WAITING") {
       await handleHandResult(ctx, advancedState);
+      session.currentHands = [];
       break;
     }
 

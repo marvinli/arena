@@ -115,6 +115,12 @@ export type GameState = {
   pots: Array<Pot>;
 };
 
+export type HandCardInfo = {
+  __typename?: 'HandCardInfo';
+  cards: Array<CardInfo>;
+  playerId: Scalars['ID']['output'];
+};
+
 export type HandRecord = {
   __typename?: 'HandRecord';
   actions: Array<PhaseActions>;
@@ -290,6 +296,13 @@ export type PlayerMeta = {
   ttsVoice?: Maybe<Scalars['String']['output']>;
 };
 
+export type PlayerMetaInfo = {
+  __typename?: 'PlayerMetaInfo';
+  avatarUrl?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  ttsVoice?: Maybe<Scalars['String']['output']>;
+};
+
 export enum PlayerStatus {
   Active = 'ACTIVE',
   AllIn = 'ALL_IN',
@@ -317,14 +330,20 @@ export type PotInfo = {
 
 export type ProctorGameState = {
   __typename?: 'ProctorGameState';
+  bigBlind: Scalars['Int']['output'];
+  button?: Maybe<Scalars['Int']['output']>;
   channelKey: Scalars['String']['output'];
   communityCards: Array<CardInfo>;
   gameId?: Maybe<Scalars['ID']['output']>;
   handNumber: Scalars['Int']['output'];
+  hands: Array<HandCardInfo>;
   lastInstruction?: Maybe<RenderInstruction>;
   phase?: Maybe<Scalars['String']['output']>;
+  playerMeta: Array<PlayerMetaInfo>;
   players: Array<PlayerInfo>;
   pots: Array<PotInfo>;
+  smallBlind: Scalars['Int']['output'];
+  status?: Maybe<Scalars['String']['output']>;
 };
 
 export type Query = {
@@ -528,6 +547,7 @@ export type ResolversTypes = {
   GamePhase: GamePhase;
   GameStartPayload: ResolverTypeWrapper<GameStartPayload>;
   GameState: ResolverTypeWrapper<GameState>;
+  HandCardInfo: ResolverTypeWrapper<HandCardInfo>;
   HandRecord: ResolverTypeWrapper<HandRecord>;
   HandRecordPlayer: ResolverTypeWrapper<HandRecordPlayer>;
   HandResultPayload: ResolverTypeWrapper<HandResultPayload>;
@@ -546,6 +566,7 @@ export type ResolversTypes = {
   PlayerInfo: ResolverTypeWrapper<PlayerInfo>;
   PlayerInput: PlayerInput;
   PlayerMeta: ResolverTypeWrapper<PlayerMeta>;
+  PlayerMetaInfo: ResolverTypeWrapper<PlayerMetaInfo>;
   PlayerStatus: PlayerStatus;
   PlayerTurnPayload: ResolverTypeWrapper<PlayerTurnPayload>;
   Pot: ResolverTypeWrapper<Pot>;
@@ -578,6 +599,7 @@ export type ResolversParentTypes = {
   GameOverPayload: GameOverPayload;
   GameStartPayload: GameStartPayload;
   GameState: GameState;
+  HandCardInfo: HandCardInfo;
   HandRecord: HandRecord;
   HandRecordPlayer: HandRecordPlayer;
   HandResultPayload: HandResultPayload;
@@ -595,6 +617,7 @@ export type ResolversParentTypes = {
   PlayerInfo: PlayerInfo;
   PlayerInput: PlayerInput;
   PlayerMeta: PlayerMeta;
+  PlayerMetaInfo: PlayerMetaInfo;
   PlayerTurnPayload: PlayerTurnPayload;
   Pot: Pot;
   PotInfo: PotInfo;
@@ -672,6 +695,12 @@ export type GameStateResolvers<ContextType = Context, ParentType extends Resolve
   phase?: Resolver<ResolversTypes['GamePhase'], ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['Player']>, ParentType, ContextType>;
   pots?: Resolver<Array<ResolversTypes['Pot']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
+export type HandCardInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['HandCardInfo'] = ResolversParentTypes['HandCardInfo']> = {
+  cards?: Resolver<Array<ResolversTypes['CardInfo']>, ParentType, ContextType>;
+  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -788,6 +817,13 @@ export type PlayerMetaResolvers<ContextType = Context, ParentType extends Resolv
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type PlayerMetaInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerMetaInfo'] = ResolversParentTypes['PlayerMetaInfo']> = {
+  avatarUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  ttsVoice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type PlayerTurnPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerTurnPayload'] = ResolversParentTypes['PlayerTurnPayload']> = {
   playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -807,14 +843,20 @@ export type PotInfoResolvers<ContextType = Context, ParentType extends Resolvers
 };
 
 export type ProctorGameStateResolvers<ContextType = Context, ParentType extends ResolversParentTypes['ProctorGameState'] = ResolversParentTypes['ProctorGameState']> = {
+  bigBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  button?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   channelKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   communityCards?: Resolver<Array<ResolversTypes['CardInfo']>, ParentType, ContextType>;
   gameId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   handNumber?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  hands?: Resolver<Array<ResolversTypes['HandCardInfo']>, ParentType, ContextType>;
   lastInstruction?: Resolver<Maybe<ResolversTypes['RenderInstruction']>, ParentType, ContextType>;
   phase?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  playerMeta?: Resolver<Array<ResolversTypes['PlayerMetaInfo']>, ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
   pots?: Resolver<Array<ResolversTypes['PotInfo']>, ParentType, ContextType>;
+  smallBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  status?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -891,6 +933,7 @@ export type Resolvers<ContextType = Context> = {
   GameOverPayload?: GameOverPayloadResolvers<ContextType>;
   GameStartPayload?: GameStartPayloadResolvers<ContextType>;
   GameState?: GameStateResolvers<ContextType>;
+  HandCardInfo?: HandCardInfoResolvers<ContextType>;
   HandRecord?: HandRecordResolvers<ContextType>;
   HandRecordPlayer?: HandRecordPlayerResolvers<ContextType>;
   HandResultPayload?: HandResultPayloadResolvers<ContextType>;
@@ -905,6 +948,7 @@ export type Resolvers<ContextType = Context> = {
   PlayerHand?: PlayerHandResolvers<ContextType>;
   PlayerInfo?: PlayerInfoResolvers<ContextType>;
   PlayerMeta?: PlayerMetaResolvers<ContextType>;
+  PlayerMetaInfo?: PlayerMetaInfoResolvers<ContextType>;
   PlayerTurnPayload?: PlayerTurnPayloadResolvers<ContextType>;
   Pot?: PotResolvers<ContextType>;
   PotInfo?: PotInfoResolvers<ContextType>;
