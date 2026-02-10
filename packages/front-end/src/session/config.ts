@@ -78,20 +78,6 @@ export const DISPLAY_NAMES = new Map(
   DEFAULT_CONFIG.players.map((p) => [p.playerId, `${p.name} ${p.modelName}`]),
 );
 
-// ── Timing ──────────────────────────────────────────────
-
-export const INSTRUCTION_DELAYS: Record<string, number> = {
-  GAME_START: 1500,
-  DEAL_HANDS: 2500,
-  PLAYER_TURN: 500,
-  PLAYER_ANALYSIS: 500,
-  PLAYER_ACTION: 1500,
-  DEAL_COMMUNITY: 1500,
-  HAND_RESULT: 3000,
-  LEADERBOARD: 2500,
-  GAME_OVER: 1000,
-};
-
 /** Cancellable delay that resolves immediately if the signal is aborted. */
 export function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
