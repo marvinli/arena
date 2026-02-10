@@ -29,14 +29,13 @@ export function useCommunityDealAnimation(
   const cardCount = communityCards.length;
   const newCards = cardCount - baseCountRef.current;
 
-  // Detect when new community cards arrive
-  useEffect(() => {
-    if (cardCount > prevCountRef.current) {
-      baseCountRef.current = prevCountRef.current;
-      setStep(0);
-    }
+  // Detect new community cards synchronously during render to avoid a
+  // flicker frame where cards appear face-up before the animation starts.
+  if (cardCount > prevCountRef.current) {
+    baseCountRef.current = prevCountRef.current;
     prevCountRef.current = cardCount;
-  }, [cardCount]);
+    setStep(0);
+  }
 
   // Animation steps:
   // 0..(newCards-1) = dealing cards face-down one at a time

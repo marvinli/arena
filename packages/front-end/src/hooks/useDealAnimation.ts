@@ -59,13 +59,12 @@ export function useDealAnimation(
   const dealtPlayerCount = dealOrder.length;
   const totalDealSteps = dealtPlayerCount * 2;
 
-  // Detect new hand and start animation
-  useEffect(() => {
-    if (handNumber > prevHandRef.current && handNumber > 0) {
-      setStep(0);
-    }
+  // Detect new hand synchronously during render to avoid a flicker frame
+  // where cards appear face-up before the animation starts.
+  if (handNumber > prevHandRef.current && handNumber > 0) {
     prevHandRef.current = handNumber;
-  }, [handNumber]);
+    setStep(0);
+  }
 
   // Timer progression
   useEffect(() => {

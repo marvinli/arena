@@ -1,5 +1,6 @@
-import dotenv from "dotenv";
 import { join } from "node:path";
+import dotenv from "dotenv";
+
 dotenv.config({ path: join(import.meta.dirname, "../../../.env") });
 
 import { bedrock } from "@ai-sdk/amazon-bedrock";
@@ -55,10 +56,13 @@ async function main() {
       maxOutputTokens: 512,
     });
     console.log("Text:", result1.text);
-    console.log("Tool calls:", JSON.stringify(result1.staticToolCalls, null, 2));
+    console.log(
+      "Tool calls:",
+      JSON.stringify(result1.staticToolCalls, null, 2),
+    );
     console.log("Finish reason:", result1.finishReason);
-  } catch (e: any) {
-    console.error("Error:", e.message);
+  } catch (e: unknown) {
+    console.error("Error:", e instanceof Error ? e.message : e);
   }
 
   console.log("\n=== Testing WITH toolChoice: tool ===");
@@ -72,10 +76,13 @@ async function main() {
       maxOutputTokens: 512,
     });
     console.log("Text:", result2.text);
-    console.log("Tool calls:", JSON.stringify(result2.staticToolCalls, null, 2));
+    console.log(
+      "Tool calls:",
+      JSON.stringify(result2.staticToolCalls, null, 2),
+    );
     console.log("Finish reason:", result2.finishReason);
-  } catch (e: any) {
-    console.error("Error:", e.message);
+  } catch (e: unknown) {
+    console.error("Error:", e instanceof Error ? e.message : e);
   }
 
   console.log("\n=== Testing WITH toolChoice: required ===");
@@ -89,10 +96,13 @@ async function main() {
       maxOutputTokens: 512,
     });
     console.log("Text:", result3.text);
-    console.log("Tool calls:", JSON.stringify(result3.staticToolCalls, null, 2));
+    console.log(
+      "Tool calls:",
+      JSON.stringify(result3.staticToolCalls, null, 2),
+    );
     console.log("Finish reason:", result3.finishReason);
-  } catch (e: any) {
-    console.error("Error:", e.message);
+  } catch (e: unknown) {
+    console.error("Error:", e instanceof Error ? e.message : e);
   }
 }
 

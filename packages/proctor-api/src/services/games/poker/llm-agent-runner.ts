@@ -1,7 +1,7 @@
 import { bedrock } from "@ai-sdk/amazon-bedrock";
 import { anthropic } from "@ai-sdk/anthropic";
-import { google } from "@ai-sdk/google";
 import { deepseek } from "@ai-sdk/deepseek";
+import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
 import {
@@ -269,7 +269,10 @@ export class LlmAgentRunner implements AgentRunner {
     const parsed = parseToolCallFromText(result.text ?? "");
     if (parsed) {
       // Replace the text-only assistant message with a clean one for history
-      agent.messages.push({ role: "assistant", content: parsed.analysis || "Action submitted." });
+      agent.messages.push({
+        role: "assistant",
+        content: parsed.analysis || "Action submitted.",
+      });
 
       return {
         action: {
