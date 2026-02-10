@@ -1,8 +1,15 @@
+import { bedrock } from "@ai-sdk/amazon-bedrock";
 import { anthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { xai } from "@ai-sdk/xai";
-import { generateText, type ModelMessage, tool } from "ai";
+import {
+  generateText,
+  hasToolCall,
+  type ModelMessage,
+  stepCountIs,
+  tool,
+} from "ai";
 import { z } from "zod";
 import type {
   AgentRunner,
@@ -30,8 +37,35 @@ function resolveModel(provider: string, modelId: string) {
       return google(modelId);
     case "xai":
       return xai(modelId);
+    case "bedrock":
+      return bedrock(modelId);
     default:
       throw new Error(`Unknown provider: ${provider}`);
+  }
+}
+
+type JSONValue = null | string | number | boolean | JSONObject | JSONValue[];
+type JSONObject = { [key: string]: JSONValue | undefined };
+
+function getProviderOptions(
+  config: PlayerConfig,
+): Record<string, JSONObject> | undefined {
+  switch (config.provider) {
+    case "openai":
+      return { openai: { reasoningEffort: "none" } };
+    case "google":
+      return { google: { thinkingConfig: { thinkingBudget: 0 } } };
+    case "bedrock":
+      if (config.modelId.startsWith("qwen.")) {
+        return {
+          bedrock: {
+            additionalModelRequestFields: { enable_thinking: false },
+          },
+        };
+      }
+      return undefined;
+    default:
+      return undefined;
   }
 }
 
@@ -133,6 +167,8 @@ export class LlmAgentRunner implements AgentRunner {
       messages: agent.messages,
       tools: { submit_action: submitActionTool },
       temperature: agent.config.temperature,
+      stopWhen: [hasToolCall("submit_action"), stepCountIs(3)],
+      providerOptions: getProviderOptions(agent.config),
     });
 
     console.log(

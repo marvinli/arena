@@ -13,6 +13,7 @@
     "run-game": "tsx scripts/run-game.ts"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "^4.0.54",
     "@ai-sdk/anthropic": "^3.0.39",
     "@ai-sdk/google": "^3.0.22",
     "@ai-sdk/openai": "^3.0.26",

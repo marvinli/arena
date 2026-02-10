@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("ai", () => ({
   generateText: vi.fn(),
   tool: vi.fn((opts: unknown) => opts),
+  hasToolCall: vi.fn(() => () => false),
+  stepCountIs: vi.fn(() => () => false),
 }));
 
 vi.mock("@ai-sdk/anthropic", () => ({ anthropic: vi.fn() }));
