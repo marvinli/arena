@@ -11,10 +11,7 @@ vi.mock("../../../src/persistence.js", () => ({
 }));
 
 import { GAME_CONFIG } from "../../../src/game-config.js";
-import {
-  getChannelState as mockGetChannelState,
-  upsertChannelState as mockUpsertChannelState,
-} from "../../../src/persistence.js";
+import { getChannelState as mockGetChannelState } from "../../../src/persistence.js";
 import {
   _resetSessions,
   completeInstruction,
@@ -113,15 +110,9 @@ describe("session-manager", () => {
   });
 
   describe("completeInstruction", () => {
-    it("returns true and persists bookmark", () => {
+    it("returns true (client ack signal)", () => {
       const result = completeInstruction("test-channel", "mod-1", "12345");
       expect(result).toBe(true);
-      expect(mockUpsertChannelState).toHaveBeenCalledWith(
-        "test-channel",
-        "mod-1",
-        12345,
-        null,
-      );
     });
   });
 });

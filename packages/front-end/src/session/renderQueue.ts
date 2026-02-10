@@ -87,9 +87,7 @@ export function createRenderQueue(deps: RenderQueueDeps) {
               isApiError,
             });
             ttsGate = (
-              voiceId
-                ? speakAnalysis(analysis, voiceId)
-                : Promise.resolve()
+              voiceId ? speakAnalysis(analysis, voiceId) : Promise.resolve()
             ).then(
               () => deps.dispatch({ type: "SPEAK_END" }),
               () => deps.dispatch({ type: "SPEAK_END" }),

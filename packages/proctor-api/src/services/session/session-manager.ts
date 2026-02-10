@@ -3,10 +3,7 @@ import type {
   ProctorGameState,
   RenderInstruction,
 } from "../../gql/resolverTypes.js";
-import {
-  getChannelState as getChannelStateFromDb,
-  upsertChannelState,
-} from "../../persistence.js";
+import { getChannelState as getChannelStateFromDb } from "../../persistence.js";
 
 export interface SessionPlayer {
   id: string;
@@ -117,10 +114,6 @@ export function connect(channelKey: string): ConnectResult {
   const state = getChannelStateFromDb(channelKey);
 
   if (!state) {
-    // New client — return empty state.
-    // The programming loop is started by the SSE subscription handler
-    // to avoid a race where instructions are published before the
-    // subscriber exists.
     return {
       moduleId: "",
       moduleType: "poker",
@@ -128,7 +121,6 @@ export function connect(channelKey: string): ConnectResult {
     };
   }
 
-  // Returning client — return snapshot
   return {
     moduleId: state.moduleId,
     moduleType: "poker",
@@ -139,17 +131,12 @@ export function connect(channelKey: string): ConnectResult {
 }
 
 export function completeInstruction(
-  channelKey: string,
-  moduleId: string,
-  instructionId: string,
-  stateSnapshot?: string | null,
+  _channelKey: string,
+  _moduleId: string,
+  _instructionId: string,
 ): boolean {
-  upsertChannelState(
-    channelKey,
-    moduleId,
-    Number(instructionId),
-    stateSnapshot ?? null,
-  );
+  // Channel state is now persisted by the emitter on every instruction.
+  // This mutation is kept as a client ack signal for future back-pressure.
   return true;
 }
 
