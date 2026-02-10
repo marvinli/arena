@@ -103,6 +103,18 @@
   letter-spacing: 0.06cqw;
 }
 
+/* ── Empty seat placeholders ─────────────────────────── */
+
+.emptySeat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 3.5cqw;
+  height: 3.5cqw;
+  border-radius: 50%;
+  border: 0.1cqw dashed rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 /* ── Analysis side panel ─────────────────────────────── */
 
 .sidePanel {

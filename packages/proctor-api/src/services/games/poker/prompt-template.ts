@@ -30,6 +30,8 @@ a natural way, e.g. "I'll call.", "Time to fold.", "Let's push all-in.",
 "Raise to 200." Keep it to 2-4 sentences total.
 
 Do NOT use labels like "Analysis:" or "Action:" — just speak naturally.
+When referring to cards, always spell out the suit in words (e.g. "nine of
+diamonds", "ace of spades"). Never use suit emoji or symbols (♠♥♦♣).
 
 Then call submit_action with your action and amount.
 

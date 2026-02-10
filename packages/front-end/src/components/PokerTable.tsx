@@ -107,6 +107,19 @@ export function PokerTable({
           </div>
         </div>
 
+        {/* Empty seat placeholders */}
+        {SEAT_POSITIONS.slice(players.length).map((seat, i) => (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed empty seats never reorder
+            key={`empty-${i}`}
+            className={styles.emptySeat}
+            style={{
+              left: `${seat.x}%`,
+              top: `${seat.y}%`,
+            }}
+          />
+        ))}
+
         {players.map((player, i) => {
           const seat = SEAT_POSITIONS[i];
           if (!seat) return null;
