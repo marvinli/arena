@@ -1,12 +1,9 @@
-import Claude from "@lobehub/icons/es/Claude";
-import Gemini from "@lobehub/icons/es/Gemini";
-import Grok from "@lobehub/icons/es/Grok";
-import OpenAI from "@lobehub/icons/es/OpenAI";
 import { useEffect, useRef, useState } from "react";
 import type { Player } from "../types";
 import { ChipStackDisplay } from "./ChipStack";
 import styles from "./PlayerSeat.module.css";
 import { PlayingCard } from "./PlayingCard";
+import { ProviderIcon } from "./ProviderIcon";
 
 export function PlayerSeat({
   player,
@@ -97,14 +94,11 @@ export function PlayerSeat({
                       objectFit: "cover",
                     }}
                   />
-                ) : player.avatar === "openai" ? (
-                  <OpenAI style={{ width: "55%", height: "55%" }} />
-                ) : player.avatar === "google" ? (
-                  <Gemini.Color style={{ width: "65%", height: "65%" }} />
-                ) : player.avatar === "xai" ? (
-                  <Grok style={{ width: "55%", height: "55%" }} />
                 ) : (
-                  <Claude.Color style={{ width: "65%", height: "65%" }} />
+                  <ProviderIcon
+                    avatar={player.avatar}
+                    style={{ width: "60%", height: "60%" }}
+                  />
                 )}
               </div>
             </div>

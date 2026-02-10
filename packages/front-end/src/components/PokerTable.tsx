@@ -1,13 +1,11 @@
-import Claude from "@lobehub/icons/es/Claude";
-import Gemini from "@lobehub/icons/es/Gemini";
-import Grok from "@lobehub/icons/es/Grok";
-import OpenAI from "@lobehub/icons/es/OpenAI";
+import { formatChips } from "../chips";
 import { useCommunityDealAnimation } from "../hooks/useCommunityDealAnimation";
 import { useDealAnimation } from "../hooks/useDealAnimation";
 import type { Card, Player, Pot } from "../types";
 import { PlayerSeat } from "./PlayerSeat";
 import { PlayingCard } from "./PlayingCard";
 import styles from "./PokerTable.module.css";
+import { ProviderIcon } from "./ProviderIcon";
 
 const SEAT_COLORS = [
   "#e05c5c",
@@ -37,18 +35,6 @@ const SEAT_POSITIONS: { x: number; y: number }[] = Array.from(
     };
   },
 );
-
-function formatChips(amount: number): string {
-  return `$${amount.toLocaleString()}`;
-}
-
-function SpeakerIcon({ avatar }: { avatar: string }) {
-  const size = { width: "60%", height: "60%" };
-  if (avatar === "openai") return <OpenAI style={size} />;
-  if (avatar === "google") return <Gemini.Color style={size} />;
-  if (avatar === "xai") return <Grok style={size} />;
-  return <Claude.Color style={size} />;
-}
 
 export function PokerTable({
   players,
@@ -248,7 +234,10 @@ export function PokerTable({
                 className={styles.sidePanelAvatar}
                 style={{ "--seat-color": speakingColor } as React.CSSProperties}
               >
-                <SpeakerIcon avatar={speakingPlayer.avatar} />
+                <ProviderIcon
+                  avatar={speakingPlayer.avatar}
+                  style={{ width: "60%", height: "60%" }}
+                />
               </div>
               <div className={styles.sidePanelName}>{speakingPlayer.name}</div>
             </>

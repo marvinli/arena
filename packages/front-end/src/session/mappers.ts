@@ -1,0 +1,46 @@
+import type { Card, Player, Pot } from "../types";
+import { DISPLAY_NAMES } from "./config";
+import type { GqlCardInfo, GqlPlayerInfo, GqlPotInfo } from "./types";
+
+export function mapPots(gqlPots: GqlPotInfo[]): Pot[] {
+  return gqlPots.map((p, i) => ({
+    label: i === 0 ? "Main Pot" : `Side Pot ${i}`,
+    amount: p.size,
+  }));
+}
+
+export function mapCard(c: GqlCardInfo): Card {
+  return { rank: c.rank, suit: c.suit as Card["suit"] };
+}
+
+export function mapPlayer(
+  info: GqlPlayerInfo,
+  button: number | null,
+  existing?: Player,
+): Player {
+  return {
+    id: info.id,
+    name: DISPLAY_NAMES.get(info.id) ?? info.name,
+    chips: info.chips,
+    avatar: existing?.avatar ?? "",
+    cards: existing?.cards ?? null,
+    isDealer: info.seatIndex === button,
+    isFolded: info.status === "FOLDED",
+    isActive: existing?.isActive ?? false,
+    isAllIn: info.status === "ALL_IN",
+    lastAction: existing?.lastAction ?? null,
+    currentBet: info.bet,
+  };
+}
+
+export function mapPlayers(
+  infos: GqlPlayerInfo[],
+  button: number | null,
+  existingPlayers: Player[],
+): Player[] {
+  const existingMap = new Map(existingPlayers.map((p) => [p.id, p]));
+  const sorted = [...infos].sort((a, b) => a.seatIndex - b.seatIndex);
+  return sorted.map((info) =>
+    mapPlayer(info, button, existingMap.get(info.id)),
+  );
+}

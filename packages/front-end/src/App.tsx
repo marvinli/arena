@@ -1,13 +1,22 @@
+import { useEffect } from "react";
 import { PokerTable } from "./components/PokerTable";
 import { StartScreen } from "./components/StartScreen";
 import { useGameSession } from "./hooks/useGameSession";
 import { getMockFixture } from "./mockData";
 import "./styles/global.css";
 
-const mockParam = new URLSearchParams(window.location.search).get("mock");
+const params = new URLSearchParams(window.location.search);
+const mockParam = params.get("mock");
+const autostart = params.has("autostart");
 
 export function App() {
   const { state, startGame, stopGame } = useGameSession();
+
+  useEffect(() => {
+    if (autostart && state.status === "idle") {
+      startGame();
+    }
+  }, [state.status, startGame]);
 
   if (mockParam !== null) {
     const mock = getMockFixture(mockParam || "default");
@@ -27,7 +36,7 @@ export function App() {
     );
   }
 
-  if (state.status === "idle" || state.status === "error") {
+  if (!autostart && (state.status === "idle" || state.status === "error")) {
     return (
       <div className="app">
         <StartScreen onStart={startGame} error={state.error} />

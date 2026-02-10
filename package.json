@@ -8,9 +8,11 @@
   "scripts": {
     "front-end": "npm run dev --workspace=@arena/front-end",
     "proctor-api": "npm run dev --workspace=@arena/proctor-api",
+    "videographer": "npm run dev --workspace=@arena/videographer",
     "test:proctor-api": "npm test --workspace=@arena/proctor-api",
     "run-game": "npm run run-game --workspace=@arena/proctor-api",
     "codegen:front-end": "npm run codegen --workspace=@arena/front-end",
+    "test:front-end": "npm test --workspace=@arena/front-end",
     "check": "biome check .",
     "check:fix": "biome check --write ."
   },
