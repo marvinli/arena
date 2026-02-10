@@ -10,7 +10,7 @@ export const DEFAULT_CONFIG = {
       modelId: "claude-opus-4-6",
       modelName: "Opus 4.6",
       provider: "anthropic",
-      ttsVoice: "TX3LPaxmHKxFdv7VOQHJ", // Liam
+      ttsVoice: "ash", // confident male
     },
     {
       playerId: "agent-2",
@@ -19,7 +19,7 @@ export const DEFAULT_CONFIG = {
       modelName: "5.2",
       provider: "openai",
       avatarUrl: "openai",
-      ttsVoice: "VR6AewLTigWG4xSOukaG", // Arnold
+      ttsVoice: "fable", // warm storyteller male
     },
     {
       playerId: "agent-3",
@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG = {
       modelName: "2.5 Pro",
       provider: "google",
       avatarUrl: "google",
-      ttsVoice: "EXAVITQu4vr4xnSDxMaL", // Sarah
+      ttsVoice: "nova", // female
     },
     {
       playerId: "agent-4",
@@ -37,7 +37,7 @@ export const DEFAULT_CONFIG = {
       modelName: "4.1",
       provider: "xai",
       avatarUrl: "xai",
-      ttsVoice: "jsCqWAovK2LkecY7zXl4", // Freya
+      ttsVoice: "shimmer", // female
     },
     {
       playerId: "agent-5",
@@ -46,16 +46,16 @@ export const DEFAULT_CONFIG = {
       modelName: "V3",
       provider: "deepseek",
       avatarUrl: "deepseek",
-      ttsVoice: "yoZ06aMxZJJ28mfd3POQ", // Sam
+      ttsVoice: "echo", // male
     },
-{
+    {
       playerId: "agent-7",
       name: "Mistral",
       modelId: "mistral.mistral-large-3-675b-instruct",
       modelName: "Large 3",
       provider: "bedrock",
       avatarUrl: "mistral",
-      ttsVoice: "xNtG3W2oqJs0cJZuTyBc", // Chloé
+      ttsVoice: "coral", // female
     },
     {
       playerId: "agent-8",
@@ -64,7 +64,7 @@ export const DEFAULT_CONFIG = {
       modelName: "Pro",
       provider: "bedrock",
       avatarUrl: "nova",
-      ttsVoice: "cjVigY5qzO86Huf0OWal", // Eric
+      ttsVoice: "onyx", // deep male
     },
     {
       playerId: "agent-9",
@@ -73,7 +73,7 @@ export const DEFAULT_CONFIG = {
       modelName: "3 32B",
       provider: "bedrock",
       avatarUrl: "qwen",
-      ttsVoice: "pFZP5JQG7iQjIQuC4Bku", // Lily
+      ttsVoice: "sage", // female
     },
   ],
   startingChips: 1000,

@@ -83,7 +83,7 @@ const PLAYERS: Player[] = [
     lastAction: "call",
     currentBet: 80,
   },
-{
+  {
     id: "agent-7",
     name: "Mistral Large 3",
     chips: 1100,
