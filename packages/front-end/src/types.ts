@@ -59,5 +59,6 @@ export interface GameState {
   holeCards: Map<string, [Card, Card]>;
   speakingPlayerId: string | null;
   analysisText: string | null;
+  isApiError: boolean;
   error: string | null;
 }

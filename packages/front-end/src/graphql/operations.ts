@@ -85,6 +85,7 @@ export const RENDER_INSTRUCTIONS_SUB = `
         playerId
         playerName
         analysis
+        isApiError
       }
 
       playerAction {

@@ -1,25 +1,27 @@
 import { PokerTable } from "./components/PokerTable";
 import { StartScreen } from "./components/StartScreen";
 import { useGameSession } from "./hooks/useGameSession";
-import { mockCommunityCards, mockPlayers, mockPots } from "./mockData";
+import { getMockFixture } from "./mockData";
 import "./styles/global.css";
 
-const isMock = new URLSearchParams(window.location.search).has("mock");
+const mockParam = new URLSearchParams(window.location.search).get("mock");
 
 export function App() {
   const { state, startGame, stopGame } = useGameSession();
 
-  if (isMock) {
+  if (mockParam !== null) {
+    const mock = getMockFixture(mockParam || "default");
     return (
       <div className="app">
         <PokerTable
-          players={mockPlayers}
-          communityCards={mockCommunityCards}
-          pots={mockPots}
-          speakingPlayerId="agent-1"
-          analysisText="Ace-king suited on the button — this is a premium hand. With Gemini folding and only Grok and ChatGPT left to act behind me, I'm in great position. The flop gives me two overcards and a backdoor flush draw. I like my equity here. Let me put in a raise to 80 and see who wants to play."
-          handNumber={1}
-          button={0}
+          players={mock.players}
+          communityCards={mock.communityCards}
+          pots={mock.pots}
+          speakingPlayerId={mock.speakingPlayerId}
+          analysisText={mock.analysisText}
+          isApiError={mock.isApiError}
+          handNumber={mock.handNumber}
+          button={mock.button}
         />
       </div>
     );
@@ -41,6 +43,7 @@ export function App() {
         pots={state.pots}
         speakingPlayerId={state.speakingPlayerId}
         analysisText={state.analysisText}
+        isApiError={state.isApiError}
         handNumber={state.handNumber}
         button={state.button}
       />

@@ -1,15 +1,8 @@
 import type { Card, Player, Pot } from "./types";
 
-/** Flop dealt: 10♥ J♣ 7♦ */
-export const mockCommunityCards: Card[] = [
-  { rank: "10", suit: "hearts" },
-  { rank: "J", suit: "clubs" },
-  { rank: "7", suit: "diamonds" },
-];
+// ── Shared players ──────────────────────────────────────
 
-export const mockPots: Pot[] = [{ label: "Main Pot", amount: 320 }];
-
-export const mockPlayers: Player[] = [
+const PLAYERS: Player[] = [
   {
     id: "agent-1",
     name: "Claude Sonnet 4.5",
@@ -75,3 +68,76 @@ export const mockPlayers: Player[] = [
     currentBet: 80,
   },
 ];
+
+const COMMUNITY_CARDS: Card[] = [
+  { rank: "10", suit: "hearts" },
+  { rank: "J", suit: "clubs" },
+  { rank: "7", suit: "diamonds" },
+];
+
+const POTS: Pot[] = [{ label: "Main Pot", amount: 320 }];
+
+// ── Fixtures ────────────────────────────────────────────
+
+export interface MockFixture {
+  players: Player[];
+  communityCards: Card[];
+  pots: Pot[];
+  speakingPlayerId: string | null;
+  analysisText: string | null;
+  isApiError: boolean;
+  handNumber: number;
+  button: number | null;
+}
+
+const defaultFixture: MockFixture = {
+  players: PLAYERS,
+  communityCards: COMMUNITY_CARDS,
+  pots: POTS,
+  speakingPlayerId: "agent-1",
+  analysisText:
+    "Ace-king suited on the button \u2014 this is a premium hand. With Gemini folding and only Grok and ChatGPT left to act behind me, I'm in great position. The flop gives me two overcards and a backdoor flush draw. I like my equity here. Let me put in a raise to 80 and see who wants to play.",
+  isApiError: false,
+  handNumber: 1,
+  button: 0,
+};
+
+const apiErrorFixture: MockFixture = {
+  players: PLAYERS.map((p) =>
+    p.id === "agent-4" ? { ...p, isActive: true, lastAction: null } : p,
+  ),
+  communityCards: COMMUNITY_CARDS,
+  pots: POTS,
+  speakingPlayerId: "agent-4",
+  analysisText: "Pretty sure my human forgot to pay the API bill. Check.",
+  isApiError: true,
+  handNumber: 2,
+  button: 0,
+};
+
+const preflopFixture: MockFixture = {
+  players: PLAYERS.map((p) => ({
+    ...p,
+    lastAction: null,
+    currentBet: 0,
+    isFolded: false,
+    isActive: p.id === "agent-1",
+  })),
+  communityCards: [],
+  pots: [{ label: "Main Pot", amount: 30 }],
+  speakingPlayerId: null,
+  analysisText: null,
+  isApiError: false,
+  handNumber: 1,
+  button: 0,
+};
+
+const FIXTURES: Record<string, MockFixture> = {
+  default: defaultFixture,
+  "api-error": apiErrorFixture,
+  preflop: preflopFixture,
+};
+
+export function getMockFixture(name: string): MockFixture {
+  return FIXTURES[name] ?? defaultFixture;
+}

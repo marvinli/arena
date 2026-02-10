@@ -117,6 +117,7 @@ export function buildPlayerAnalysis(
   playerId: string,
   playerName: string,
   analysis: string,
+  isApiError = false,
 ): RenderInstruction {
   return {
     ...base(InstructionType.PlayerAnalysis),
@@ -124,6 +125,7 @@ export function buildPlayerAnalysis(
       playerId,
       playerName,
       analysis,
+      isApiError,
     },
   };
 }

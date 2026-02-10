@@ -6,6 +6,7 @@ import {
   waitForRenderComplete,
 } from "../../session/session-manager.js";
 import type { AgentRunner, PlayerConfig } from "./agent-runner.js";
+import { fallbackCheckLine, fallbackFoldLine } from "./fallback-lines.js";
 import {
   buildDealCommunity,
   buildDealHands,
@@ -116,12 +117,20 @@ async function resolveAction(
   ctx: SessionContext,
   playerId: string,
 ): Promise<{
-  result: { action: { type: string; amount?: number }; analysis?: string };
+  result: {
+    action: { type: string; amount?: number };
+    analysis?: string;
+    isApiError?: boolean;
+  };
   state: GameState;
 }> {
   const turnData = poker.getMyTurn(ctx.gameId, playerId);
 
-  let result: { action: { type: string; amount?: number }; analysis?: string };
+  let result: {
+    action: { type: string; amount?: number };
+    analysis?: string;
+    isApiError?: boolean;
+  };
   for (let llmAttempt = 0; ; llmAttempt++) {
     try {
       result = await ctx.agentRunner.runTurn(playerId, {
@@ -142,9 +151,19 @@ async function resolveAction(
         msg,
       );
       if (llmAttempt >= MAX_LLM_RETRIES - 1) {
-        throw new Error(
-          `LLM unavailable for agent ${playerId} after ${MAX_LLM_RETRIES} retries: ${msg}`,
+        const canCheck = turnData.validActions.some(
+          (a: { type: string }) => a.type === "CHECK",
         );
+        const fallback = canCheck ? "CHECK" : "FOLD";
+        const analysis = canCheck ? fallbackCheckLine() : fallbackFoldLine();
+        console.error(
+          `[orchestrator] Max LLM retries for ${playerId}, auto-${fallback.toLowerCase()}ing`,
+        );
+        const state = poker.submitAction(ctx.gameId, playerId, fallback);
+        return {
+          result: { action: { type: fallback }, analysis, isApiError: true },
+          state,
+        };
       }
       await new Promise((r) => setTimeout(r, LLM_RETRY_DELAY_MS));
     }
@@ -182,12 +201,16 @@ async function resolveAction(
         const retryMsg =
           retryErr instanceof Error ? retryErr.message : String(retryErr);
         console.error(
-          `[orchestrator] Agent ${playerId} rejectAction failed:`,
+          `[orchestrator] Agent ${playerId} rejectAction failed, auto-folding:`,
           retryMsg,
         );
-        throw new Error(
-          `LLM unavailable for agent ${playerId} during action retry: ${retryMsg}`,
-        );
+        result = {
+          action: { type: "FOLD" },
+          analysis: fallbackFoldLine(),
+          isApiError: true,
+        };
+        const state = poker.submitAction(ctx.gameId, playerId, "FOLD");
+        return { result, state };
       }
     }
   }
@@ -210,7 +233,12 @@ async function playTurn(
   if (result.analysis) {
     await emit(
       ctx.session,
-      buildPlayerAnalysis(playerId, playerName, result.analysis),
+      buildPlayerAnalysis(
+        playerId,
+        playerName,
+        result.analysis,
+        result.isApiError ?? false,
+      ),
       ctx.signal,
     );
   }

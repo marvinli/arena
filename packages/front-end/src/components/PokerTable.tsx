@@ -56,6 +56,7 @@ export function PokerTable({
   pots,
   speakingPlayerId,
   analysisText,
+  isApiError,
   handNumber,
   button,
 }: {
@@ -64,15 +65,18 @@ export function PokerTable({
   pots: Pot[];
   speakingPlayerId: string | null;
   analysisText: string | null;
+  isApiError: boolean;
   handNumber: number;
   button: number | null;
 }) {
   const dealAnimation = useDealAnimation(handNumber, button, players);
   const communityAnim = useCommunityDealAnimation(communityCards);
 
-  const speakingPlayer = speakingPlayerId
-    ? (players.find((p) => p.id === speakingPlayerId) ?? null)
-    : null;
+  const speakingIdx = speakingPlayerId
+    ? players.findIndex((p) => p.id === speakingPlayerId)
+    : -1;
+  const speakingPlayer = speakingIdx >= 0 ? players[speakingIdx] : null;
+  const speakingColor = speakingIdx >= 0 ? SEAT_COLORS[speakingIdx] : undefined;
 
   // If any player is active or speaking, dim everyone else
   const highlightedId =
@@ -240,12 +244,16 @@ export function PokerTable({
         >
           {speakingPlayer && (
             <>
-              <div className={styles.sidePanelAvatar}>
+              <div
+                className={styles.sidePanelAvatar}
+                style={{ "--seat-color": speakingColor } as React.CSSProperties}
+              >
                 <SpeakerIcon avatar={speakingPlayer.avatar} />
               </div>
               <div className={styles.sidePanelName}>{speakingPlayer.name}</div>
             </>
           )}
+          {isApiError && <div className={styles.apiErrorPill}>API Error</div>}
           {analysisText && (
             <div className={styles.sidePanelText}>{analysisText}</div>
           )}

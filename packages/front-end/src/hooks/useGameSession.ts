@@ -74,6 +74,7 @@ interface GqlInstruction {
     playerId: string;
     playerName: string;
     analysis: string;
+    isApiError: boolean;
   } | null;
   playerAction?: {
     playerId: string;
@@ -334,7 +335,7 @@ type Action =
   | { type: "RESET" }
   | { type: "INSTRUCTION"; instruction: GqlInstruction }
   | { type: "RECONNECT"; channelState: GqlChannelState }
-  | { type: "SPEAK_START"; playerId: string; text: string }
+  | { type: "SPEAK_START"; playerId: string; text: string; isApiError: boolean }
   | { type: "SPEAK_END" };
 
 const INITIAL_STATE: GameState = {
@@ -352,6 +353,7 @@ const INITIAL_STATE: GameState = {
   holeCards: new Map(),
   speakingPlayerId: null,
   analysisText: null,
+  isApiError: false,
   error: null,
 };
 
@@ -381,10 +383,16 @@ function reducer(state: GameState, action: Action): GameState {
         ...state,
         speakingPlayerId: action.playerId,
         analysisText: action.text,
+        isApiError: action.isApiError,
       };
 
     case "SPEAK_END":
-      return { ...state, speakingPlayerId: null, analysisText: null };
+      return {
+        ...state,
+        speakingPlayerId: null,
+        analysisText: null,
+        isApiError: false,
+      };
   }
 }
 
@@ -426,6 +434,8 @@ function handleReconnect(cs: GqlChannelState): GameState {
     pots: mapPots(cs.pots),
     holeCards,
     speakingPlayerId: null,
+    analysisText: null,
+    isApiError: false,
     error: null,
   };
 }
@@ -656,9 +666,14 @@ export function useGameSession() {
               inst.type === "PLAYER_ANALYSIS" &&
               inst.playerAnalysis?.analysis
             ) {
-              const { playerId, analysis } = inst.playerAnalysis;
+              const { playerId, analysis, isApiError } = inst.playerAnalysis;
               const voiceId = voiceMap.get(playerId) ?? "";
-              dispatch({ type: "SPEAK_START", playerId, text: analysis });
+              dispatch({
+                type: "SPEAK_START",
+                playerId,
+                text: analysis,
+                isApiError,
+              });
               ttsGate = speakAnalysis(analysis, voiceId).then(
                 () => dispatch({ type: "SPEAK_END" }),
                 () => dispatch({ type: "SPEAK_END" }),

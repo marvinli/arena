@@ -78,6 +78,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     playerId: ID!
     playerName: String!
     analysis: String!
+    isApiError: Boolean!
   }
 
   type PlayerActionPayload {

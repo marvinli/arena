@@ -263,6 +263,7 @@ export type PlayerActionPayload = {
 export type PlayerAnalysisPayload = {
   __typename?: 'PlayerAnalysisPayload';
   analysis: Scalars['String']['output'];
+  isApiError: Scalars['Boolean']['output'];
   playerId: Scalars['ID']['output'];
   playerName: Scalars['String']['output'];
 };
@@ -789,6 +790,7 @@ export type PlayerActionPayloadResolvers<ContextType = Context, ParentType exten
 
 export type PlayerAnalysisPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerAnalysisPayload'] = ResolversParentTypes['PlayerAnalysisPayload']> = {
   analysis?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  isApiError?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
