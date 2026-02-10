@@ -1,0 +1,16 @@
+{
+  "name": "@arena/videographer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "puppeteer": "^24.0.0",
+    "puppeteer-stream": "^3.0.22"
+  }
+}
