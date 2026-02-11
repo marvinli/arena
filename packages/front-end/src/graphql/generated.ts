@@ -167,6 +167,7 @@ export type Mutation = {
   advanceGame: GameState;
   completeInstruction: Scalars['Boolean']['output'];
   createGame: GameState;
+  setLive: Scalars['Boolean']['output'];
   startHand: GameState;
   startModule: Scalars['Boolean']['output'];
   stopSession: Scalars['Boolean']['output'];
@@ -188,6 +189,11 @@ export type MutationCompleteInstructionArgs = {
 
 export type MutationCreateGameArgs = {
   input: CreateGameInput;
+};
+
+
+export type MutationSetLiveArgs = {
+  live: Scalars['Boolean']['input'];
 };
 
 
@@ -339,6 +345,7 @@ export type Query = {
   getHistory: Array<HandRecord>;
   getMyTurn: MyTurnResponse;
   getSession: Maybe<Session>;
+  live: Scalars['Boolean']['output'];
 };
 
 

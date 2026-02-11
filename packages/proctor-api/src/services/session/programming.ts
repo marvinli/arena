@@ -2,6 +2,7 @@ import { logError } from "../../logger.js";
 import {
   completeModule,
   createModule,
+  getSetting,
   upsertChannelState,
 } from "../../persistence.js";
 import { LlmAgentRunner } from "../games/poker/llm-agent-runner.js";
@@ -19,6 +20,11 @@ export async function runProgrammingLoop(
   let index = startIndex;
 
   while (true) {
+    // Pause while live flag is off
+    while (getSetting("live") !== "true") {
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+
     const moduleType = PROGRAMMING[index % PROGRAMMING.length];
     const moduleId = crypto.randomUUID();
     createModule(moduleId, moduleType, index % PROGRAMMING.length);

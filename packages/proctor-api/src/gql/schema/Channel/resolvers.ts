@@ -1,4 +1,5 @@
 import { logError } from "../../../logger.js";
+import { getSetting, setSetting } from "../../../persistence.js";
 import { runProgrammingLoop } from "../../../services/session/programming.js";
 import {
   completeInstruction,
@@ -64,14 +65,25 @@ const stopSessionMutation: MutationResolvers["stopSession"] = (
   return true;
 };
 
+const liveQuery: QueryResolvers["live"] = () => {
+  return getSetting("live") === "true";
+};
+
+const setLiveMutation: MutationResolvers["setLive"] = (_parent, { live }) => {
+  setSetting("live", String(live));
+  return live;
+};
+
 export const channelResolvers = {
   Query: {
     getSession: getSessionQuery,
     connect: connectQuery,
+    live: liveQuery,
   },
   Mutation: {
     startModule: startModuleMutation,
     completeInstruction: completeInstructionMutation,
     stopSession: stopSessionMutation,
+    setLive: setLiveMutation,
   },
 };

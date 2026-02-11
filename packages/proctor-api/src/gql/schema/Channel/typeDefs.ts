@@ -31,11 +31,13 @@ export const channelTypeDefs = /* GraphQL */ `
   extend type Query {
     getSession(channelKey: String!): Session
     connect(channelKey: String!): ChannelConnection!
+    live: Boolean!
   }
 
   extend type Mutation {
     startModule(channelKey: String!): Boolean!
     completeInstruction(channelKey: String!, moduleId: String!, instructionId: String!): Boolean!
     stopSession(channelKey: String!): Boolean!
+    setLive(live: Boolean!): Boolean!
   }
 `;
