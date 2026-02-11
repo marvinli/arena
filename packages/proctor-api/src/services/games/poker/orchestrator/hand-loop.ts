@@ -141,6 +141,13 @@ export async function playHand(ctx: SessionContext): Promise<void> {
     smallBlind: session.config.smallBlind,
     bigBlind: session.config.bigBlind,
   };
+  const scheduleContext =
+    session.config.blindSchedule && session.config.handsPerLevel
+      ? {
+          schedule: session.config.blindSchedule,
+          handsPerLevel: session.config.handsPerLevel,
+        }
+      : undefined;
   for (const ph of playerHands) {
     agentRunner.injectMessage(
       ph.playerId,
@@ -150,6 +157,7 @@ export async function playHand(ctx: SessionContext): Promise<void> {
         handState.players,
         totalPot,
         blinds,
+        scheduleContext,
       ),
     );
   }

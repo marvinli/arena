@@ -174,8 +174,19 @@ export async function runSession(
   session.gameId = gameId;
   updateGameState(session, createState);
 
+  const tournamentInfo = {
+    startingChips: session.config.startingChips,
+    blindSchedule: session.config.blindSchedule,
+    handsPerLevel: session.config.handsPerLevel,
+  };
+
   for (const p of session.config.players) {
-    agentRunner.initAgent(p.playerId, buildPlayerConfig(p), moduleId);
+    agentRunner.initAgent(
+      p.playerId,
+      buildPlayerConfig(p),
+      moduleId,
+      tournamentInfo,
+    );
   }
 
   emit(
@@ -256,8 +267,18 @@ export async function resumeSession(
   updateGameState(session, createState);
 
   // Initialize agents and restore conversation history
+  const recoveryTournamentInfo = {
+    startingChips: session.config.startingChips,
+    blindSchedule: session.config.blindSchedule,
+    handsPerLevel: session.config.handsPerLevel,
+  };
   for (const p of session.config.players) {
-    agentRunner.initAgent(p.playerId, buildPlayerConfig(p), moduleId);
+    agentRunner.initAgent(
+      p.playerId,
+      buildPlayerConfig(p),
+      moduleId,
+      recoveryTournamentInfo,
+    );
     if (agentRunner.restoreMessages) {
       const messages = getAgentMessages(moduleId, p.playerId);
       if (messages.length > 0) {

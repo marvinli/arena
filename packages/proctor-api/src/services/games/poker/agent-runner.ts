@@ -36,9 +36,20 @@ export interface AgentTurnResult {
   analysis?: string;
 }
 
+export interface TournamentInfo {
+  startingChips: number;
+  blindSchedule?: Array<{ smallBlind: number; bigBlind: number }>;
+  handsPerLevel?: number;
+}
+
 export interface AgentRunner {
   /** Initialize a new agent for a game. Called once per player at session start. */
-  initAgent(playerId: string, config: PlayerConfig, moduleId: string): void;
+  initAgent(
+    playerId: string,
+    config: PlayerConfig,
+    moduleId: string,
+    tournamentInfo?: TournamentInfo,
+  ): void;
 
   /** Append a game event message to an agent's conversation. */
   injectMessage(playerId: string, message: string): void;

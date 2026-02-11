@@ -26,7 +26,7 @@ describe("message-formatter", () => {
 
       expect(result).toBe(
         `Hand #3 has been dealt.
-Your hole cards: A♠ K♥
+Your hole cards: ace of spades, king of hearts
 Players:
   Alice: 990 chips
   Bob: 980 chips
@@ -47,7 +47,7 @@ Pot: 30`,
 
       expect(result).toBe(
         `Hand #1 has been dealt.
-Your hole cards: 2♣ 7♦
+Your hole cards: two of clubs, seven of diamonds
 Players:
 
 Pot: 0`,
@@ -79,7 +79,7 @@ Pot: 0`,
       expect(result).toBe(
         `It's your turn.
 Phase: PREFLOP
-Your hole cards: A♠ K♥
+Your hole cards: ace of spades, king of hearts
 Pot: 30
 Your chips: 980 (current bet: 20)
 Valid actions:
@@ -103,7 +103,9 @@ Call submit_action with your decision.`,
 
       const result = formatYourTurn("p1", context);
 
-      expect(result).toContain("Community cards: 10♦ J♣ Q♠");
+      expect(result).toContain(
+        "Community cards: 10 of diamonds, jack of clubs, queen of spades",
+      );
       expect(result).toContain("Phase: FLOP");
     });
 
@@ -179,7 +181,9 @@ Call submit_action with your decision.`,
         { rank: "Q", suit: "spades" },
       ]);
 
-      expect(result).toBe("FLOP: 10♦ J♣ Q♠");
+      expect(result).toBe(
+        "FLOP: 10 of diamonds, jack of clubs, queen of spades",
+      );
     });
   });
 

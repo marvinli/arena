@@ -19,6 +19,7 @@ import type {
   AgentTurnContext,
   AgentTurnResult,
   PlayerConfig,
+  TournamentInfo,
 } from "./agent-runner.js";
 import { formatYourTurn } from "./message-formatter.js";
 import { buildSystemPrompt } from "./prompt-template.js";
@@ -129,11 +130,16 @@ const LLM_TIMEOUT_MS = 15_000;
 export class LlmAgentRunner implements AgentRunner {
   private agents = new Map<string, AgentState>();
 
-  initAgent(playerId: string, config: PlayerConfig, moduleId: string): void {
+  initAgent(
+    playerId: string,
+    config: PlayerConfig,
+    moduleId: string,
+    tournamentInfo?: TournamentInfo,
+  ): void {
     this.agents.set(playerId, {
       config,
       moduleId,
-      systemPrompt: buildSystemPrompt(config),
+      systemPrompt: buildSystemPrompt(config, tournamentInfo),
       messages: [],
     });
   }

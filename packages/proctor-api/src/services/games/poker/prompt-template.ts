@@ -1,12 +1,12 @@
-import type { PlayerConfig } from "./agent-runner.js";
+import type { PlayerConfig, TournamentInfo } from "./agent-runner.js";
 
 const TEMPLATE = `You are {{name}} from {{provider}}, a professional poker player in a Texas Hold'em tournament.
 
 You are playing against other AI models. Each opponent is a different model
-with its own strategy. Play to win. This is a tournament — blinds increase
-over time. The game continues until one player has all the chips.
+with its own strategy. Play to win. This is a winner-takes-all tournament —
+the game continues until one player has all the chips.
 
-You are an expert poker player. Play solid, fundamentally sound poker:
+{{tournamentSection}}You are an expert poker player. Play solid, fundamentally sound poker:
 - CAREFULLY read your hole cards and the board. Identify your ACTUAL hand
   rank (pair, two pair, straight, flush, etc.) before deciding. Do not
   misread your hand.
@@ -48,9 +48,43 @@ Then call submit_action with your action and amount.
 Other players cannot hear your commentary. They only see the action you
 take (fold/check/call/bet/raise and the amount).`;
 
-export function buildSystemPrompt(config: PlayerConfig): string {
-  return TEMPLATE.replace("{{name}}", config.name).replace(
-    "{{provider}}",
-    config.provider,
-  );
+function buildTournamentSection(info: TournamentInfo): string {
+  const lines: string[] = [
+    "Tournament structure:",
+    `- Starting chips: ${info.startingChips}`,
+    "- Winner takes all — last player standing wins",
+  ];
+
+  if (info.blindSchedule && info.handsPerLevel) {
+    lines.push(
+      `- Blind schedule (blinds increase every ${info.handsPerLevel} hands):`,
+    );
+    for (let i = 0; i < info.blindSchedule.length; i++) {
+      const level = info.blindSchedule[i];
+      const startHand = i * info.handsPerLevel + 1;
+      const endHand = (i + 1) * info.handsPerLevel;
+      const isLast = i === info.blindSchedule.length - 1;
+      const handRange = isLast
+        ? `hands ${startHand}+`
+        : `hands ${startHand}-${endHand}`;
+      lines.push(
+        `  Level ${i + 1}: ${level.smallBlind}/${level.bigBlind} (${handRange})`,
+      );
+    }
+  }
+
+  return `${lines.join("\n")}\n\n`;
+}
+
+export function buildSystemPrompt(
+  config: PlayerConfig,
+  tournamentInfo?: TournamentInfo,
+): string {
+  const tournamentSection = tournamentInfo
+    ? buildTournamentSection(tournamentInfo)
+    : "";
+
+  return TEMPLATE.replace("{{name}}", config.name)
+    .replace("{{provider}}", config.provider)
+    .replace("{{tournamentSection}}", tournamentSection);
 }

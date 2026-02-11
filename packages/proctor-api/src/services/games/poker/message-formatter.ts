@@ -1,17 +1,32 @@
 import type { AgentTurnContext } from "./agent-runner.js";
 
+const rankWord: Record<string, string> = {
+  "2": "two",
+  "3": "three",
+  "4": "four",
+  "5": "five",
+  "6": "six",
+  "7": "seven",
+  "8": "eight",
+  "9": "nine",
+  T: "ten",
+  J: "jack",
+  Q: "queen",
+  K: "king",
+  A: "ace",
+};
+
 function formatCard(card: { rank: string; suit: string }): string {
-  const suitSymbol: Record<string, string> = {
-    spades: "\u2660",
-    hearts: "\u2665",
-    diamonds: "\u2666",
-    clubs: "\u2663",
-  };
-  return `${card.rank}${suitSymbol[card.suit] ?? card.suit}`;
+  return `${rankWord[card.rank] ?? card.rank} of ${card.suit}`;
 }
 
 function formatCards(cards: Array<{ rank: string; suit: string }>): string {
-  return cards.map(formatCard).join(" ");
+  return cards.map(formatCard).join(", ");
+}
+
+export interface BlindScheduleContext {
+  schedule: Array<{ smallBlind: number; bigBlind: number }>;
+  handsPerLevel: number;
 }
 
 export function formatDealHands(
@@ -25,14 +40,30 @@ export function formatDealHands(
   }>,
   pot: number,
   blinds?: { smallBlind: number; bigBlind: number },
+  scheduleContext?: BlindScheduleContext,
 ): string {
   const playerLines = players
     .map((p) => `  ${p.name}: ${p.chips} chips`)
     .join("\n");
 
-  const blindsLine = blinds
-    ? `Blinds: ${blinds.smallBlind}/${blinds.bigBlind}\n`
-    : "";
+  let blindsLine = "";
+  if (blinds) {
+    blindsLine = `Blinds: ${blinds.smallBlind}/${blinds.bigBlind}`;
+    if (scheduleContext) {
+      const { schedule, handsPerLevel } = scheduleContext;
+      const levelIndex = Math.floor((handNumber - 1) / handsPerLevel);
+      const level = Math.min(levelIndex, schedule.length - 1) + 1;
+      const nextLevelHand = (levelIndex + 1) * handsPerLevel + 1;
+      const isMaxLevel = levelIndex >= schedule.length - 1;
+      if (isMaxLevel) {
+        blindsLine += ` (max level ${level} of ${schedule.length})`;
+      } else {
+        const next = schedule[levelIndex + 1];
+        blindsLine += ` (level ${level} of ${schedule.length} — next level at hand ${nextLevelHand}: ${next.smallBlind}/${next.bigBlind})`;
+      }
+    }
+    blindsLine += "\n";
+  }
 
   return `Hand #${handNumber} has been dealt.
 ${blindsLine}Your hole cards: ${formatCards(myHand)}
