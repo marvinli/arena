@@ -6,7 +6,7 @@ let lastTimestamp = 0;
 
 function base(
   type: InstructionType,
-): Pick<RenderInstruction, "instructionId" | "type" | "timestamp"> {
+): Pick<RenderInstruction, "instructionId" | "type" | "timestamp" | "moduleId"> {
   let ts = Date.now();
   if (ts <= lastTimestamp) ts = lastTimestamp + 1;
   lastTimestamp = ts;
@@ -14,6 +14,7 @@ function base(
     instructionId: ts.toString(),
     type,
     timestamp: new Date(ts).toISOString(),
+    moduleId: "", // Set by emitter when publishing
   };
 }
 

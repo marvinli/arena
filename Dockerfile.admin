@@ -68,6 +68,8 @@ COPY --from=build-fe /workspace/packages/admin-fe/dist/ /usr/share/nginx/html/
 WORKDIR /app
 COPY --from=build-api /workspace/packages/admin-api/dist/ ./dist/
 COPY --from=prod-deps /workspace/node_modules/ ./node_modules/
+# Merge workspace-local deps that npm didn't hoist to root
+COPY --from=prod-deps /workspace/packages/admin-api/node_modules/ ./node_modules/
 
 COPY packages/admin-api/package.json ./package.json
 

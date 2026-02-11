@@ -8,6 +8,8 @@ COPY packages/videographer/package.json packages/videographer/
 COPY packages/proctor-api/package.json packages/proctor-api/
 COPY packages/front-end/package.json packages/front-end/
 COPY packages/deploy/package.json packages/deploy/
+COPY packages/admin-api/package.json packages/admin-api/
+COPY packages/admin-fe/package.json packages/admin-fe/
 
 RUN npm ci --omit=dev
 

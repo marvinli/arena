@@ -8,6 +8,8 @@ COPY packages/front-end/package.json packages/front-end/
 # Stub out other workspaces so npm ci doesn't fail
 COPY packages/videographer/package.json packages/videographer/
 COPY packages/deploy/package.json packages/deploy/
+COPY packages/admin-api/package.json packages/admin-api/
+COPY packages/admin-fe/package.json packages/admin-fe/
 
 RUN npm ci
 
@@ -42,6 +44,8 @@ COPY packages/proctor-api/package.json packages/proctor-api/
 COPY packages/front-end/package.json packages/front-end/
 COPY packages/videographer/package.json packages/videographer/
 COPY packages/deploy/package.json packages/deploy/
+COPY packages/admin-api/package.json packages/admin-api/
+COPY packages/admin-fe/package.json packages/admin-fe/
 
 RUN npm ci --omit=dev
 
@@ -61,7 +65,7 @@ COPY --from=build-frontend /workspace/packages/front-end/dist/ /usr/share/nginx/
 WORKDIR /app
 COPY --from=build-api /workspace/packages/proctor-api/dist/ ./dist/
 COPY --from=prod-deps /workspace/node_modules/ ./node_modules/
-COPY --from=prod-deps /workspace/packages/proctor-api/node_modules/ ./packages/proctor-api/node_modules/ 2>/dev/null || true
+# Note: proctor-api deps are hoisted to root node_modules by npm workspaces
 
 # Copy the proctor-api package.json (needed for ESM resolution)
 COPY packages/proctor-api/package.json ./package.json
