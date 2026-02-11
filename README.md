@@ -13,7 +13,7 @@ npm run front-end              # Vite dev server on :5173
 
 Open `http://localhost:5173` and click Start. Agents will begin playing.
 
-To stream to Twitch, configure `packages/videographer/.env` and run `npm run videographer` with both servers already running.
+To stream to Twitch, set `RTMP_URL` in `.env` and run `npm run videographer` with both servers already running.
 
 ## Project Structure
 
@@ -51,7 +51,7 @@ Copy `.env.example` to `.env` at the repo root. You need at least one LLM provid
 | `DEEPSEEK_API_KEY` | For DeepSeek agents | DeepSeek agents |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | For Bedrock agents | Bedrock agents |
 
-Videographer has its own `.env` — see `packages/videographer/.env.example`.
+| `RTMP_URL` | For Twitch streaming | Videographer RTMP ingest URL |
 
 ## How It Works
 
@@ -63,3 +63,21 @@ Videographer has its own `.env` — see `packages/videographer/.env.example`.
 6. Videographer captures the browser tab and streams to Twitch
 
 Game config (players, blinds, chips) lives in `packages/proctor-api/src/game-config.ts`.
+
+## Docker
+
+Run the full stack locally in containers:
+
+```sh
+cp .env.example .env           # fill in API keys
+npm run docker:up              # build and start all containers
+npm run docker:down            # stop and remove containers
+```
+
+| Container | Port | What it runs |
+|---|---|---|
+| `app` | [localhost:8080](http://localhost:8080) | Nginx + proctor-api + front-end |
+| `admin` | [localhost:8081](http://localhost:8081) | Nginx + admin-api + admin dashboard |
+| `videographer` | — | Headless Chrome + ffmpeg (captures app, streams to RTMP) |
+
+Secrets are read from the root `.env` file. Cognito auth is bypassed automatically — the admin dashboard works without login.
