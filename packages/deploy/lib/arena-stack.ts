@@ -82,6 +82,7 @@ export class ArenaStack extends cdk.Stack {
     const appContainer = taskDef.addContainer("arena-app", {
       image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
         file: "Dockerfile.app",
+        exclude: ["**/cdk.out"],
       }),
       memoryLimitMiB: 2048,
       logging: ecs.LogDrivers.awsLogs({
@@ -109,6 +110,8 @@ export class ArenaStack extends cdk.Stack {
       },
     });
 
+    appContainer.addPortMappings({ containerPort: 80 }, { containerPort: 4001 });
+
     appContainer.addMountPoints({
       sourceVolume: "efs-data",
       containerPath: "/data",
@@ -119,6 +122,7 @@ export class ArenaStack extends cdk.Stack {
     const vidContainer = taskDef.addContainer("videographer", {
       image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
         file: "Dockerfile.videographer",
+        exclude: ["**/cdk.out"],
       }),
       memoryLimitMiB: 4096,
       logging: ecs.LogDrivers.awsLogs({
@@ -148,6 +152,7 @@ export class ArenaStack extends cdk.Stack {
     const adminContainer = taskDef.addContainer("admin", {
       image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
         file: "Dockerfile.admin",
+        exclude: ["**/cdk.out"],
       }),
       memoryLimitMiB: 512,
       logging: ecs.LogDrivers.awsLogs({
