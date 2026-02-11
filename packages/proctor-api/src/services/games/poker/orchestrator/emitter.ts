@@ -5,8 +5,14 @@ import {
 import type { GameState, RenderInstruction } from "../../../../types.js";
 import { publish } from "../../../session/pubsub.js";
 import type { Session } from "../../../session/session-manager.js";
+import {
+  toCardInfos,
+  toPlayerInfos,
+  toPlayerMeta,
+  toPotInfos,
+} from "../instruction-builder.js";
 
-function buildSnapshot(session: Session): string {
+export function buildSnapshot(session: Session): string {
   const gs = session.lastGameState;
   return JSON.stringify({
     channelKey: session.channelKey,
@@ -21,20 +27,15 @@ function buildSnapshot(session: Session): string {
     communityCards: gs?.communityCards ?? [],
     pots: gs?.pots ?? [],
     hands: session.currentHands,
-    playerMeta: session.config.players.map((p) => ({
-      id: p.playerId,
-      ttsVoice: p.ttsVoice ?? null,
-      avatarUrl: p.avatarUrl ?? null,
-    })),
+    playerMeta: toPlayerMeta(session.config.players),
   });
 }
 
-export function emit(
+function persistInstruction(
   moduleId: string,
   session: Session,
   instruction: RenderInstruction,
 ): void {
-  session.lastInstruction = instruction;
   insertInstruction(
     moduleId,
     Number(instruction.instructionId),
@@ -47,8 +48,25 @@ export function emit(
     Number(instruction.instructionId),
     buildSnapshot(session),
   );
+}
+
+function publishInstruction(
+  moduleId: string,
+  session: Session,
+  instruction: RenderInstruction,
+): void {
   const fullInstruction = { ...instruction, moduleId };
   publish(session.channelKey, fullInstruction);
+}
+
+export function emit(
+  moduleId: string,
+  session: Session,
+  instruction: RenderInstruction,
+): void {
+  session.lastInstruction = instruction;
+  persistInstruction(moduleId, session, instruction);
+  publishInstruction(moduleId, session, instruction);
 }
 
 export function updateGameState(session: Session, state: GameState): void {
@@ -56,22 +74,9 @@ export function updateGameState(session: Session, state: GameState): void {
   session.lastGameState = {
     phase: state.phase,
     button: state.button ?? null,
-    players: state.players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      chips: p.chips,
-      bet: p.bet,
-      status: p.status,
-      seatIndex: p.seatIndex,
-    })),
-    communityCards: state.communityCards.map((c) => ({
-      rank: c.rank,
-      suit: c.suit,
-    })),
-    pots: state.pots.map((p) => ({
-      size: p.size,
-      eligiblePlayerIds: p.eligiblePlayerIds,
-    })),
+    players: toPlayerInfos(state.players),
+    communityCards: toCardInfos(state.communityCards),
+    pots: toPotInfos(state.pots),
   };
 
   for (const sp of session.players) {

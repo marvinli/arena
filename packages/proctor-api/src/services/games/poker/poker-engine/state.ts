@@ -9,6 +9,8 @@ import {
 import type { Game } from "./types.js";
 import { roundToPhase } from "./types.js";
 
+const log = (msg: string) => console.debug("[poker-engine]", msg);
+
 export function seatToPlayerId(
   game: Game,
   seatIndex: number,
@@ -35,7 +37,8 @@ export function getPhase(
   try {
     const round = table.roundOfBetting();
     return roundToPhase[round] ?? GamePhase.Showdown;
-  } catch {
+  } catch (e) {
+    log(`getPhase: roundOfBetting() threw, defaulting to SHOWDOWN: ${e}`);
     return GamePhase.Showdown;
   }
 }
@@ -45,8 +48,8 @@ export function buildPlayers(game: Game): Player[] {
   let handPlayers: ReturnType<Game["table"]["handPlayers"]> | null = null;
   try {
     handPlayers = game.table.handPlayers();
-  } catch {
-    // poker-ts throws when no hand is in progress
+  } catch (e) {
+    log(`buildPlayers: handPlayers() threw (no hand in progress): ${e}`);
   }
 
   return game.players.map((pm) => {
@@ -97,7 +100,8 @@ export function buildPots(game: Game): Pot[] {
         .map((si) => seatToPlayerId(game, si))
         .filter((id): id is string => id !== undefined),
     }));
-  } catch {
+  } catch (e) {
+    log(`buildPots: pots() threw, returning empty: ${e}`);
     return [];
   }
 }
@@ -110,8 +114,8 @@ export function buildGameState(game: Game, gameId: string): GameState {
   let communityCards: Card[] = [];
   try {
     communityCards = table.communityCards().map(formatCard);
-  } catch {
-    // poker-ts throws before flop is dealt
+  } catch (e) {
+    log(`buildGameState: communityCards() threw (pre-flop): ${e}`);
   }
 
   let currentPlayerId: string | null = null;
@@ -120,8 +124,8 @@ export function buildGameState(game: Game, gameId: string): GameState {
       const currentSeat = table.playerToAct();
       currentPlayerId = seatToPlayerId(game, currentSeat) ?? null;
     }
-  } catch {
-    // poker-ts throws when no betting round is active
+  } catch (e) {
+    log(`buildGameState: playerToAct() threw (no active betting): ${e}`);
   }
 
   let button: number | null = null;
@@ -129,8 +133,8 @@ export function buildGameState(game: Game, gameId: string): GameState {
     if (handInProgress) {
       button = table.button();
     }
-  } catch {
-    // poker-ts throws when no hand has started
+  } catch (e) {
+    log(`buildGameState: button() threw (no hand started): ${e}`);
   }
 
   return {

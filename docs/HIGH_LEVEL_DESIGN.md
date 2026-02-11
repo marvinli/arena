@@ -38,7 +38,6 @@ packages/
         Channel/     # Session management (start/stop/run)
         GameState/   # Channel state for front-end reconnection
         RenderInstruction/  # Subscription + instruction types
-        RenderComplete/     # Render ack mutation
   front-end/     # Renderer — no game logic, renders instructions from proctor-api, does TTS, controls pacing
   videographer/  # Camera — opens front-end in headless Chrome, captures via puppeteer-stream, streams to Twitch RTMP via ffmpeg
 ```

@@ -88,6 +88,18 @@ describe("session-manager", () => {
       expect(result.gameState).toBeNull();
     });
 
+    it("returns null gameState for corrupted snapshot", () => {
+      vi.mocked(mockGetChannelState).mockReturnValue({
+        channelKey: "test-channel",
+        moduleId: "mod-abc",
+        instructionTs: 100,
+        stateSnapshot: "NOT VALID JSON {{{",
+      });
+      const result = connect("test-channel");
+      expect(result.moduleId).toBe("mod-abc");
+      expect(result.gameState).toBeNull();
+    });
+
     it("returns snapshot for returning channel", () => {
       const snapshot = JSON.stringify({
         channelKey: "test-channel",

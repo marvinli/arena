@@ -121,12 +121,21 @@ export function connect(channelKey: string): ConnectResult {
     };
   }
 
+  let gameState: ProctorGameState | null = null;
+  if (state.stateSnapshot) {
+    try {
+      gameState = JSON.parse(state.stateSnapshot) as ProctorGameState;
+    } catch (e) {
+      console.warn(
+        `[session-manager] Corrupt stateSnapshot for ${channelKey}, ignoring: ${e}`,
+      );
+    }
+  }
+
   return {
     moduleId: state.moduleId,
     moduleType: "poker",
-    gameState: state.stateSnapshot
-      ? (JSON.parse(state.stateSnapshot) as ProctorGameState)
-      : null,
+    gameState,
   };
 }
 

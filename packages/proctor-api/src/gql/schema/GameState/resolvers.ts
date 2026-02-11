@@ -1,3 +1,4 @@
+import { toPlayerMeta } from "../../../services/games/poker/instruction-builder.js";
 import { getSession } from "../../../services/session/session-manager.js";
 import type { QueryResolvers } from "../../resolverTypes.js";
 
@@ -35,22 +36,11 @@ const getChannelState: QueryResolvers["getChannelState"] = (
     button: lastState?.button ?? null,
     smallBlind: session.config.smallBlind,
     bigBlind: session.config.bigBlind,
-    players: (lastState?.players ?? []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      chips: p.chips,
-      bet: p.bet,
-      status: p.status,
-      seatIndex: p.seatIndex,
-    })),
+    players: lastState?.players ?? [],
     communityCards: lastState?.communityCards ?? [],
     pots: lastState?.pots ?? [],
     hands: session.currentHands,
-    playerMeta: session.config.players.map((p) => ({
-      id: p.playerId,
-      ttsVoice: p.ttsVoice ?? null,
-      avatarUrl: p.avatarUrl ?? null,
-    })),
+    playerMeta: toPlayerMeta(session.config.players),
     lastInstruction: session.lastInstruction,
   };
 };

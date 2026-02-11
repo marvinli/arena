@@ -21,7 +21,7 @@ export function resetTimestamp(): void {
   lastTimestamp = 0;
 }
 
-function toPlayerInfos(
+export function toPlayerInfos(
   players: GameState["players"],
 ): RenderInstruction["gameStart"] extends infer T
   ? T extends { players: infer P }
@@ -38,15 +38,29 @@ function toPlayerInfos(
   }));
 }
 
-function toPotInfos(pots: GameState["pots"]) {
+export function toPotInfos(pots: GameState["pots"]) {
   return pots.map((p) => ({
     size: p.size,
     eligiblePlayerIds: p.eligiblePlayerIds,
   }));
 }
 
-function toCardInfos(cards: GameState["communityCards"]) {
+export function toCardInfos(cards: GameState["communityCards"]) {
   return cards.map((c) => ({ rank: c.rank, suit: c.suit }));
+}
+
+export function toPlayerMeta(
+  players: Array<{
+    playerId: string;
+    ttsVoice?: string | null;
+    avatarUrl?: string | null;
+  }>,
+) {
+  return players.map((p) => ({
+    id: p.playerId,
+    ttsVoice: p.ttsVoice ?? null,
+    avatarUrl: p.avatarUrl ?? null,
+  }));
 }
 
 export function buildGameStart(
@@ -64,11 +78,7 @@ export function buildGameStart(
     gameStart: {
       gameId,
       players: toPlayerInfos(players),
-      playerMeta: agentConfigs.map((a) => ({
-        id: a.playerId,
-        ttsVoice: a.ttsVoice ?? null,
-        avatarUrl: a.avatarUrl ?? null,
-      })),
+      playerMeta: toPlayerMeta(agentConfigs),
       smallBlind: config.smallBlind,
       bigBlind: config.bigBlind,
     },

@@ -26,6 +26,11 @@ db.exec(`
     state_snapshot  TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS settings (
+    key    TEXT PRIMARY KEY,
+    value  TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS agent_messages (
     module_id     TEXT NOT NULL REFERENCES modules(module_id),
     player_id     TEXT NOT NULL,
@@ -35,6 +40,46 @@ db.exec(`
     PRIMARY KEY (module_id, player_id, seq)
   );
 `);
+
+// ── Row types (match SQLite column names) ─────────────────
+
+interface ModuleRow {
+  module_id: string;
+  type: string;
+  prog_index: number;
+  status: string;
+  created_at: number;
+}
+
+interface InstructionRow {
+  module_id: string;
+  timestamp_ms: number;
+  type: string;
+  payload: string;
+}
+
+interface ChannelStateRow {
+  channel_key: string;
+  module_id: string;
+  instruction_ts: number | null;
+  state_snapshot: string | null;
+}
+
+interface AgentMessageRow {
+  module_id: string;
+  player_id: string;
+  role: string;
+  content: string;
+  seq: number;
+}
+
+interface MaxSeqRow {
+  max_seq: number | null;
+}
+
+interface SettingRow {
+  value: string;
+}
 
 // ── Modules ────────────────────────────────────────────────
 
@@ -50,7 +95,7 @@ const insertModuleStmt = db.prepare(
   "INSERT INTO modules (module_id, type, prog_index, status, created_at) VALUES (?, ?, ?, 'running', ?)",
 );
 
-const selectModuleStmt = db.prepare(
+const selectModuleStmt = db.prepare<[string], ModuleRow>(
   "SELECT module_id, type, prog_index, status, created_at FROM modules WHERE module_id = ?",
 );
 
@@ -58,13 +103,13 @@ const completeModuleStmt = db.prepare(
   "UPDATE modules SET status = 'completed' WHERE module_id = ?",
 );
 
-function rowToModule(row: Record<string, unknown>): Module {
+function rowToModule(row: ModuleRow): Module {
   return {
-    moduleId: row.module_id as string,
-    type: row.type as string,
-    progIndex: row.prog_index as number,
+    moduleId: row.module_id,
+    type: row.type,
+    progIndex: row.prog_index,
     status: row.status as "running" | "completed",
-    createdAt: row.created_at as number,
+    createdAt: row.created_at,
   };
 }
 
@@ -79,9 +124,7 @@ export function createModule(
 }
 
 export function getModule(moduleId: string): Module | undefined {
-  const row = selectModuleStmt.get(moduleId) as
-    | Record<string, unknown>
-    | undefined;
+  const row = selectModuleStmt.get(moduleId);
   return row ? rowToModule(row) : undefined;
 }
 
@@ -102,24 +145,27 @@ const insertInstructionStmt = db.prepare(
   "INSERT INTO instructions (module_id, timestamp_ms, type, payload) VALUES (?, ?, ?, ?)",
 );
 
-const selectInstructionsStmt = db.prepare(
+const selectInstructionsStmt = db.prepare<[string], InstructionRow>(
   "SELECT module_id, timestamp_ms, type, payload FROM instructions WHERE module_id = ? ORDER BY timestamp_ms",
 );
 
-const selectInstructionsAfterStmt = db.prepare(
+const selectInstructionsAfterStmt = db.prepare<
+  [string, number],
+  InstructionRow
+>(
   "SELECT module_id, timestamp_ms, type, payload FROM instructions WHERE module_id = ? AND timestamp_ms > ? ORDER BY timestamp_ms",
 );
 
-const selectLatestInstructionStmt = db.prepare(
+const selectLatestInstructionStmt = db.prepare<[string], InstructionRow>(
   "SELECT module_id, timestamp_ms, type, payload FROM instructions WHERE module_id = ? ORDER BY timestamp_ms DESC LIMIT 1",
 );
 
-function rowToInstruction(row: Record<string, unknown>): Instruction {
+function rowToInstruction(row: InstructionRow): Instruction {
   return {
-    moduleId: row.module_id as string,
-    timestampMs: row.timestamp_ms as number,
-    type: row.type as string,
-    payload: row.payload as string,
+    moduleId: row.module_id,
+    timestampMs: row.timestamp_ms,
+    type: row.type,
+    payload: row.payload,
   };
 }
 
@@ -141,20 +187,17 @@ export function getInstructions(
   moduleId: string,
   afterTimestampMs?: number,
 ): Instruction[] {
-  const rows = (
+  const rows =
     afterTimestampMs != null
       ? selectInstructionsAfterStmt.all(moduleId, afterTimestampMs)
-      : selectInstructionsStmt.all(moduleId)
-  ) as Record<string, unknown>[];
+      : selectInstructionsStmt.all(moduleId);
   return rows.map(rowToInstruction);
 }
 
 export function getLatestInstruction(
   moduleId: string,
 ): Instruction | undefined {
-  const row = selectLatestInstructionStmt.get(moduleId) as
-    | Record<string, unknown>
-    | undefined;
+  const row = selectLatestInstructionStmt.get(moduleId);
   return row ? rowToInstruction(row) : undefined;
 }
 
@@ -167,7 +210,7 @@ export interface ChannelState {
   stateSnapshot: string | null;
 }
 
-const selectChannelStateStmt = db.prepare(
+const selectChannelStateStmt = db.prepare<[string], ChannelStateRow>(
   "SELECT channel_key, module_id, instruction_ts, state_snapshot FROM channel_state WHERE channel_key = ?",
 );
 
@@ -180,19 +223,17 @@ const upsertChannelStateStmt = db.prepare(`
     state_snapshot = excluded.state_snapshot
 `);
 
-function rowToChannelState(row: Record<string, unknown>): ChannelState {
+function rowToChannelState(row: ChannelStateRow): ChannelState {
   return {
-    channelKey: row.channel_key as string,
-    moduleId: row.module_id as string,
-    instructionTs: row.instruction_ts as number | null,
-    stateSnapshot: row.state_snapshot as string | null,
+    channelKey: row.channel_key,
+    moduleId: row.module_id,
+    instructionTs: row.instruction_ts,
+    stateSnapshot: row.state_snapshot,
   };
 }
 
 export function getChannelState(channelKey: string): ChannelState | undefined {
-  const row = selectChannelStateStmt.get(channelKey) as
-    | Record<string, unknown>
-    | undefined;
+  const row = selectChannelStateStmt.get(channelKey);
   return row ? rowToChannelState(row) : undefined;
 }
 
@@ -220,7 +261,7 @@ export interface AgentMessage {
   seq: number;
 }
 
-const selectMaxSeqStmt = db.prepare(
+const selectMaxSeqStmt = db.prepare<[string, string], MaxSeqRow>(
   "SELECT MAX(seq) AS max_seq FROM agent_messages WHERE module_id = ? AND player_id = ?",
 );
 
@@ -228,17 +269,17 @@ const insertAgentMessageStmt = db.prepare(
   "INSERT INTO agent_messages (module_id, player_id, role, content, seq) VALUES (?, ?, ?, ?, ?)",
 );
 
-const selectAgentMessagesStmt = db.prepare(
+const selectAgentMessagesStmt = db.prepare<[string, string], AgentMessageRow>(
   "SELECT module_id, player_id, role, content, seq FROM agent_messages WHERE module_id = ? AND player_id = ? ORDER BY seq",
 );
 
-function rowToAgentMessage(row: Record<string, unknown>): AgentMessage {
+function rowToAgentMessage(row: AgentMessageRow): AgentMessage {
   return {
-    moduleId: row.module_id as string,
-    playerId: row.player_id as string,
-    role: row.role as string,
-    content: row.content as string,
-    seq: row.seq as number,
+    moduleId: row.module_id,
+    playerId: row.player_id,
+    role: row.role,
+    content: row.content,
+    seq: row.seq,
   };
 }
 
@@ -248,10 +289,8 @@ export function appendAgentMessage(
   role: string,
   content: string,
 ): void {
-  const row = selectMaxSeqStmt.get(moduleId, playerId) as {
-    max_seq: number | null;
-  };
-  const nextSeq = row.max_seq != null ? row.max_seq + 1 : 0;
+  const row = selectMaxSeqStmt.get(moduleId, playerId);
+  const nextSeq = row?.max_seq != null ? row.max_seq + 1 : 0;
   insertAgentMessageStmt.run(moduleId, playerId, role, content, nextSeq);
 }
 
@@ -259,9 +298,25 @@ export function getAgentMessages(
   moduleId: string,
   playerId: string,
 ): AgentMessage[] {
-  const rows = selectAgentMessagesStmt.all(moduleId, playerId) as Record<
-    string,
-    unknown
-  >[];
-  return rows.map(rowToAgentMessage);
+  return selectAgentMessagesStmt.all(moduleId, playerId).map(rowToAgentMessage);
+}
+
+// ── Settings ──────────────────────────────────────────────
+
+const selectSettingStmt = db.prepare<[string], SettingRow>(
+  "SELECT value FROM settings WHERE key = ?",
+);
+
+const upsertSettingStmt = db.prepare(`
+  INSERT INTO settings (key, value) VALUES (?, ?)
+  ON CONFLICT(key) DO UPDATE SET value = excluded.value
+`);
+
+export function getSetting(key: string): string | undefined {
+  const row = selectSettingStmt.get(key);
+  return row?.value;
+}
+
+export function setSetting(key: string, value: string): void {
+  upsertSettingStmt.run(key, value);
 }

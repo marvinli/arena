@@ -16,27 +16,24 @@ import {
   type SessionContext,
 } from "./types.js";
 
-export async function resolveAction(
+interface ActionResult {
+  action: { type: string; amount?: number };
+  analysis?: string;
+  isApiError?: boolean;
+}
+
+/**
+ * Calls the agent runner with retries. If all attempts fail,
+ * returns a fallback check/fold action.
+ */
+async function callAgentWithRetries(
   ctx: SessionContext,
   playerId: string,
-): Promise<{
-  result: {
-    action: { type: string; amount?: number };
-    analysis?: string;
-    isApiError?: boolean;
-  };
-  state: GameState;
-}> {
-  const turnData = poker.getMyTurn(ctx.gameId, playerId);
-
-  let result: {
-    action: { type: string; amount?: number };
-    analysis?: string;
-    isApiError?: boolean;
-  };
-  for (let llmAttempt = 0; ; llmAttempt++) {
+  turnData: ReturnType<typeof poker.getMyTurn>,
+): Promise<ActionResult> {
+  for (let attempt = 0; attempt < MAX_LLM_RETRIES; attempt++) {
     try {
-      result = await ctx.agentRunner.runTurn(playerId, {
+      return await ctx.agentRunner.runTurn(playerId, {
         gameId: ctx.gameId,
         handNumber: ctx.session.handNumber,
         phase: turnData.gameState.phase,
@@ -46,37 +43,45 @@ export async function resolveAction(
         pots: turnData.gameState.pots,
         validActions: turnData.validActions,
       });
-      break;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logError(
         "orchestrator",
-        `Agent ${playerId} LLM call failed (attempt ${llmAttempt + 1}/${MAX_LLM_RETRIES}):`,
+        `Agent ${playerId} LLM call failed (attempt ${attempt + 1}/${MAX_LLM_RETRIES}):`,
         msg,
       );
-      if (llmAttempt >= MAX_LLM_RETRIES - 1) {
-        const canCheck = turnData.validActions.some(
-          (a: { type: string }) => a.type === "CHECK",
-        );
-        const fallback = canCheck ? "CHECK" : "FOLD";
-        const analysis = canCheck ? fallbackCheckLine() : fallbackFoldLine();
-        logError(
-          "orchestrator",
-          `Max LLM retries for ${playerId}, auto-${fallback.toLowerCase()}ing`,
-        );
-        const state = poker.submitAction(ctx.gameId, playerId, fallback);
-        return {
-          result: {
-            action: { type: fallback },
-            analysis,
-            isApiError: true,
-          },
-          state,
-        };
+      if (attempt < MAX_LLM_RETRIES - 1) {
+        await new Promise((r) => setTimeout(r, LLM_RETRY_DELAY_MS));
       }
-      await new Promise((r) => setTimeout(r, LLM_RETRY_DELAY_MS));
     }
   }
+
+  // All LLM attempts exhausted — fallback
+  const canCheck = turnData.validActions.some(
+    (a: { type: string }) => a.type === "CHECK",
+  );
+  const fallback = canCheck ? "CHECK" : "FOLD";
+  logError(
+    "orchestrator",
+    `Max LLM retries for ${playerId}, auto-${fallback.toLowerCase()}ing`,
+  );
+  return {
+    action: { type: fallback },
+    analysis: canCheck ? fallbackCheckLine() : fallbackFoldLine(),
+    isApiError: true,
+  };
+}
+
+/**
+ * Submits the action to the poker engine, retrying with rejectAction
+ * if the action is invalid. Falls back to fold if retries are exhausted.
+ */
+async function submitActionWithRetries(
+  ctx: SessionContext,
+  playerId: string,
+  initialResult: ActionResult,
+): Promise<{ result: ActionResult; state: GameState }> {
+  let result = initialResult;
 
   for (let attempt = 0; ; attempt++) {
     try {
@@ -100,9 +105,8 @@ export async function resolveAction(
           "orchestrator",
           `Max retries reached for ${playerId}, auto-folding`,
         );
-        result = { action: { type: "FOLD" } };
         const state = poker.submitAction(ctx.gameId, playerId, "FOLD");
-        return { result, state };
+        return { result: { action: { type: "FOLD" } }, state };
       }
 
       try {
@@ -115,16 +119,38 @@ export async function resolveAction(
           `Agent ${playerId} rejectAction failed, auto-folding:`,
           retryMsg,
         );
-        result = {
-          action: { type: "FOLD" },
-          analysis: fallbackFoldLine(),
-          isApiError: true,
-        };
         const state = poker.submitAction(ctx.gameId, playerId, "FOLD");
-        return { result, state };
+        return {
+          result: {
+            action: { type: "FOLD" },
+            analysis: fallbackFoldLine(),
+            isApiError: true,
+          },
+          state,
+        };
       }
     }
   }
+}
+
+export async function resolveAction(
+  ctx: SessionContext,
+  playerId: string,
+): Promise<{ result: ActionResult; state: GameState }> {
+  const turnData = poker.getMyTurn(ctx.gameId, playerId);
+  const agentResult = await callAgentWithRetries(ctx, playerId, turnData);
+
+  // If the agent result is already a fallback (LLM exhausted), submit directly
+  if (agentResult.isApiError) {
+    const state = poker.submitAction(
+      ctx.gameId,
+      playerId,
+      agentResult.action.type,
+    );
+    return { result: agentResult, state };
+  }
+
+  return submitActionWithRetries(ctx, playerId, agentResult);
 }
 
 export async function playTurn(
