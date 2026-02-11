@@ -8,3 +8,6 @@ logs/
 *.db-wal
 *.db-shm
 .DS_Store
+
+# CDK
+cdk.out/

@@ -1,0 +1,146 @@
+import * as cdk from "aws-cdk-lib";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as ecs from "aws-cdk-lib/aws-ecs";
+import * as efs from "aws-cdk-lib/aws-efs";
+import * as logs from "aws-cdk-lib/aws-logs";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import type { Construct } from "constructs";
+import * as path from "node:path";
+
+/** Root of the monorepo (two levels up from this file). */
+const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
+
+export class ArenaStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // ── VPC ────────────────────────────────────────────────
+    const vpc = new ec2.Vpc(this, "Vpc", {
+      maxAzs: 2,
+      natGateways: 0, // public subnets only — Fargate tasks get public IPs
+      subnetConfiguration: [
+        { name: "Public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
+      ],
+    });
+
+    // ── EFS for SQLite persistence ────────────────────────
+    const fileSystem = new efs.FileSystem(this, "Data", {
+      vpc,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+      performanceMode: efs.PerformanceMode.GENERAL_PURPOSE,
+    });
+
+    const accessPoint = fileSystem.addAccessPoint("AppData", {
+      path: "/arena",
+      createAcl: { ownerGid: "1000", ownerUid: "1000", permissions: "755" },
+      posixUser: { gid: "1000", uid: "1000" },
+    });
+
+    // ── Secrets ───────────────────────────────────────────
+    // Pre-create this secret in the console / CLI with the JSON keys:
+    //   ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY,
+    //   XAI_API_KEY, DEEPSEEK_API_KEY, AWS_ACCESS_KEY_ID,
+    //   AWS_SECRET_ACCESS_KEY, RTMP_URL
+    const secret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "ApiKeys",
+      "arena/api-keys",
+    );
+
+    // ── ECS cluster ───────────────────────────────────────
+    const cluster = new ecs.Cluster(this, "Cluster", { vpc });
+
+    // ── Task definition (4 vCPU / 8 GB — shared by both containers) ──
+    const taskDef = new ecs.FargateTaskDefinition(this, "Task", {
+      cpu: 4096,
+      memoryLimitMiB: 8192,
+    });
+
+    // Mount EFS
+    taskDef.addVolume({
+      name: "efs-data",
+      efsVolumeConfiguration: {
+        fileSystemId: fileSystem.fileSystemId,
+        transitEncryption: "ENABLED",
+        authorizationConfig: { accessPointId: accessPoint.accessPointId, iam: "ENABLED" },
+      },
+    });
+
+    // ── arena-app container ───────────────────────────────
+    const appContainer = taskDef.addContainer("arena-app", {
+      image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
+        file: "Dockerfile.app",
+      }),
+      memoryLimitMiB: 2048,
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: "arena-app",
+        logRetention: logs.RetentionDays.TWO_WEEKS,
+      }),
+      healthCheck: {
+        command: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"],
+        interval: cdk.Duration.seconds(30),
+        timeout: cdk.Duration.seconds(5),
+        retries: 3,
+        startPeriod: cdk.Duration.seconds(30),
+      },
+      environment: {
+        PORT: "4001",
+        DB_PATH: "/data/arena.db",
+        NODE_ENV: "production",
+      },
+      secrets: {
+        ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(secret, "ANTHROPIC_API_KEY"),
+        OPENAI_API_KEY: ecs.Secret.fromSecretsManager(secret, "OPENAI_API_KEY"),
+        GOOGLE_GENERATIVE_AI_API_KEY: ecs.Secret.fromSecretsManager(secret, "GOOGLE_GENERATIVE_AI_API_KEY"),
+        XAI_API_KEY: ecs.Secret.fromSecretsManager(secret, "XAI_API_KEY"),
+        DEEPSEEK_API_KEY: ecs.Secret.fromSecretsManager(secret, "DEEPSEEK_API_KEY"),
+      },
+    });
+
+    appContainer.addMountPoints({
+      sourceVolume: "efs-data",
+      containerPath: "/data",
+      readOnly: false,
+    });
+
+    // ── videographer container ────────────────────────────
+    const vidContainer = taskDef.addContainer("videographer", {
+      image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
+        file: "Dockerfile.videographer",
+      }),
+      memoryLimitMiB: 4096,
+      logging: ecs.LogDrivers.awsLogs({
+        streamPrefix: "videographer",
+        logRetention: logs.RetentionDays.TWO_WEEKS,
+      }),
+      environment: {
+        FRONTEND_URL: "http://localhost/?autostart",
+        CAPTURE_WIDTH: "1920",
+        CAPTURE_HEIGHT: "1080",
+        CAPTURE_FPS: "30",
+      },
+      secrets: {
+        RTMP_URL: ecs.Secret.fromSecretsManager(secret, "RTMP_URL"),
+      },
+      essential: false, // app container is essential; videographer can restart
+    });
+
+    // videographer depends on arena-app being healthy
+    vidContainer.addContainerDependencies({
+      container: appContainer,
+      condition: ecs.ContainerDependencyCondition.HEALTHY,
+    });
+
+    // ── Fargate service ───────────────────────────────────
+    const service = new ecs.FargateService(this, "Service", {
+      cluster,
+      taskDefinition: taskDef,
+      desiredCount: 1,
+      assignPublicIp: true, // outbound internet for AI API calls
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+    });
+
+    // Allow EFS access from Fargate tasks
+    fileSystem.connections.allowDefaultPortFrom(service);
+  }
+}

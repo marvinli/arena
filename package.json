@@ -14,7 +14,10 @@
     "codegen:front-end": "npm run codegen --workspace=@arena/front-end",
     "test:front-end": "npm test --workspace=@arena/front-end",
     "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "cdk:synth": "npm run synth --workspace=@arena/deploy",
+    "cdk:deploy": "npm run deploy --workspace=@arena/deploy",
+    "cdk:diff": "npm run diff --workspace=@arena/deploy"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.14",
