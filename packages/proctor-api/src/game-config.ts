@@ -34,6 +34,7 @@ export const GAME_CONFIG: GameConfig = {
       modelId: "claude-opus-4-6",
       modelName: "Opus 4.6",
       provider: "anthropic",
+      avatarUrl: "anthropic",
       ttsVoice: "ash",
     },
     {
