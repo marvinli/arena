@@ -1,0 +1,81 @@
+# ── Stage 1: install all deps ────────────────────────────
+FROM node:20-slim AS deps
+WORKDIR /workspace
+
+COPY package.json package-lock.json ./
+COPY packages/admin-api/package.json packages/admin-api/
+COPY packages/admin-fe/package.json packages/admin-fe/
+# Stub out other workspaces
+COPY packages/proctor-api/package.json packages/proctor-api/
+COPY packages/front-end/package.json packages/front-end/
+COPY packages/videographer/package.json packages/videographer/
+COPY packages/deploy/package.json packages/deploy/
+
+RUN npm ci
+
+# ── Stage 2: build admin-fe ──────────────────────────────
+FROM deps AS build-fe
+WORKDIR /workspace
+
+COPY packages/admin-fe/ packages/admin-fe/
+COPY tsconfig.json ./
+
+ARG VITE_COGNITO_DOMAIN=""
+ARG VITE_COGNITO_CLIENT_ID=""
+ARG VITE_REDIRECT_URI=""
+ENV VITE_COGNITO_DOMAIN=$VITE_COGNITO_DOMAIN
+ENV VITE_COGNITO_CLIENT_ID=$VITE_COGNITO_CLIENT_ID
+ENV VITE_REDIRECT_URI=$VITE_REDIRECT_URI
+
+RUN npm run build -w @arena/admin-fe
+
+# ── Stage 3: build admin-api ────────────────────────────
+FROM deps AS build-api
+WORKDIR /workspace
+
+COPY packages/admin-api/ packages/admin-api/
+COPY tsconfig.json ./
+
+RUN npm run build -w @arena/admin-api
+
+# ── Stage 4: production deps ────────────────────────────
+FROM node:20-slim AS prod-deps
+WORKDIR /workspace
+
+COPY package.json package-lock.json ./
+COPY packages/admin-api/package.json packages/admin-api/
+COPY packages/admin-fe/package.json packages/admin-fe/
+COPY packages/proctor-api/package.json packages/proctor-api/
+COPY packages/front-end/package.json packages/front-end/
+COPY packages/videographer/package.json packages/videographer/
+COPY packages/deploy/package.json packages/deploy/
+
+RUN npm ci --omit=dev
+
+# ── Stage 5: runtime ────────────────────────────────────
+FROM node:20-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends nginx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Nginx config
+COPY nginx-admin.conf /etc/nginx/nginx.conf
+
+# Admin-fe static assets
+COPY --from=build-fe /workspace/packages/admin-fe/dist/ /usr/share/nginx/html/
+
+# Admin-api built output + production node_modules
+WORKDIR /app
+COPY --from=build-api /workspace/packages/admin-api/dist/ ./dist/
+COPY --from=prod-deps /workspace/node_modules/ ./node_modules/
+
+COPY packages/admin-api/package.json ./package.json
+
+COPY entrypoint-admin.sh /entrypoint-admin.sh
+RUN chmod +x /entrypoint-admin.sh
+
+ENV PORT=3000
+
+EXPOSE 8080
+
+CMD ["/entrypoint-admin.sh"]

@@ -1,0 +1,42 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    ports:
+      - "8080:80"
+    env_file: .env
+    environment:
+      PORT: 4001
+      DB_PATH: /data/arena.db
+    volumes:
+      - arena-data:/data
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    ports:
+      - "8081:8080"
+    environment:
+      PORT: 3000
+      PROCTOR_URL: http://app:4001
+      VIDEOGRAPHER_URL: http://videographer:3001
+      SKIP_AUTH: "true"
+    depends_on:
+      - app
+
+  videographer:
+    build:
+      context: .
+      dockerfile: Dockerfile.videographer
+    env_file: .env
+    environment:
+      FRONTEND_URL: http://app/
+      PROCTOR_URL: http://app:4001
+      CHROME_PATH: /usr/bin/chromium
+    depends_on:
+      - app
+
+volumes:
+  arena-data:
