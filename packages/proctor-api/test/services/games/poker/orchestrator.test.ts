@@ -20,10 +20,17 @@ import {
   _resetSessions,
   createSession,
 } from "../../../../src/services/session/session-manager.js";
-import { ScriptedAgentRunner } from "../../../fixtures/scripted-agent.js";
+import {
+  PassiveAgentRunner,
+  ScriptedAgentRunner,
+} from "../../../fixtures/scripted-agent.js";
 
 // ---- helpers ----
 
+// With blinds equal to the stack, BB is all-in from the start.
+// A CALL by SB puts both all-in → showdown → one player busts in 1 hand.
+// The blind schedule escalates after 1 hand to force termination even if
+// both players fold (heads-up fold oscillation would otherwise be infinite).
 const baseConfig = {
   players: [
     {
@@ -41,10 +48,14 @@ const baseConfig = {
       provider: "openai",
     },
   ],
-  startingChips: 1000,
-  smallBlind: 5,
-  bigBlind: 10,
-  handsPerGame: 1,
+  startingChips: 100,
+  smallBlind: 50,
+  bigBlind: 100,
+  blindSchedule: [
+    { smallBlind: 50, bigBlind: 100 },
+    { smallBlind: 200, bigBlind: 400 },
+  ],
+  handsPerLevel: 1,
 };
 
 /** Spy on publish to capture all emitted instructions */
@@ -66,12 +77,12 @@ describe("orchestrator", () => {
     vi.restoreAllMocks();
   });
 
-  it("runs a fold-to-win game and emits correct instruction sequence", async () => {
+  it("runs a game to completion and emits correct instruction sequence", async () => {
     const session = createSession("test-channel", baseConfig);
     const agentRunner = new ScriptedAgentRunner([
       {
-        action: { type: "FOLD" },
-        analysis: "I fold because my hand is weak",
+        action: { type: "CALL" },
+        analysis: "I'm going to call here",
       },
     ]);
 
@@ -79,38 +90,32 @@ describe("orchestrator", () => {
 
     await runSession(session, agentRunner, "test-module");
 
-    // Verify instruction sequence:
-    // GAME_START -> DEAL_HANDS -> PLAYER_TURN -> PLAYER_ANALYSIS -> PLAYER_ACTION(fold) -> HAND_RESULT -> GAME_OVER
-    expect(instructions.length).toBeGreaterThanOrEqual(6);
-
     expect(instructions[0].type).toBe("GAME_START");
     expect(instructions[0].gameStart).toBeDefined();
 
-    expect(instructions[1].type).toBe("DEAL_HANDS");
-    expect(instructions[1].dealHands).toBeDefined();
-    expect(instructions[1].dealHands!.handNumber).toBe(1);
+    const dealHands = instructions.find((i) => i.type === "DEAL_HANDS");
+    expect(dealHands).toBeDefined();
+    expect(dealHands!.dealHands!.handNumber).toBe(1);
 
-    expect(instructions[2].type).toBe("PLAYER_TURN");
-    expect(instructions[2].playerTurn).toBeDefined();
+    const playerTurn = instructions.find((i) => i.type === "PLAYER_TURN");
+    expect(playerTurn).toBeDefined();
 
-    expect(instructions[3].type).toBe("PLAYER_ANALYSIS");
-    expect(instructions[3].playerAnalysis).toBeDefined();
-    expect(instructions[3].playerAnalysis!.analysis).toBe(
-      "I fold because my hand is weak",
-    );
+    const analysis = instructions.find((i) => i.type === "PLAYER_ANALYSIS");
+    expect(analysis).toBeDefined();
+    expect(analysis!.playerAnalysis!.analysis).toBe("I'm going to call here");
 
-    expect(instructions[4].type).toBe("PLAYER_ACTION");
-    expect(instructions[4].playerAction).toBeDefined();
-    expect(instructions[4].playerAction!.action).toBe("FOLD");
+    const action = instructions.find((i) => i.type === "PLAYER_ACTION");
+    expect(action).toBeDefined();
+    expect(action!.playerAction!.action).toBe("CALL");
 
-    expect(instructions[5].type).toBe("HAND_RESULT");
-    expect(instructions[5].handResult).toBeDefined();
-    expect(instructions[5].handResult!.winners.length).toBeGreaterThan(0);
+    const handResult = instructions.find((i) => i.type === "HAND_RESULT");
+    expect(handResult).toBeDefined();
+    expect(handResult!.handResult!.winners.length).toBeGreaterThan(0);
   });
 
   it("marks session as FINISHED when game completes", async () => {
     const session = createSession("test-channel", baseConfig);
-    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
 
     spyOnPublish();
     await runSession(session, agentRunner, "test-module");
@@ -136,9 +141,12 @@ describe("orchestrator", () => {
     };
 
     const instructions = spyOnPublish();
+
+    // Both players always auto-fold → chips oscillate. Abort after first hand.
+    setTimeout(() => session.abortController.abort(), 100);
     await runSession(session, failingRunner, "test-module");
 
-    expect(session.status).toBe("FINISHED");
+    expect(["FINISHED", "STOPPED"]).toContain(session.status);
 
     // Should have emitted a PLAYER_ACTION with FOLD (or CHECK) as fallback
     const action = instructions.find((i) => i.type === "PLAYER_ACTION");
@@ -154,15 +162,20 @@ describe("orchestrator", () => {
   it("stops on abort signal", async () => {
     const session = createSession("test-channel", {
       ...baseConfig,
-      handsPerGame: 100,
+      startingChips: 10000,
+      smallBlind: 5,
+      bigBlind: 10,
     });
 
-    // Use a slow agent to give time for abort
+    // Use a slow passive agent to give time for abort
     const slowRunner: AgentRunner = {
       initAgent() {},
       injectMessage() {},
-      async runTurn() {
+      async runTurn(_playerId, context) {
         await new Promise((r) => setTimeout(r, 50));
+        const valid = context.validActions.map((a) => a.type);
+        if (valid.includes("CALL")) return { action: { type: "CALL" } };
+        if (valid.includes("CHECK")) return { action: { type: "CHECK" } };
         return { action: { type: "FOLD" } };
       },
       async rejectAction() {
@@ -183,7 +196,7 @@ describe("orchestrator", () => {
 
   it("sets gameId and updates hand number on session", async () => {
     const session = createSession("test-channel", baseConfig);
-    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
 
     spyOnPublish();
     await runSession(session, agentRunner, "test-module");
@@ -195,7 +208,7 @@ describe("orchestrator", () => {
 
   it("emits GAME_OVER with winner info", async () => {
     const session = createSession("test-channel", baseConfig);
-    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
 
     const instructions = spyOnPublish();
     await runSession(session, agentRunner, "test-module");
@@ -208,7 +221,7 @@ describe("orchestrator", () => {
 
   it("each instruction has unique instructionId and timestamp", async () => {
     const session = createSession("test-channel", baseConfig);
-    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
 
     const instructions = spyOnPublish();
     await runSession(session, agentRunner, "test-module");
@@ -223,28 +236,38 @@ describe("orchestrator", () => {
   });
 
   it("plays multiple hands and emits LEADERBOARD between them", async () => {
+    // Blind schedule: hands 1-2 at 10/20 (survivable with 200 chips),
+    // then jumps to 100/200 which forces all-in and bust.
+    // Guarantees 2+ hands and terminates within ~4 hands.
     const session = createSession("test-channel", {
       ...baseConfig,
-      handsPerGame: 2,
+      startingChips: 200,
+      smallBlind: 10,
+      bigBlind: 20,
+      blindSchedule: [
+        { smallBlind: 10, bigBlind: 20 },
+        { smallBlind: 100, bigBlind: 200 },
+      ],
+      handsPerLevel: 2,
     });
-    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+    const agentRunner = new PassiveAgentRunner();
 
     const instructions = spyOnPublish();
     await runSession(session, agentRunner, "test-module");
 
-    expect(session.handNumber).toBe(2);
+    expect(session.handNumber).toBeGreaterThanOrEqual(2);
 
     const leaderboards = instructions.filter((i) => i.type === "LEADERBOARD");
     expect(leaderboards.length).toBeGreaterThanOrEqual(1);
     expect(leaderboards[0].leaderboard!.players.length).toBe(2);
 
     const dealHands = instructions.filter((i) => i.type === "DEAL_HANDS");
-    expect(dealHands).toHaveLength(2);
-  });
+    expect(dealHands.length).toBeGreaterThanOrEqual(2);
+  }, 30_000);
 
   it("skips PLAYER_ANALYSIS when agent returns no analysis", async () => {
     const session = createSession("test-channel", baseConfig);
-    const agentRunner = new ScriptedAgentRunner([{ action: { type: "FOLD" } }]);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
 
     const instructions = spyOnPublish();
     await runSession(session, agentRunner, "test-module");
@@ -275,18 +298,20 @@ describe("orchestrator", () => {
     };
 
     const instructions = spyOnPublish();
+
+    // Both players always auto-fold → chips oscillate. Abort after first hand.
+    setTimeout(() => session.abortController.abort(), 100);
     await runSession(session, badActionRunner, "test-module");
 
-    // Should have auto-folded after retries
-    expect(session.status).toBe("FINISHED");
+    expect(["FINISHED", "STOPPED"]).toContain(session.status);
 
     // Agent should have been called at least once
     expect(callCount).toBeGreaterThanOrEqual(1);
 
-    // The final action should be FOLD (auto-fold after retries)
+    // The first action should be FOLD or CHECK (auto-fallback after retries)
     const actions = instructions.filter((i) => i.type === "PLAYER_ACTION");
     expect(actions.length).toBeGreaterThan(0);
-    expect(actions[0].playerAction!.action).toBe("FOLD");
+    expect(["FOLD", "CHECK"]).toContain(actions[0].playerAction!.action);
   });
 
   it("injects opponent actions into other players' agents", async () => {
@@ -299,7 +324,7 @@ describe("orchestrator", () => {
         injectedMessages.push({ playerId, message });
       },
       async runTurn() {
-        return { action: { type: "FOLD" } };
+        return { action: { type: "CALL" } };
       },
       async rejectAction() {
         return { action: { type: "FOLD" } };
@@ -312,10 +337,9 @@ describe("orchestrator", () => {
     spyOnPublish();
     await runSession(session, trackingRunner, "test-module");
 
-    // The non-folding player should have received OPPONENT_ACTION
-    // formatOpponentAction lowercases: "Alice folds."
-    const opponentActions = injectedMessages.filter((m) =>
-      m.message.includes("folds"),
+    // The other player should have received an opponent action message
+    const opponentActions = injectedMessages.filter(
+      (m) => m.message.includes("calls") || m.message.includes("folds"),
     );
     expect(opponentActions.length).toBeGreaterThan(0);
   });

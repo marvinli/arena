@@ -101,12 +101,17 @@ async function submitActionWithRetries(
       );
 
       if (attempt >= MAX_ACTION_RETRIES) {
+        const turnData = poker.getMyTurn(ctx.gameId, playerId);
+        const canCheck = turnData.validActions.some(
+          (a: { type: string }) => a.type === "CHECK",
+        );
+        const fallback = canCheck ? "CHECK" : "FOLD";
         logError(
           "orchestrator",
-          `Max retries reached for ${playerId}, auto-folding`,
+          `Max retries reached for ${playerId}, auto-${fallback.toLowerCase()}ing`,
         );
-        const state = poker.submitAction(ctx.gameId, playerId, "FOLD");
-        return { result: { action: { type: "FOLD" } }, state };
+        const state = poker.submitAction(ctx.gameId, playerId, fallback);
+        return { result: { action: { type: fallback } }, state };
       }
 
       try {
@@ -114,16 +119,21 @@ async function submitActionWithRetries(
       } catch (retryErr) {
         const retryMsg =
           retryErr instanceof Error ? retryErr.message : String(retryErr);
+        const turnData2 = poker.getMyTurn(ctx.gameId, playerId);
+        const canCheck2 = turnData2.validActions.some(
+          (a: { type: string }) => a.type === "CHECK",
+        );
+        const fallback2 = canCheck2 ? "CHECK" : "FOLD";
         logError(
           "orchestrator",
-          `Agent ${playerId} rejectAction failed, auto-folding:`,
+          `Agent ${playerId} rejectAction failed, auto-${fallback2.toLowerCase()}ing:`,
           retryMsg,
         );
-        const state = poker.submitAction(ctx.gameId, playerId, "FOLD");
+        const state = poker.submitAction(ctx.gameId, playerId, fallback2);
         return {
           result: {
-            action: { type: "FOLD" },
-            analysis: fallbackFoldLine(),
+            action: { type: fallback2 },
+            analysis: canCheck2 ? fallbackCheckLine() : fallbackFoldLine(),
             isApiError: true,
           },
           state,

@@ -65,7 +65,7 @@ export async function runProgrammingLoop(
   channelKey: string,
   startIndex = 0,
 ): Promise<void> {
-  let index = startIndex;
+  const index = startIndex;
 
   // Check for orphaned session from a previous crash
   const recovery = detectOrphanedModule(channelKey);
@@ -93,34 +93,32 @@ export async function runProgrammingLoop(
 
     completeModule(recovery.moduleId);
     deleteSession(channelKey);
+    return;
   }
 
-  while (true) {
-    // Pause while live flag is off
-    while (getSetting("live") !== "true") {
-      await new Promise((r) => setTimeout(r, 5000));
-    }
-
-    const moduleType = PROGRAMMING[index % PROGRAMMING.length];
-    const moduleId = crypto.randomUUID();
-    createModule(moduleId, moduleType, index % PROGRAMMING.length);
-    upsertChannelState(channelKey, moduleId);
-
-    const session = createSession(channelKey);
-    const agentRunner = new LlmAgentRunner();
-
-    try {
-      await runSession(session, agentRunner, moduleId);
-    } catch (err) {
-      logError(
-        "programming-loop",
-        `Module ${moduleId} failed:`,
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-
-    completeModule(moduleId);
-    deleteSession(channelKey);
-    index++;
+  if (getSetting("live") !== "true") {
+    console.log("[programming-loop] Live is off, not starting module");
+    return;
   }
+
+  const moduleType = PROGRAMMING[index % PROGRAMMING.length];
+  const moduleId = crypto.randomUUID();
+  createModule(moduleId, moduleType, index % PROGRAMMING.length);
+  upsertChannelState(channelKey, moduleId);
+
+  const session = createSession(channelKey);
+  const agentRunner = new LlmAgentRunner();
+
+  try {
+    await runSession(session, agentRunner, moduleId);
+  } catch (err) {
+    logError(
+      "programming-loop",
+      `Module ${moduleId} failed:`,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  completeModule(moduleId);
+  deleteSession(channelKey);
 }

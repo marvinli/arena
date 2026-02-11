@@ -21,7 +21,6 @@ export interface GameConfig {
   startingChips: number;
   smallBlind: number;
   bigBlind: number;
-  handsPerGame?: number;
   blindSchedule?: BlindLevel[];
   handsPerLevel?: number;
 }

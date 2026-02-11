@@ -13,15 +13,9 @@ import { emit, updateGameState } from "./emitter.js";
 import { playHand } from "./hand-loop.js";
 import type { SessionContext } from "./types.js";
 
-function isGameOver(
-  state: GameState,
-  handsPerGame: number | null | undefined,
-  handNumber: number,
-): boolean {
+function isGameOver(state: GameState): boolean {
   const activePlayers = state.players.filter((p) => p.status !== "BUSTED");
-  if (activePlayers.length <= 1) return true;
-  if (handsPerGame && handNumber >= handsPerGame) return true;
-  return false;
+  return activePlayers.length <= 1;
 }
 
 /** Returns the blind level for the given hand number based on the schedule. */
@@ -92,7 +86,7 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
     updateGameState(session, postHandState);
 
     if (
-      isGameOver(postHandState, session.config.handsPerGame, session.handNumber)
+      isGameOver(postHandState)
     ) {
       const activePlayers = postHandState.players.filter(
         (p) => p.status !== "BUSTED",
