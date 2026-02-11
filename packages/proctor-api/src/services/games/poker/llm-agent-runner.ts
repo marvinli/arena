@@ -205,6 +205,46 @@ export class LlmAgentRunner implements AgentRunner {
     return this.promptAgent(agent, playerId);
   }
 
+  async promptReaction(
+    playerId: string,
+    message: string,
+  ): Promise<string | undefined> {
+    const agent = this.agents.get(playerId);
+    if (!agent) return undefined;
+
+    agent.messages.push({ role: "user", content: message });
+    appendAgentMessage(agent.moduleId, playerId, "user", message);
+
+    const model = resolveModel(agent.config.provider, agent.config.modelId);
+
+    console.log(`[llm-agent-runner] Prompting ${agent.config.name} for reaction...`);
+    try {
+      const result = await generateText({
+        model,
+        system: agent.systemPrompt,
+        messages: agent.messages,
+        maxOutputTokens: 128,
+        temperature: agent.config.temperature,
+        providerOptions: getProviderOptions(agent.config),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      });
+
+      const text = stripTags(result.text ?? "").replace(/^["']|["']$/g, "");
+      console.log(
+        `[llm-agent-runner] ${agent.config.name} reaction: "${(text || "(empty)").slice(0, 100)}"`,
+      );
+      if (text) {
+        agent.messages.push({ role: "assistant", content: text });
+        appendAgentMessage(agent.moduleId, playerId, "assistant", text);
+        return text;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logError("llm-agent-runner", `${agent.config.name} reaction failed: ${msg}`);
+    }
+    return undefined;
+  }
+
   async rejectAction(
     playerId: string,
     error: string,

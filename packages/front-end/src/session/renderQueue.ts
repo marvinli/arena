@@ -98,6 +98,9 @@ export function createRenderQueue(deps: RenderQueueDeps) {
               () => deps.dispatch({ type: "SPEAK_END" }),
               () => deps.dispatch({ type: "SPEAK_END" }),
             );
+            // Block the next instruction until TTS finishes so post-hand
+            // reactions complete before LEADERBOARD or DEAL_HANDS.
+            animGate = ttsGate;
           }
         }
       } finally {

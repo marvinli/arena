@@ -130,6 +130,9 @@ describe("orchestrator", () => {
       async rejectAction() {
         return { action: { type: "FOLD" } };
       },
+      async promptReaction() {
+        return undefined;
+      },
     };
 
     const instructions = spyOnPublish();
@@ -164,6 +167,9 @@ describe("orchestrator", () => {
       },
       async rejectAction() {
         return { action: { type: "FOLD" } };
+      },
+      async promptReaction() {
+        return undefined;
       },
     };
 
@@ -263,6 +269,9 @@ describe("orchestrator", () => {
         // Still return bad action
         return { action: { type: "BET" } };
       },
+      async promptReaction() {
+        return undefined;
+      },
     };
 
     const instructions = spyOnPublish();
@@ -294,6 +303,9 @@ describe("orchestrator", () => {
       },
       async rejectAction() {
         return { action: { type: "FOLD" } };
+      },
+      async promptReaction() {
+        return undefined;
       },
     };
 

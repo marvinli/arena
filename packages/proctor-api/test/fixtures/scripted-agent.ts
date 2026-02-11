@@ -38,6 +38,13 @@ export class ScriptedAgentRunner implements AgentRunner {
     return { action: { type: "FOLD" } };
   }
 
+  async promptReaction(
+    _playerId: string,
+    _message: string,
+  ): Promise<string | undefined> {
+    return undefined;
+  }
+
   reset(): void {
     this.index = 0;
   }
