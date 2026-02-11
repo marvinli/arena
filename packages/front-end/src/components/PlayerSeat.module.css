@@ -88,7 +88,6 @@
   opacity: 0.4;
 }
 
-
 /* ── Winner action badge ──────────────────────────────── */
 
 .actionWinner {
@@ -231,7 +230,6 @@
   color: #ef4444;
   background: rgba(60, 0, 0, 0.9);
 }
-
 
 @keyframes badgeFade {
   0% {

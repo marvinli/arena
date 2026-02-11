@@ -15,6 +15,12 @@ export interface Config {
   chromePath: string | undefined;
 }
 
+const DEFAULT_CHROME_PATHS: Record<string, string> = {
+  darwin: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  linux: "/usr/bin/google-chrome",
+  win32: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+};
+
 export function loadConfig(): Config {
   const rtmpUrl = process.env.RTMP_URL || undefined;
   const outputFile = process.env.OUTPUT_FILE || undefined;
@@ -32,6 +38,7 @@ export function loadConfig(): Config {
     width: parseInt(process.env.CAPTURE_WIDTH ?? "1920", 10),
     height: parseInt(process.env.CAPTURE_HEIGHT ?? "1080", 10),
     fps: parseInt(process.env.CAPTURE_FPS ?? "30", 10),
-    chromePath: process.env.CHROME_PATH || undefined,
+    chromePath:
+      process.env.CHROME_PATH || DEFAULT_CHROME_PATHS[process.platform],
   };
 }

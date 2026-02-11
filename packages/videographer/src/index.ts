@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { type BrowserCapture, startCapture } from "./browser.js";
 import { loadConfig } from "./config.js";
 import { type FfmpegProcess, startFfmpeg } from "./ffmpeg.js";

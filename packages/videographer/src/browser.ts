@@ -13,21 +13,31 @@ export interface BrowserCapture {
 export async function startCapture(config: Config): Promise<BrowserCapture> {
   const browser = await launch({
     executablePath: config.chromePath,
-    defaultViewport: {
-      width: config.width,
-      height: config.height,
-    },
+    // puppeteer-stream uses a Chrome extension for tab capture,
+    // which requires a visible browser window (headless doesn't support extensions).
+    headless: false,
+    // Let the window size control the viewport directly (no CDP override)
+    defaultViewport: null,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
-      "--disable-gpu",
+      // --app removes Chrome UI (tabs, address bar) so window size = content size
+      `--app=${config.frontendUrl}`,
+      `--window-size=${config.width},${config.height}`,
+      "--autoplay-policy=no-user-gesture-required",
+      "--hide-scrollbars",
+      // Required for puppeteer-stream's tab capture extension on Chrome 135+
+      "--allowlisted-extension-id=jjndjgheafjngoipoacpjgeicjeomjli",
     ],
   });
 
   const pages = await browser.pages();
   const page = pages[0] ?? (await browser.newPage());
-  await page.goto(config.frontendUrl, { waitUntil: "networkidle2" });
+
+  // --app already navigated, wait for the page to be ready
+  await page.waitForSelector("body", { timeout: 30_000 });
+  await new Promise((r) => setTimeout(r, 1000));
 
   const stream = await getStream(page, {
     audio: true,
