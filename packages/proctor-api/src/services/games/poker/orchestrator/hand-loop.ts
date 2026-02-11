@@ -24,7 +24,10 @@ const SPLIT_POT_PROMPT =
 const SHOWDOWN_LOSS_PROMPT =
   "You just lost at showdown heads-up. React naturally — complain about a bad beat, be shocked at what they called with, admit you were behind, or give grudging respect. One sentence, 15 words max. Plain conversational English only, no emoji or markup.";
 
-async function handleHandResult(ctx: SessionContext, advancedState: GameState): Promise<void> {
+async function handleHandResult(
+  ctx: SessionContext,
+  advancedState: GameState,
+): Promise<void> {
   const history = poker.getHistory(ctx.gameId, 1);
   const lastHand = history[0];
   const winners = lastHand?.winners ?? [];
@@ -127,10 +130,17 @@ export async function playHand(ctx: SessionContext): Promise<void> {
   emit(
     moduleId,
     session,
-    buildDealHands(session.handNumber, handState, playerHands),
+    buildDealHands(session.handNumber, handState, playerHands, {
+      smallBlind: session.config.smallBlind,
+      bigBlind: session.config.bigBlind,
+    }),
   );
 
   const totalPot = handState.pots.reduce((sum, p) => sum + p.size, 0);
+  const blinds = {
+    smallBlind: session.config.smallBlind,
+    bigBlind: session.config.bigBlind,
+  };
   for (const ph of playerHands) {
     agentRunner.injectMessage(
       ph.playerId,
@@ -139,6 +149,7 @@ export async function playHand(ctx: SessionContext): Promise<void> {
         ph.cards,
         handState.players,
         totalPot,
+        blinds,
       ),
     );
   }

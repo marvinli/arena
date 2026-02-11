@@ -96,6 +96,7 @@ export function buildDealHands(
     playerId: string;
     cards: Array<{ rank: string; suit: string }>;
   }>,
+  blinds: { smallBlind: number; bigBlind: number },
 ): RenderInstruction {
   return {
     ...base(InstructionType.DealHands),
@@ -105,6 +106,8 @@ export function buildDealHands(
       hands,
       button: gameState.button,
       pots: toPotInfos(gameState.pots),
+      smallBlind: blinds.smallBlind,
+      bigBlind: blinds.bigBlind,
     },
   };
 }
@@ -195,12 +198,15 @@ export function buildHandResult(
 export function buildLeaderboard(
   players: GameState["players"],
   handsPlayed: number,
+  blinds: { smallBlind: number; bigBlind: number },
 ): RenderInstruction {
   return {
     ...base(InstructionType.Leaderboard),
     leaderboard: {
       players: toPlayerInfos(players),
       handsPlayed,
+      smallBlind: blinds.smallBlind,
+      bigBlind: blinds.bigBlind,
     },
   };
 }

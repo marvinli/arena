@@ -61,6 +61,8 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     hands: [PlayerHand!]!
     button: Int
     pots: [PotInfo!]!
+    smallBlind: Int!
+    bigBlind: Int!
   }
 
   type DealCommunityPayload {
@@ -100,6 +102,8 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
   type LeaderboardPayload {
     players: [PlayerInfo!]!
     handsPlayed: Int!
+    smallBlind: Int!
+    bigBlind: Int!
   }
 
   type GameOverPayload {

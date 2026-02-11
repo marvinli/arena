@@ -166,13 +166,19 @@ describe("instruction-builder", () => {
     ];
 
     it("returns correct type and has instructionId/timestamp", () => {
-      const result = buildDealHands(1, mockGameState, mockHands);
+      const result = buildDealHands(1, mockGameState, mockHands, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
 
       verifyBaseInstruction(result, InstructionType.DealHands);
     });
 
     it("dealHands payload contains handNumber, players, hands, button, pots", () => {
-      const result = buildDealHands(1, mockGameState, mockHands);
+      const result = buildDealHands(1, mockGameState, mockHands, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
 
       expect(result.dealHands).toBeDefined();
       expect(result.dealHands?.handNumber).toBe(1);
@@ -193,8 +199,14 @@ describe("instruction-builder", () => {
     });
 
     it("generates unique instructionId for each call", () => {
-      const result1 = buildDealHands(1, mockGameState, mockHands);
-      const result2 = buildDealHands(1, mockGameState, mockHands);
+      const result1 = buildDealHands(1, mockGameState, mockHands, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+      const result2 = buildDealHands(1, mockGameState, mockHands, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
 
       expect(result1.instructionId).not.toBe(result2.instructionId);
     });
@@ -377,13 +389,19 @@ describe("instruction-builder", () => {
 
   describe("buildLeaderboard", () => {
     it("returns correct type and has instructionId/timestamp", () => {
-      const result = buildLeaderboard(mockPlayers, 5);
+      const result = buildLeaderboard(mockPlayers, 5, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
 
       verifyBaseInstruction(result, InstructionType.Leaderboard);
     });
 
     it("leaderboard has players and handsPlayed", () => {
-      const result = buildLeaderboard(mockPlayers, 5);
+      const result = buildLeaderboard(mockPlayers, 5, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
 
       expect(result.leaderboard).toBeDefined();
       expect(result.leaderboard?.players).toHaveLength(2);
@@ -407,8 +425,14 @@ describe("instruction-builder", () => {
     });
 
     it("generates unique instructionId for each call", () => {
-      const result1 = buildLeaderboard(mockPlayers, 5);
-      const result2 = buildLeaderboard(mockPlayers, 5);
+      const result1 = buildLeaderboard(mockPlayers, 5, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+      const result2 = buildLeaderboard(mockPlayers, 5, {
+        smallBlind: 10,
+        bigBlind: 20,
+      });
 
       expect(result1.instructionId).not.toBe(result2.instructionId);
     });

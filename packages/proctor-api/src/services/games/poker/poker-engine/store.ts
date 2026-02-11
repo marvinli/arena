@@ -48,6 +48,15 @@ export function createGame(opts: CreateGameOptions): string {
   return gameId;
 }
 
+export function setBlinds(
+  gameId: string,
+  smallBlind: number,
+  bigBlind: number,
+): void {
+  const game = getGame(gameId);
+  game.table.setForcedBets({ smallBlind, bigBlind });
+}
+
 export function deleteGame(gameId: string): void {
   games.delete(gameId);
 }

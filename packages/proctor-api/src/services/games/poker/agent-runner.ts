@@ -53,7 +53,10 @@ export interface AgentRunner {
   rejectAction(playerId: string, error: string): Promise<AgentTurnResult>;
 
   /** Prompt the agent for a short spoken reaction (no tool call). */
-  promptReaction(playerId: string, message: string): Promise<string | undefined>;
+  promptReaction(
+    playerId: string,
+    message: string,
+  ): Promise<string | undefined>;
 
   /** Restore persisted conversation history into an agent (for session recovery). */
   restoreMessages?(

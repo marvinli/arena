@@ -217,7 +217,9 @@ export class LlmAgentRunner implements AgentRunner {
 
     const model = resolveModel(agent.config.provider, agent.config.modelId);
 
-    console.log(`[llm-agent-runner] Prompting ${agent.config.name} for reaction...`);
+    console.log(
+      `[llm-agent-runner] Prompting ${agent.config.name} for reaction...`,
+    );
     try {
       const result = await generateText({
         model,
@@ -240,7 +242,10 @@ export class LlmAgentRunner implements AgentRunner {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      logError("llm-agent-runner", `${agent.config.name} reaction failed: ${msg}`);
+      logError(
+        "llm-agent-runner",
+        `${agent.config.name} reaction failed: ${msg}`,
+      );
     }
     return undefined;
   }

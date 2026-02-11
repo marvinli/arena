@@ -11,12 +11,19 @@ export interface AgentConfig {
   temperature?: number;
 }
 
+export interface BlindLevel {
+  smallBlind: number;
+  bigBlind: number;
+}
+
 export interface GameConfig {
   players: AgentConfig[];
   startingChips: number;
   smallBlind: number;
   bigBlind: number;
   handsPerGame?: number;
+  blindSchedule?: BlindLevel[];
+  handsPerLevel?: number;
 }
 
 export const GAME_CONFIG: GameConfig = {
@@ -87,5 +94,14 @@ export const GAME_CONFIG: GameConfig = {
   startingChips: 1000,
   smallBlind: 10,
   bigBlind: 20,
-  handsPerGame: 5,
+  blindSchedule: [
+    { smallBlind: 10, bigBlind: 20 },
+    { smallBlind: 20, bigBlind: 40 },
+    { smallBlind: 40, bigBlind: 80 },
+    { smallBlind: 80, bigBlind: 160 },
+    { smallBlind: 150, bigBlind: 300 },
+    { smallBlind: 250, bigBlind: 500 },
+    { smallBlind: 500, bigBlind: 1000 },
+  ],
+  handsPerLevel: 2,
 };

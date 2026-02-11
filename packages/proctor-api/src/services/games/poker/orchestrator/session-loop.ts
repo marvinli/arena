@@ -1,3 +1,4 @@
+import type { BlindLevel } from "../../../../game-config.js";
 import { getAgentMessages } from "../../../../persistence.js";
 import type { GameState } from "../../../../types.js";
 import type { Session } from "../../../session/session-manager.js";
@@ -23,6 +24,17 @@ function isGameOver(
   return false;
 }
 
+/** Returns the blind level for the given hand number based on the schedule. */
+export function getBlindLevel(
+  handNumber: number,
+  schedule: BlindLevel[],
+  handsPerLevel: number,
+): BlindLevel {
+  const levelIndex = Math.floor((handNumber - 1) / handsPerLevel);
+  const clamped = Math.min(levelIndex, schedule.length - 1);
+  return schedule[clamped];
+}
+
 function buildPlayerConfig(agentConfig: {
   playerId: string;
   name: string;
@@ -45,11 +57,33 @@ function buildPlayerConfig(agentConfig: {
   };
 }
 
+/** Apply blind escalation if schedule is configured. */
+function applyBlindEscalation(ctx: SessionContext): void {
+  const { session } = ctx;
+  const { blindSchedule, handsPerLevel } = session.config;
+  if (!blindSchedule || !handsPerLevel) return;
+
+  const level = getBlindLevel(
+    session.handNumber + 1,
+    blindSchedule,
+    handsPerLevel,
+  );
+  if (
+    level.smallBlind !== session.config.smallBlind ||
+    level.bigBlind !== session.config.bigBlind
+  ) {
+    poker.setBlinds(ctx.gameId, level.smallBlind, level.bigBlind);
+    session.config.smallBlind = level.smallBlind;
+    session.config.bigBlind = level.bigBlind;
+  }
+}
+
 /** Shared hand loop — plays hands until game over or abort. */
 async function runHandLoop(ctx: SessionContext): Promise<void> {
   const { session, moduleId, signal } = ctx;
 
   while (!signal.aborted) {
+    applyBlindEscalation(ctx);
     await playHand(ctx);
 
     if (signal.aborted) break;
@@ -86,7 +120,10 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
     emit(
       moduleId,
       session,
-      buildLeaderboard(postHandState.players, session.handNumber),
+      buildLeaderboard(postHandState.players, session.handNumber, {
+        smallBlind: session.config.smallBlind,
+        bigBlind: session.config.bigBlind,
+      }),
     );
   }
 
@@ -97,6 +134,15 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
   poker.deleteGame(ctx.gameId);
 }
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export async function runSession(
   session: Session,
   agentRunner: AgentRunner,
@@ -104,8 +150,10 @@ export async function runSession(
 ): Promise<void> {
   const signal = session.abortController.signal;
 
+  const shuffledPlayers = shuffle(session.config.players);
+
   const gameId = poker.createGame({
-    players: session.config.players.map((p) => ({
+    players: shuffledPlayers.map((p) => ({
       id: p.playerId,
       name: `${p.name} ${p.modelName}`,
       chips: session.config.startingChips,

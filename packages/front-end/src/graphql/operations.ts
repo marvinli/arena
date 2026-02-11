@@ -80,6 +80,8 @@ export const RENDER_INSTRUCTIONS_SUB = /* GraphQL */ `
         hands { playerId cards { rank suit } }
         button
         pots { size eligiblePlayerIds }
+        smallBlind
+        bigBlind
       }
 
       dealCommunity {
@@ -119,6 +121,8 @@ export const RENDER_INSTRUCTIONS_SUB = /* GraphQL */ `
       leaderboard {
         players { id name chips bet status seatIndex }
         handsPlayed
+        smallBlind
+        bigBlind
       }
 
       gameOver {

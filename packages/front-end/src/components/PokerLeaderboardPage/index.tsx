@@ -5,9 +5,13 @@ import styles from "./PokerLeaderboardPage.module.css";
 export function PokerLeaderboardPage({
   players,
   handNumber,
+  smallBlind,
+  bigBlind,
 }: {
   players: Player[];
   handNumber: number;
+  smallBlind: number;
+  bigBlind: number;
 }) {
   const sorted = [...players].sort((a, b) => b.chips - a.chips);
 
@@ -15,7 +19,9 @@ export function PokerLeaderboardPage({
     <div className={styles.wrapper}>
       <div className={styles.panel}>
         <h2 className={styles.title}>Leaderboard</h2>
-        <p className={styles.subtitle}>After hand {handNumber}</p>
+        <p className={styles.subtitle}>
+          After hand {handNumber} &middot; Blinds {smallBlind}/{bigBlind}
+        </p>
         <ol className={styles.list}>
           {sorted.map((player, i) => (
             <li key={player.id} className={styles.row}>

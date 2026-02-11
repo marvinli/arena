@@ -66,11 +66,13 @@ export type DealCommunityPayload = {
 
 export type DealHandsPayload = {
   __typename?: 'DealHandsPayload';
+  bigBlind: Scalars['Int']['output'];
   button?: Maybe<Scalars['Int']['output']>;
   handNumber: Scalars['Int']['output'];
   hands: Array<PlayerHand>;
   players: Array<PlayerInfo>;
   pots: Array<PotInfo>;
+  smallBlind: Scalars['Int']['output'];
 };
 
 export type GameOverPayload = {
@@ -163,8 +165,10 @@ export enum InstructionType {
 
 export type LeaderboardPayload = {
   __typename?: 'LeaderboardPayload';
+  bigBlind: Scalars['Int']['output'];
   handsPlayed: Scalars['Int']['output'];
   players: Array<PlayerInfo>;
+  smallBlind: Scalars['Int']['output'];
 };
 
 export type Mutation = {
@@ -661,11 +665,13 @@ export type DealCommunityPayloadResolvers<ContextType = Context, ParentType exte
 };
 
 export type DealHandsPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['DealHandsPayload'] = ResolversParentTypes['DealHandsPayload']> = {
+  bigBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   button?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
   handNumber?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   hands?: Resolver<Array<ResolversTypes['PlayerHand']>, ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
   pots?: Resolver<Array<ResolversTypes['PotInfo']>, ParentType, ContextType>;
+  smallBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
@@ -737,8 +743,10 @@ export type HandWinnerResolvers<ContextType = Context, ParentType extends Resolv
 };
 
 export type LeaderboardPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['LeaderboardPayload'] = ResolversParentTypes['LeaderboardPayload']> = {
+  bigBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   handsPlayed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
+  smallBlind?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 

@@ -56,6 +56,8 @@ export function App() {
             <PokerLeaderboardPage
               players={state.players}
               handNumber={state.handNumber}
+              smallBlind={state.smallBlind}
+              bigBlind={state.bigBlind}
             />
           }
         />

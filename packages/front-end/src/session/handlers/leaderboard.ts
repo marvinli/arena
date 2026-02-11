@@ -25,5 +25,7 @@ export function handleLeaderboard(
     pots: [],
     button: null,
     holeCards: new Map(),
+    ...(lb.smallBlind != null && { smallBlind: lb.smallBlind }),
+    ...(lb.bigBlind != null && { bigBlind: lb.bigBlind }),
   };
 }

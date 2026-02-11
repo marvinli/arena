@@ -24,13 +24,18 @@ export function formatDealHands(
     status: string;
   }>,
   pot: number,
+  blinds?: { smallBlind: number; bigBlind: number },
 ): string {
   const playerLines = players
     .map((p) => `  ${p.name}: ${p.chips} chips`)
     .join("\n");
 
+  const blindsLine = blinds
+    ? `Blinds: ${blinds.smallBlind}/${blinds.bigBlind}\n`
+    : "";
+
   return `Hand #${handNumber} has been dealt.
-Your hole cards: ${formatCards(myHand)}
+${blindsLine}Your hole cards: ${formatCards(myHand)}
 Players:
 ${playerLines}
 Pot: ${pot}`;

@@ -27,5 +27,7 @@ export function handleDealHands(
     communityCards: [],
     pots: mapPots(dh.pots),
     holeCards,
+    ...(dh.smallBlind != null && { smallBlind: dh.smallBlind }),
+    ...(dh.bigBlind != null && { bigBlind: dh.bigBlind }),
   };
 }
