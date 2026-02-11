@@ -39,6 +39,8 @@ const startModuleMutation: MutationResolvers["startModule"] = (
   const session = getSession(channelKey);
   if (session) return true; // already running
 
+  setSetting("live", "true");
+
   void runProgrammingLoop(channelKey).catch((err) => {
     logError(
       "startModule",
