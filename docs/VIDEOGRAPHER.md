@@ -62,7 +62,7 @@ All configuration via environment variables (see `.env.example`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `FRONTEND_URL` | `http://localhost:5173/?autostart` | URL to open in Chrome |
+| `FRONTEND_URL` | `http://localhost:5173/` | URL to open in Chrome |
 | `RTMP_URL` | — | RTMP ingest endpoint (e.g., `rtmp://live.twitch.tv/app/KEY`) |
 | `OUTPUT_FILE` | — | Local file path instead of RTMP (e.g., `recording.mp4`) |
 | `CAPTURE_WIDTH` | `1920` | Viewport width |
@@ -73,10 +73,6 @@ All configuration via environment variables (see `.env.example`):
 Either `RTMP_URL` or `OUTPUT_FILE` must be set (not both).
 
 Chrome is auto-detected on macOS (`/Applications/Google Chrome.app/...`), Linux (`/usr/bin/google-chrome`), and Windows.
-
-## Auto-Start Behavior
-
-The videographer navigates to `FRONTEND_URL`, which defaults to `http://localhost:5173/?autostart`. The `?autostart` query param tells the front-end to start the game automatically on mount — no manual intervention needed.
 
 ## Process Lifecycle
 

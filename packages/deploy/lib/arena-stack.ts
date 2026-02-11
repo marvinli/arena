@@ -38,9 +38,14 @@ export class ArenaStack extends cdk.Stack {
 
     // ── Secrets ───────────────────────────────────────────
     // Pre-create this secret in the console / CLI with the JSON keys:
-    //   ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY,
-    //   XAI_API_KEY, DEEPSEEK_API_KEY, AWS_ACCESS_KEY_ID,
-    //   AWS_SECRET_ACCESS_KEY, RTMP_URL
+    //   ANTHROPIC_API_KEY,
+    //   OPENAI_API_KEY,
+    //   GOOGLE_GENERATIVE_AI_API_KEY,
+    //   XAI_API_KEY,
+    //   DEEPSEEK_API_KEY,
+    //   AWS_ACCESS_KEY_ID,
+    //   AWS_SECRET_ACCESS_KEY,
+    //   RTMP_URL
     const secret = secretsmanager.Secret.fromSecretNameV2(
       this,
       "ApiKeys",
@@ -114,7 +119,7 @@ export class ArenaStack extends cdk.Stack {
         logRetention: logs.RetentionDays.TWO_WEEKS,
       }),
       environment: {
-        FRONTEND_URL: "http://localhost/?autostart",
+        FRONTEND_URL: "http://localhost/",
         CAPTURE_WIDTH: "1920",
         CAPTURE_HEIGHT: "1080",
         CAPTURE_FPS: "30",

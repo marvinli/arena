@@ -32,7 +32,7 @@ export function loadConfig(): Config {
   }
 
   return {
-    frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173/?autostart",
+    frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173/",
     rtmpUrl,
     outputFile,
     width: parseInt(process.env.CAPTURE_WIDTH ?? "1920", 10),

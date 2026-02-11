@@ -42,6 +42,6 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV CHROME_PATH=/usr/bin/chromium
 
 # Default: capture from the arena-app container on localhost
-ENV FRONTEND_URL=http://localhost/?autostart
+ENV FRONTEND_URL=http://localhost/
 
 CMD ["node", "dist/index.js"]
