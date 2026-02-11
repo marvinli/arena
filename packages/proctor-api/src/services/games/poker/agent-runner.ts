@@ -51,4 +51,10 @@ export interface AgentRunner {
 
   /** Reject the last action with an error message and let the agent retry. */
   rejectAction(playerId: string, error: string): Promise<AgentTurnResult>;
+
+  /** Restore persisted conversation history into an agent (for session recovery). */
+  restoreMessages?(
+    playerId: string,
+    messages: Array<{ role: string; content: string }>,
+  ): void;
 }

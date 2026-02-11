@@ -138,6 +138,43 @@ export class LlmAgentRunner implements AgentRunner {
     });
   }
 
+  restoreMessages(
+    playerId: string,
+    messages: Array<{ role: string; content: string }>,
+  ): void {
+    const agent = this.agents.get(playerId);
+    if (!agent) {
+      logError(
+        "llm-agent-runner",
+        `restoreMessages called for unknown agent: ${playerId}`,
+      );
+      return;
+    }
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        agent.messages.push({ role: "user", content: msg.content });
+      } else if (msg.role === "assistant") {
+        // Assistant content may be JSON (tool calls) or plain text
+        try {
+          const parsed = JSON.parse(msg.content);
+          agent.messages.push({ role: "assistant", content: parsed });
+        } catch {
+          agent.messages.push({ role: "assistant", content: msg.content });
+        }
+      } else if (msg.role === "tool") {
+        try {
+          const parsed = JSON.parse(msg.content);
+          agent.messages.push({ role: "tool", content: parsed });
+        } catch {
+          // Skip malformed tool messages
+        }
+      }
+    }
+    console.log(
+      `[llm-agent-runner] Restored ${messages.length} messages for ${agent.config.name}`,
+    );
+  }
+
   injectMessage(playerId: string, message: string): void {
     const agent = this.agents.get(playerId);
     if (!agent) {

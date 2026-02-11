@@ -1,3 +1,4 @@
+import { getAgentMessages } from "../../../../persistence.js";
 import type { GameState } from "../../../../types.js";
 import type { Session } from "../../../session/session-manager.js";
 import type { AgentRunner, PlayerConfig } from "../agent-runner.js";
@@ -42,6 +43,58 @@ function buildPlayerConfig(agentConfig: {
     ttsVoice: agentConfig.ttsVoice ?? undefined,
     temperature: agentConfig.temperature ?? undefined,
   };
+}
+
+/** Shared hand loop — plays hands until game over or abort. */
+async function runHandLoop(ctx: SessionContext): Promise<void> {
+  const { session, moduleId, signal } = ctx;
+
+  while (!signal.aborted) {
+    await playHand(ctx);
+
+    if (signal.aborted) break;
+
+    const postHandState = poker.getGameState(ctx.gameId);
+    updateGameState(session, postHandState);
+
+    if (
+      isGameOver(postHandState, session.config.handsPerGame, session.handNumber)
+    ) {
+      const activePlayers = postHandState.players.filter(
+        (p) => p.status !== "BUSTED",
+      );
+      const winner =
+        activePlayers.sort((a, b) => b.chips - a.chips)[0] ??
+        postHandState.players[0];
+
+      emit(
+        moduleId,
+        session,
+        buildGameOver(
+          winner.id,
+          winner.name,
+          postHandState.players,
+          session.handNumber,
+        ),
+      );
+
+      session.status = "FINISHED";
+      poker.deleteGame(ctx.gameId);
+      return;
+    }
+
+    emit(
+      moduleId,
+      session,
+      buildLeaderboard(postHandState.players, session.handNumber),
+    );
+  }
+
+  if (session.status === "RUNNING") {
+    session.status = "STOPPED";
+  }
+
+  poker.deleteGame(ctx.gameId);
 }
 
 export async function runSession(
@@ -91,50 +144,101 @@ export async function runSession(
     ),
   );
 
-  while (!signal.aborted) {
-    await playHand(ctx);
+  await runHandLoop(ctx);
+}
 
-    if (signal.aborted) break;
+export interface RecoverySnapshot {
+  handNumber: number;
+  players: Array<{
+    id: string;
+    name: string;
+    chips: number;
+    status: string;
+  }>;
+}
 
-    const postHandState = poker.getGameState(gameId);
-    updateGameState(session, postHandState);
+export async function resumeSession(
+  session: Session,
+  agentRunner: AgentRunner,
+  moduleId: string,
+  snapshot: RecoverySnapshot,
+): Promise<void> {
+  const signal = session.abortController.signal;
 
-    if (
-      isGameOver(postHandState, session.config.handsPerGame, session.handNumber)
-    ) {
-      const activePlayers = postHandState.players.filter(
-        (p) => p.status !== "BUSTED",
-      );
-      const winner =
-        activePlayers.sort((a, b) => b.chips - a.chips)[0] ??
-        postHandState.players[0];
+  // Filter to non-busted players with chips
+  const activePlayers = snapshot.players.filter(
+    (p) => p.status !== "BUSTED" && p.chips > 0,
+  );
 
-      emit(
-        moduleId,
-        session,
-        buildGameOver(
-          winner.id,
-          winner.name,
-          postHandState.players,
-          session.handNumber,
-        ),
-      );
-
-      session.status = "FINISHED";
-      poker.deleteGame(gameId);
-      return;
-    }
-
-    emit(
-      moduleId,
-      session,
-      buildLeaderboard(postHandState.players, session.handNumber),
+  if (activePlayers.length < 2) {
+    console.log(
+      "[session-loop] Not enough active players to resume, starting fresh",
     );
+    return runSession(session, agentRunner, moduleId);
   }
 
-  if (session.status === "RUNNING") {
-    session.status = "STOPPED";
+  // Create poker game with recovered chip stacks
+  const gameId = poker.createGame({
+    players: session.config.players.flatMap((p) => {
+      const sp = activePlayers.find((ap) => ap.id === p.playerId);
+      if (!sp) return [];
+      return [
+        {
+          id: p.playerId,
+          name: `${p.name} ${p.modelName}`,
+          chips: sp.chips,
+        },
+      ];
+    }),
+    smallBlind: session.config.smallBlind,
+    bigBlind: session.config.bigBlind,
+  });
+
+  const ctx: SessionContext = {
+    session,
+    moduleId,
+    gameId,
+    agentRunner,
+    signal,
+  };
+
+  const createState = poker.getGameState(gameId);
+  session.gameId = gameId;
+  session.handNumber = snapshot.handNumber;
+  updateGameState(session, createState);
+
+  // Initialize agents and restore conversation history
+  for (const p of session.config.players) {
+    agentRunner.initAgent(p.playerId, buildPlayerConfig(p), moduleId);
+    if (agentRunner.restoreMessages) {
+      const messages = getAgentMessages(moduleId, p.playerId);
+      if (messages.length > 0) {
+        agentRunner.restoreMessages(
+          p.playerId,
+          messages.map((m) => ({ role: m.role, content: m.content })),
+        );
+      }
+    }
   }
 
-  poker.deleteGame(gameId);
+  console.log(
+    `[session-loop] Resuming session from hand ${snapshot.handNumber} with ${activePlayers.length} players`,
+  );
+
+  // Emit GAME_START so front-end resets cleanly
+  emit(
+    moduleId,
+    session,
+    buildGameStart(
+      gameId,
+      createState.players,
+      {
+        smallBlind: session.config.smallBlind,
+        bigBlind: session.config.bigBlind,
+      },
+      session.config.players,
+    ),
+  );
+
+  await runHandLoop(ctx);
 }

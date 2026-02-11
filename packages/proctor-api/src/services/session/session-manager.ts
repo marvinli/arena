@@ -51,6 +51,7 @@ const sessions = new Map<string, Session>();
 export function createSession(
   channelKey: string,
   configOverride?: GameConfig,
+  chipOverrides?: Map<string, number>,
 ): Session {
   const config = configOverride ?? GAME_CONFIG;
   const existing = sessions.get(channelKey);
@@ -65,7 +66,7 @@ export function createSession(
   const players: SessionPlayer[] = config.players.map((p) => ({
     id: p.playerId,
     name: p.name,
-    chips: config.startingChips,
+    chips: chipOverrides?.get(p.playerId) ?? config.startingChips,
     modelId: p.modelId,
     modelName: p.modelName,
     provider: p.provider,
