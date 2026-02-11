@@ -7,3 +7,4 @@ logs/
 *.db
 *.db-wal
 *.db-shm
+.DS_Store
