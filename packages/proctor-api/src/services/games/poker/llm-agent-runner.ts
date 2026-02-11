@@ -124,6 +124,8 @@ const submitActionTool = tool({
   }),
 });
 
+const LLM_TIMEOUT_MS = 15_000;
+
 export class LlmAgentRunner implements AgentRunner {
   private agents = new Map<string, AgentState>();
 
@@ -223,15 +225,26 @@ export class LlmAgentRunner implements AgentRunner {
     );
     const start = Date.now();
 
-    const result = await generateText({
-      model,
-      system: agent.systemPrompt,
-      messages: agent.messages,
-      tools: { submit_action: submitActionTool },
-      temperature: agent.config.temperature,
-      maxOutputTokens: 512,
-      stopWhen: [hasToolCall("submit_action"), stepCountIs(3)],
-      providerOptions: getProviderOptions(agent.config),
+    const result = await (async () => {
+      return generateText({
+        model,
+        system: agent.systemPrompt,
+        messages: agent.messages,
+        tools: { submit_action: submitActionTool },
+        temperature: agent.config.temperature,
+        maxOutputTokens: 512,
+        stopWhen: [hasToolCall("submit_action"), stepCountIs(3)],
+        providerOptions: getProviderOptions(agent.config),
+        abortSignal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+      });
+    })().catch((err) => {
+      const elapsed = Date.now() - start;
+      const msg = err instanceof Error ? err.message : String(err);
+      logError(
+        "llm-agent-runner",
+        `${agent.config.name} (${agent.config.provider}/${agent.config.modelId}) failed after ${elapsed}ms: ${msg}`,
+      );
+      throw err;
     });
 
     console.log(
