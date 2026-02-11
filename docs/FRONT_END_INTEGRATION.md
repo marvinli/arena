@@ -1,26 +1,25 @@
 # Front-End Integration Guide
 
-The front-end is a renderer. It has no game logic. It subscribes to a stream of render instructions from the proctor-api, renders each one (animations, TTS, scene transitions), and acknowledges completion. The proctor waits for the acknowledgment before sending the next instruction.
+The front-end is a renderer. It has no game logic. It subscribes to a stream of render instructions from the proctor-api, renders each one (animations, TTS, scene transitions), and calls `completeInstruction` as a bookmark. The proctor does not wait — it emits instructions as fast as the game loop runs. The front-end queues them and renders at its own pace.
 
 ## Connection Overview
 
 ```
 Front-End                          Proctor API (port 4001)
    |                                      |
-   |-- mutate startSession ------------->|  (create session)
-   |<----- session info ------------------|
+   |-- query connect ------------------->|  (get snapshot or empty state)
+   |<----- ChannelConnection -------------|
    |                                      |
-   |== subscribe renderInstructions ====>|  (open SSE channel, registers client)
+   |== subscribe renderInstructions ====>|  (open SSE channel)
    |                                      |
-   |-- mutate runSession ---------------->|  (start orchestrator game loop)
+   |-- mutate startModule --------------->|  (start game loop, idempotent)
    |                                      |
-   |<==== RenderInstruction =============|  (proctor pushes instruction)
+   |<==== RenderInstruction =============|  (proctor pushes instructions)
+   |<==== RenderInstruction =============|  (proctor does NOT wait)
    |                                      |
-   | (render animation, TTS, etc.)        |
+   | (front-end queues, renders at own pace)
    |                                      |
-   |-- mutate renderComplete ----------->|  (signal done rendering)
-   |                                      |
-   |<==== next RenderInstruction ========|  (proctor sends next)
+   |-- mutate completeInstruction ------>|  (bookmark, currently no-op)
    |          ...                         |
 ```
 
@@ -28,30 +27,27 @@ The GraphQL endpoint is `http://localhost:4001/graphql` for queries/mutations. S
 
 ---
 
-## Step 1: Start a Session
+## Step 1: Connect
 
-Create the session before subscribing, so the server is ready when the subscription connects. Game configuration (players, blinds, chips) lives server-side in `game-config.ts` — the front-end only provides a channel key.
+Call `connect` on mount to get the current state. Returns a snapshot for reconnection, or empty state for first connect.
 
 ```graphql
-mutation StartSession($channelKey: String!) {
-  startSession(channelKey: $channelKey) {
-    channelKey
-    status
+query Connect($channelKey: String!) {
+  connect(channelKey: $channelKey) {
+    moduleId
+    moduleType
+    gameState { ... }  # ProctorGameState snapshot, null if first connect
   }
 }
 ```
 
-```json
-{
-  "channelKey": "poker-stream-1"
-}
-```
+If `gameState` is non-null, dispatch a RECONNECT with the snapshot to restore the UI.
 
 ---
 
 ## Step 2: Subscribe to Render Instructions
 
-Open an SSE subscription to receive instructions as the game progresses. The subscription registers the client on the server — the proctor won't advance until all connected clients have acknowledged each instruction.
+Open an SSE subscription to receive instructions as the game progresses.
 
 ```graphql
 subscription RenderInstructions($channelKey: String!) {
@@ -129,11 +125,11 @@ subscription RenderInstructions($channelKey: String!) {
 
 ## Step 3: Start the Game Loop
 
-After the subscription is connected, call `runSession` to start the orchestrator. This ensures the front-end is listening before any instructions are emitted.
+After the subscription is connected, call `startModule` to start the orchestrator. Idempotent — if the game is already running, this is a no-op.
 
 ```graphql
-mutation RunSession($channelKey: String!) {
-  runSession(channelKey: $channelKey)
+mutation StartModule($channelKey: String!) {
+  startModule(channelKey: $channelKey)
 }
 ```
 
@@ -141,15 +137,13 @@ mutation RunSession($channelKey: String!) {
 
 ## Step 4: Acknowledge Each Instruction
 
-After rendering an instruction (animations complete, TTS finished), call `renderComplete`. The proctor blocks until all connected clients acknowledge before sending the next instruction.
+After rendering an instruction, call `completeInstruction`. This is currently a no-op on the server (reserved for future back-pressure) — the proctor does not wait for it.
 
 ```graphql
-mutation RenderComplete($channelKey: String!, $instructionId: ID!) {
-  renderComplete(channelKey: $channelKey, instructionId: $instructionId)
+mutation CompleteInstruction($channelKey: String!, $moduleId: String!, $instructionId: ID!) {
+  completeInstruction(channelKey: $channelKey, moduleId: $moduleId, instructionId: $instructionId)
 }
 ```
-
-If the front-end doesn't acknowledge within 30 seconds, the proctor auto-advances. Reliable acknowledgment prevents the game from stalling.
 
 ---
 
@@ -258,7 +252,7 @@ Emitted when a player has analysis (audience-facing commentary). Only emitted if
 | `analysis` | `String!` | Audience-facing commentary |
 | `isApiError` | `Boolean!` | Whether the analysis was generated due to an API error (e.g., agent LLM call failed) |
 
-**Render:** Display the analysis text (e.g., in a speech bubble). Convert to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via OpenAI TTS. The front-end can fire-and-forget the TTS and ack immediately — this lets the proctor pipeline the next instruction while audio plays. If `isApiError` is true, display an error indicator.
+**Render:** Display the analysis text (e.g., in a speech bubble). Convert to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via OpenAI TTS. The render queue gates the next instruction until TTS playback completes. If `isApiError` is true, display an error indicator.
 
 ### PLAYER_ACTION
 
@@ -507,7 +501,7 @@ The rendering flow for a player turn:
 
 ## Multiple Clients
 
-Multiple front-end instances can subscribe to the same `channelKey`. The proctor tracks all connected clients and waits for **every** client to call `renderComplete` before advancing. If a client disconnects, it's automatically removed from the pending acknowledgments.
+Multiple front-end instances can subscribe to the same `channelKey`. Since the proctor doesn't block on acks, all clients receive the same instruction stream and render independently.
 
 This enables:
 - Multiple display screens showing the same game
@@ -520,12 +514,11 @@ This enables:
 
 If the front-end disconnects and reconnects:
 
-1. Call `getChannelState(channelKey)` to get the current scene
-2. Render the current state (players, chips, community cards, pots)
+1. Call `connect(channelKey)` to get the snapshot (last acknowledged visual state)
+2. Dispatch RECONNECT with the snapshot to restore the UI
 3. Re-subscribe to `renderInstructions(channelKey)`
-4. Continue processing instructions from where the game is now
-
-The `lastInstruction` field in `getChannelState` tells you what was last emitted, which can help determine if an acknowledgment was missed.
+4. Call `startModule(channelKey)` — no-op if the game is already running
+5. Continue processing instructions from the game's current position
 
 ### getChannelState Query
 
@@ -606,9 +599,8 @@ The Vite dev server proxies `/graphql` to `http://localhost:4001`, so no CORS co
 ## Error Handling
 
 - **Agent timeout/failure**: The proctor auto-folds for the agent. The front-end still receives normal `PLAYER_TURN` + `PLAYER_ACTION` with `action: "FOLD"`. No special handling needed.
-- **renderComplete timeout**: If the front-end doesn't acknowledge within 30 seconds, the proctor auto-advances. The front-end may miss instructions if it's too slow.
 - **Session not found**: `getChannelState` and `getSession` return null or throw if the channel key doesn't exist.
-- **Subscription disconnect**: Re-subscribe and call `getChannelState` to catch up.
+- **Subscription disconnect**: Re-subscribe and call `connect` to get the latest snapshot.
 
 ---
 
@@ -629,10 +621,10 @@ The Vite dev server proxies `/graphql` to `http://localhost:4001`, so no CORS co
 
 | Operation | Type | Purpose |
 |---|---|---|
-| `startSession(channelKey)` | Mutation | Create a game session |
-| `runSession(channelKey)` | Mutation | Start the orchestrator game loop |
+| `connect(channelKey)` | Query | Get snapshot or empty state on mount |
+| `startModule(channelKey)` | Mutation | Start the game loop (idempotent) |
 | `stopSession(channelKey)` | Mutation | Stop a running game |
 | `getSession(channelKey)` | Query | Session metadata and status |
 | `getChannelState(channelKey)` | Query | Current game state for reconnection |
-| `renderComplete(channelKey, instructionId)` | Mutation | Acknowledge instruction rendered |
+| `completeInstruction(channelKey, moduleId, instructionId)` | Mutation | Client ack bookmark (currently no-op) |
 | `renderInstructions(channelKey)` | Subscription | Stream of render instructions (SSE) |

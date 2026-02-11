@@ -40,7 +40,7 @@ packages/
         RenderInstruction/  # Subscription + instruction types
         RenderComplete/     # Render ack mutation
   front-end/     # Renderer — no game logic, renders instructions from proctor-api, does TTS, controls pacing
-  videographer/  # Camera — opens front-end in a browser, streams/records it (planned, not yet implemented)
+  videographer/  # Camera — opens front-end in headless Chrome, captures via puppeteer-stream, streams to Twitch RTMP via ffmpeg
 ```
 
 New games get their own engine under `src/services/games/` (e.g., `src/services/games/blackjack/`) with corresponding GQL schema folders.
@@ -63,11 +63,11 @@ A single GraphQL server (port 4001) that serves two roles:
 **Game engine queries/mutations** — create games, submit actions, get turn data. The engine validates moves and rejects illegal ones. Agent identity is set via `X-Player-Id` header — the engine resolves "my hand" and "my valid actions" based on who's asking.
 
 **Orchestrator API (front-end facing):**
-- `subscribe renderInstructions(channelKey)` — stream of render instructions
-- `mutate renderComplete(channelKey, instructionId)` — "I'm done rendering this one"
-- `query getChannelState(channelKey)` — returns the current full game state; called once on connect or reconnect so the front-end can render the current scene even if it joins mid-game
-- `mutate startSession(channelKey)` — create a new game session (config is server-side in `game-config.ts`)
-- `mutate runSession(channelKey)` — start the orchestrator game loop (called after subscribing)
+- `query connect(channelKey)` — returns current state (snapshot + moduleId) or empty state for first connect
+- `subscribe renderInstructions(channelKey)` — stream of render instructions via SSE
+- `mutate startModule(channelKey)` — create and start a module; idempotent (no-op if already running)
+- `mutate completeInstruction(channelKey, moduleId, instructionId)` — client ack; currently a no-op, reserved for future back-pressure
+- `query getChannelState(channelKey)` — returns the current full game state for reconnection
 - `mutate stopSession(channelKey)` — stop a running session
 
 **Render instruction types:** `GAME_START`, `DEAL_HANDS`, `DEAL_COMMUNITY`, `PLAYER_TURN`, `PLAYER_ANALYSIS`, `PLAYER_ACTION`, `HAND_RESULT`, `LEADERBOARD`, `GAME_OVER`
@@ -78,11 +78,11 @@ A single GraphQL server (port 4001) that serves two roles:
 - `PLAYER_ANALYSIS` — the agent's audience-facing commentary (e.g., "Player X has been very aggressive, I put his range at..."). The front-end renders this text and plays TTS.
 - `PLAYER_ACTION` — the agent's action (fold/call/raise) with updated game state
 
-Each instruction has an `instructionId`. The front-end renders it, then calls `renderComplete(instructionId)` to signal it's done. The proctor waits for `renderComplete` before emitting the next instruction. This way the front-end doesn't track turns or game state — it just renders instructions and acks them.
+The proctor emits instructions as fast as the game loop runs — it does not wait for the front-end to acknowledge. The front-end queues instructions and renders them at its own pace (animations, TTS). `completeInstruction` is called by the front-end as a bookmark but is currently a no-op on the server, reserved for future back-pressure.
 
-Multiple front-end instances can connect to the same channel key. The proctor waits for all connected clients to `renderComplete` before proceeding (or times out).
+Multiple front-end instances can connect to the same channel key.
 
-For CLI testing without a front-end, the proctor auto-advances (no front-end connected = full speed). The `run-game` script (`npm run run-game --workspace=@arena/proctor-api`) runs a game headlessly.
+For CLI testing without a front-end, `npm run run-game --workspace=@arena/proctor-api` runs a game headlessly.
 
 **State ownership:** The game engine owns game state (cards, pot, turns). Each agent owns its own conversation history (past reasoning across turns). The proctor owns global state (channel config, connected front-ends, which game is running, scene sequencing).
 
@@ -136,16 +136,15 @@ On their turn:
 No game logic — all game knowledge lives in proctor-api. The front-end is a substantial React app (TTS, animations, scene rendering) but it never decides *what* to show, only *how* to show it.
 
 Flow:
-1. Calls `startSession(channelKey)` mutation to create the session
-2. Subscribes to `renderInstructions(channelKey)` via SSE (this registers the client on the server)
-3. Calls `runSession(channelKey)` mutation to start the orchestrator game loop
-4. Receives render instructions on subscription — each has an `instructionId`
-5. Renders each instruction — card animation, chip movement, player action display, etc.
-6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via OpenAI TTS (`gpt-4o-mini-tts` with streaming PCM), then for the following `PLAYER_ACTION` renders the action
-7. When done rendering, calls `renderComplete(instructionId)` mutation
-8. Proctor sends next instruction after all connected front-ends have acked
+1. Calls `connect(channelKey)` query — returns snapshot if reconnecting, or empty state for first connect
+2. Subscribes to `renderInstructions(channelKey)` via SSE
+3. Calls `startModule(channelKey)` mutation — starts the game loop (idempotent, no-op if already running)
+4. Receives render instructions on subscription — queues them in a render queue
+5. Renders each instruction at its own pace — card animation, chip movement, player action display, etc.
+6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via OpenAI TTS (`gpt-4o-mini-tts` with streaming PCM)
+7. Calls `completeInstruction` after each (currently a no-op, reserved for future back-pressure)
 
-The front-end doesn't track turns or game state. It just renders instructions and acks them. It can join mid-game — the proctor sends whatever comes next.
+The front-end doesn't track turns or game state. It just renders instructions. It can join mid-game via the snapshot from `connect`.
 
 Responsibilities:
 - Render whatever it's told — cards, chips, player actions, leaderboards, transitions
@@ -153,9 +152,9 @@ Responsibilities:
 - Control pacing via `renderComplete` — proctor won't advance until front-end is done
 - Handle scene transitions (game → leaderboard → next game) based on instruction type
 
-### videographer (the camera) — planned
+### videographer (the camera)
 
-Opens the front-end in a headless browser. Captures the output. Streams or records it. That's it. Not yet implemented.
+Opens the front-end in headless Chrome via puppeteer-stream, which captures the tab's video (VP8) and audio (Opus) as a WebM stream. Pipes through ffmpeg to transcode to H.264/AAC and push to Twitch via RTMP (or record to a local MP4). See [VIDEOGRAPHER.md](VIDEOGRAPHER.md).
 
 ## Data Flow
 
@@ -178,15 +177,12 @@ Opens the front-end in a headless browser. Captures the output. Streams or recor
       |                        |-- poker.submitAction(gameId, playerId, action)
       |                        |
       |<== sub: PLAYER_TURN ===|  (highlight active player)
-      |-- renderComplete ------>|
       |<== sub: PLAYER_ANALYSIS |  (analysis text + TTS)
-      |-- renderComplete ------>|
       |<== sub: PLAYER_ACTION ==|  (action animation)
-      |-- renderComplete ------>|
-      |          ...proctor sends next instruction
+      |          ...proctor emits next instruction immediately
 ```
 
-Videographer will just capture whatever the front-end renders. It has no connection to proctor-api.
+The videographer captures whatever the front-end renders. It has no connection to proctor-api.
 
 ## Agent Turn Example
 
@@ -220,17 +216,14 @@ Agent "aggressive-al" (Claude Haiku, temperature default):
 Orchestrator:
   → calls poker.submitAction(gameId, "aggressive-al", "RAISE", 800)
   → emits PLAYER_TURN { playerId: "aggressive-al", playerName: "Aggressive Al" }
-  → waits for renderComplete
   → emits PLAYER_ANALYSIS { playerId: "aggressive-al", analysis: "I have top pair..." }
-  → waits for renderComplete
   → emits PLAYER_ACTION { player: "aggressive-al", action: RAISE, amount: 800 }
-  → waits for renderComplete
+  → continues to next player immediately
 
-Front-end:
+Front-end (renders at its own pace via render queue):
   → receives PLAYER_TURN → highlights Aggressive Al's seat
   → receives PLAYER_ANALYSIS → renders text, plays TTS with Al's voice
   → receives PLAYER_ACTION → renders raise animation
-  → calls renderComplete after each
 
 Proctor:
   → injects "Aggressive Al raises to 800." into all other agents' conversations
@@ -272,11 +265,11 @@ npm run run-game --workspace=@arena/proctor-api
 **Why GraphQL?**
 Consistent interface across the system. Game engine: pre-canned queries give agents exactly the data they need in resolved objects, mutations handle actions. Orchestrator: subscriptions for async render instructions, mutations for acks. Agent identity is implicit via headers, keeping the schema clean.
 
-**Why `renderComplete` instead of `nextAction`?**
-The front-end doesn't know about turns or game flow. It just renders instructions and acks them. The proctor decides what to send next. This means the front-end can join mid-game, multiple front-ends can connect to the same channel, and the proctor can emit multiple instructions per turn (waiting for each ack before sending the next).
+**Why does the proctor emit without waiting for acks?**
+The proctor runs the game to completion regardless of client state. `completeInstruction` is a bookmark, not a synchronization point. This decouples the game loop from the renderer — the game runs at inference speed, the front-end renders at its own pace via a render queue, and disconnected clients don't block game progress.
 
 **Why split PLAYER_TURN / PLAYER_ANALYSIS / PLAYER_ACTION?**
-Splitting the player's turn into three instructions allows the front-end to pipeline rendering. `PLAYER_TURN` highlights the active seat immediately. `PLAYER_ANALYSIS` triggers TTS (which can play while the proctor starts the next agent's LLM call). `PLAYER_ACTION` shows the action animation. Each is acked independently, giving the front-end fine-grained pacing control.
+Splitting the player's turn into three instructions gives the front-end granular control over rendering. `PLAYER_TURN` highlights the active seat. `PLAYER_ANALYSIS` triggers TTS. `PLAYER_ACTION` shows the action animation. The render queue sequences these with animation gates and TTS coordination.
 
 **Why game engines inside proctor-api instead of separate packages?**
 Eliminates ~270 lines of HTTP client boilerplate per game. Game engines are called directly in-process — simpler, faster, easier to test. New games add an engine under `src/services/games/` and GQL schema folders under `src/gql/schema/`. The single server approach is right for a local-first system with no scaling requirements between game logic and orchestration.

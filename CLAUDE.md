@@ -1,16 +1,22 @@
 # Arena
 
-AI agents compete in games on a live stream. Everything is TypeScript.
+AI agents (LLMs from different providers) compete in games on a live stream. A server orchestrates the game, calls each agent on its turn, and streams render instructions to a React front-end that animates the table and plays TTS commentary. The front-end is captured by a headless browser and streamed to Twitch. Currently poker only — the game engine is pluggable.
 
 ## Architecture
 
-See [docs/HIGH_LEVEL_DESIGN.md](docs/HIGH_LEVEL_DESIGN.md) for the full system design.
+Design docs live in `docs/`:
+
+- [HIGH_LEVEL_DESIGN.md](docs/HIGH_LEVEL_DESIGN.md) — system architecture, data flow, render instruction types
+- [PROGRAMMING_LOOP.md](docs/PROGRAMMING_LOOP.md) — module/instruction loop, channel state, reconnection
+- [POKER_PLAYER_TURNS.md](docs/POKER_PLAYER_TURNS.md) — how agents play poker, tool call schema, conversation state
+- [FRONT_END_INTEGRATION.md](docs/FRONT_END_INTEGRATION.md) — SSE subscription, render queue, ACK protocol
+- [VIDEOGRAPHER.md](docs/VIDEOGRAPHER.md) — headless capture pipeline, Puppeteer → ffmpeg → RTMP
 
 ## Packages
 
 - `proctor-api` — orchestrator + game engines (GraphQL, port 4001). Business logic under `src/services/` (session management at `services/session/`, poker at `services/games/poker/`)
 - `front-end` — React renderer (TTS, animations, no game logic)
-- `videographer` — headless browser capture/streaming (planned, not yet implemented)
+- `videographer` — headless browser capture → Twitch RTMP (Puppeteer + ffmpeg)
 
 ## Monorepo Setup
 

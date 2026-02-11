@@ -14,7 +14,7 @@ interface PlayerConfig {
   modelName: string;       // Friendly model name for display (e.g., "Claude Haiku")
   provider: string;        // Model provider ("anthropic", "openai", "google")
   avatarUrl?: string;      // Avatar image URL for front-end rendering
-  ttsVoice?: string;       // ElevenLabs voice ID (e.g., "TX3LPaxmHKxFdv7VOQHJ")
+  ttsVoice?: string;       // OpenAI TTS voice name (e.g., "alloy", "echo", "nova")
   temperature?: number;    // Optional creativity setting (default: provider default)
 }
 ```
@@ -229,7 +229,6 @@ The proctor is **strictly procedural**. It has no intelligence. It follows a fix
 6. Invoke the agent and wait for `submit_action`
 7. Submit the action to the game engine
 8. Emit render instructions to the front-end (PLAYER_TURN → PLAYER_ANALYSIS → PLAYER_ACTION)
-9. Wait for `renderComplete` before proceeding
 
 ### What the proctor does NOT do
 
@@ -396,15 +395,18 @@ The agent runner holds a `Map<string, AgentState>` — one entry per player in t
 ### LLM provider support
 
 The agent runner uses the Vercel AI SDK (`ai` package) with multi-provider support:
-- `@ai-sdk/anthropic` — Anthropic models (Claude)
-- `@ai-sdk/openai` — OpenAI models (GPT)
-- `@ai-sdk/google` — Google models (Gemini)
+- `@ai-sdk/anthropic` — Anthropic (Claude)
+- `@ai-sdk/openai` — OpenAI (GPT)
+- `@ai-sdk/google` — Google (Gemini)
+- `@ai-sdk/xai` — xAI (Grok)
+- `@ai-sdk/deepseek` — DeepSeek
+- `@ai-sdk/amazon-bedrock` — Amazon Bedrock (Nova, Mistral, etc.)
 
 The provider is selected based on `PlayerConfig.provider`. Each agent can use a different provider/model.
 
 ## Front-End Forwarding
 
-The proctor emits render instructions to the front-end via pub/sub subscription. The front-end renders each instruction and calls `renderComplete` to signal it's done. The proctor blocks until `renderComplete` before proceeding.
+The proctor emits render instructions to the front-end via pub/sub subscription. The proctor does not wait for the front-end — it emits and continues. The front-end queues instructions and renders at its own pace.
 
 For each player turn, the proctor emits three instructions:
 
@@ -412,7 +414,7 @@ For each player turn, the proctor emits three instructions:
 2. **PLAYER_ANALYSIS** (optional) — front-end renders analysis text, plays TTS with the player's voice
 3. **PLAYER_ACTION** — front-end shows the action animation (chips moving, cards folding, etc.)
 
-The `ttsVoice` on `PlayerConfig` maps to an ElevenLabs voice ID. Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice IDs are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
+The `ttsVoice` on `PlayerConfig` maps to an OpenAI TTS voice name. Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice names are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
 
 ## Error Handling
 
