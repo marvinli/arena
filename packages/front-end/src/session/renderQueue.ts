@@ -5,6 +5,7 @@ import {
   communityAnimDuration,
   dealAnimDuration,
   LEADERBOARD_DISPLAY_MS,
+  POST_ACTION_PAUSE_MS,
   PRE_SHOWDOWN_PAUSE_MS,
   SHOWDOWN_DISPLAY_MS,
 } from "./timing";
@@ -47,6 +48,11 @@ export function createRenderQueue(deps: RenderQueueDeps) {
             inst.type === "PLAYER_ACTION"
           ) {
             await ttsGate;
+          }
+
+          // Pause before new community cards so viewers can see the last action
+          if (inst.type === "DEAL_COMMUNITY") {
+            await delay(POST_ACTION_PAUSE_MS, deps.signal);
           }
 
           // Pause before showdown so viewers can see the final board
