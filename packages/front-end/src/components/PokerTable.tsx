@@ -39,6 +39,8 @@ export function PokerTable({
     ? (BRAND_COLORS[speakingPlayer.avatar] ?? SEAT_COLORS[speakingIdx])
     : undefined;
 
+  const hasWinner = players.some((p) => p.isWinner);
+
   // If any player is active or speaking, dim everyone else
   const highlightedId =
     speakingPlayerId ?? players.find((p) => p.isActive)?.id ?? null;
@@ -88,6 +90,7 @@ export function PokerTable({
                   isDimmed={
                     highlightedId !== null && player.id !== highlightedId
                   }
+                  hasWinner={hasWinner}
                   visibleCards={dealAnimation.get(i)?.visibleCards ?? 2}
                   faceUp={dealAnimation.get(i)?.faceUp ?? true}
                 />

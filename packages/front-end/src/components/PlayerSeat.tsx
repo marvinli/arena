@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { formatChips } from "../chips";
 import type { Player } from "../types";
 import { ChipStackDisplay } from "./ChipStack";
 import styles from "./PlayerSeat.module.css";
@@ -11,6 +12,7 @@ export function PlayerSeat({
   holeCardSecondClass,
   isSpeaking,
   isDimmed,
+  hasWinner,
   visibleCards = 2,
   faceUp = true,
 }: {
@@ -19,6 +21,7 @@ export function PlayerSeat({
   holeCardSecondClass?: string;
   isSpeaking?: boolean;
   isDimmed?: boolean;
+  hasWinner?: boolean;
   visibleCards?: number;
   faceUp?: boolean;
 }) {
@@ -36,11 +39,15 @@ export function PlayerSeat({
 
   const effectiveFaceUp = folding ? false : faceUp;
 
+  const isLoser = hasWinner && !player.isWinner && !player.isFolded;
+
   const seatClass = [
     styles.seat,
     player.isActive ? styles.active : "",
+    player.isWinner ? styles.winner : "",
+    isLoser ? styles.loser : "",
     player.isFolded ? styles.folded : "",
-    isDimmed && !player.isFolded ? styles.dimmed : "",
+    isDimmed && !player.isFolded && !hasWinner ? styles.dimmed : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -62,10 +69,22 @@ export function PlayerSeat({
       <div className={styles.topRow}>
         <div className={styles.avatarColumn}>
           <div className={styles.avatarArea}>
-            {player.lastAction && actionBadgeClass && (
-              <div className={actionBadgeClass}>
-                {player.lastAction.toUpperCase()}
+            {player.isWinner ? (
+              <div className={`${styles.actionBadge} ${styles.actionWinner}`}>
+                <span className={styles.winnerLabel}>WINNER</span>
+                {player.winAmount != null && (
+                  <span className={styles.winnerAmount}>
+                    {formatChips(player.winAmount)}
+                  </span>
+                )}
               </div>
+            ) : (
+              player.lastAction &&
+              actionBadgeClass && (
+                <div className={actionBadgeClass}>
+                  {player.lastAction.toUpperCase()}
+                </div>
+              )
             )}
             {isSpeaking && (
               <div className={styles.thoughtBubble}>

@@ -16,6 +16,9 @@ const PLAYERS: Player[] = [
     isFolded: false,
     isActive: true,
     isAllIn: false,
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: "raise",
     currentBet: 80,
   },
@@ -32,6 +35,9 @@ const PLAYERS: Player[] = [
     isFolded: false,
     isActive: false,
     isAllIn: false,
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: "call",
     currentBet: 80,
   },
@@ -48,6 +54,9 @@ const PLAYERS: Player[] = [
     isFolded: false,
     isActive: false,
     isAllIn: false,
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: "call",
     currentBet: 80,
   },
@@ -64,6 +73,9 @@ const PLAYERS: Player[] = [
     isFolded: false,
     isActive: false,
     isAllIn: false,
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: "raise",
     currentBet: 80,
   },
@@ -80,6 +92,9 @@ const PLAYERS: Player[] = [
     isFolded: false,
     isActive: false,
     isAllIn: false,
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: "call",
     currentBet: 80,
   },
@@ -96,6 +111,9 @@ const PLAYERS: Player[] = [
     isFolded: true,
     isActive: false,
     isAllIn: false,
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: "fold",
     currentBet: 0,
   },
@@ -112,6 +130,9 @@ const PLAYERS: Player[] = [
     isFolded: false,
     isActive: false,
     isAllIn: false,
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: "call",
     currentBet: 80,
   },
@@ -180,10 +201,63 @@ const preflopFixture: MockFixture = {
   button: 0,
 };
 
+const showdownFixture: MockFixture = {
+  players: PLAYERS.map((p) => {
+    const base = {
+      ...p,
+      currentBet: 0,
+      isActive: false,
+    };
+    if (p.id === "agent-1") {
+      // Claude wins with a flush
+      return {
+        ...base,
+        chips: 1350,
+        cards: [
+          { rank: "A", suit: "spades" as const },
+          { rank: "K", suit: "spades" as const },
+        ] as [Card, Card],
+        lastAction: null as Player["lastAction"],
+        isWinner: true,
+        winAmount: 480,
+        winHand: "Flush",
+      };
+    }
+    if (p.id === "agent-7" || p.id === "agent-3") {
+      // Already folded during the hand
+      return {
+        ...base,
+        isFolded: true,
+        lastAction: null as Player["lastAction"],
+      };
+    }
+    // Non-winners muck
+    return {
+      ...base,
+      isFolded: true,
+      lastAction: "muck" as Player["lastAction"],
+    };
+  }),
+  communityCards: [
+    { rank: "10", suit: "hearts" },
+    { rank: "J", suit: "clubs" },
+    { rank: "7", suit: "spades" },
+    { rank: "3", suit: "spades" },
+    { rank: "5", suit: "spades" },
+  ],
+  pots: [{ label: "Main Pot", amount: 480 }],
+  speakingPlayerId: null,
+  analysisText: null,
+  isApiError: false,
+  handNumber: 3,
+  button: 0,
+};
+
 const FIXTURES: Record<string, MockFixture> = {
   default: defaultFixture,
   "api-error": apiErrorFixture,
   preflop: preflopFixture,
+  showdown: showdownFixture,
 };
 
 export function getMockFixture(name: string): MockFixture {

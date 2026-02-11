@@ -3,7 +3,14 @@ export interface Card {
   suit: "clubs" | "diamonds" | "hearts" | "spades";
 }
 
-export type PlayerAction = "call" | "bet" | "raise" | "check" | "fold" | null;
+export type PlayerAction =
+  | "call"
+  | "bet"
+  | "raise"
+  | "check"
+  | "fold"
+  | "muck"
+  | null;
 
 export interface Player {
   id: string;
@@ -15,6 +22,9 @@ export interface Player {
   isFolded: boolean;
   isActive: boolean; // currently acting
   isAllIn: boolean;
+  isWinner: boolean;
+  winAmount: number | null;
+  winHand: string | null; // e.g. "Flush", "Full House"
   lastAction: PlayerAction;
   currentBet: number; // amount bet this round (0 = none)
 }

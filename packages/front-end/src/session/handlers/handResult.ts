@@ -10,16 +10,34 @@ export function handleHandResult(
   const hr = inst.handResult;
   if (!hr) return state;
 
-  const players = buildPlayers(
-    hr.players,
-    state.button,
-    state.players,
-    (p) => ({
+  const winnerMap = new Map(hr.winners.map((w) => [w.playerId, w] as const));
+
+  const players = buildPlayers(hr.players, state.button, state.players, (p) => {
+    const win = winnerMap.get(p.id);
+    if (win) {
+      return {
+        cards: state.holeCards.get(p.id) ?? null,
+        lastAction: null as PlayerAction,
+        isActive: false,
+        isWinner: true,
+        winAmount: win.amount,
+        winHand: win.hand ?? null,
+      };
+    }
+    // Non-winner who hasn't already folded → muck
+    const alreadyFolded = p.isFolded;
+    return {
       cards: state.holeCards.get(p.id) ?? null,
-      lastAction: null as PlayerAction,
+      lastAction: alreadyFolded
+        ? (null as PlayerAction)
+        : ("muck" as PlayerAction),
+      isFolded: true,
       isActive: false,
-    }),
-  );
+      isWinner: false,
+      winAmount: null,
+      winHand: null,
+    };
+  });
 
   return {
     ...state,

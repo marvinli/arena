@@ -10,6 +10,9 @@ export const ANIM_BUFFER_MS = 100;
 export const SHOWDOWN_DISPLAY_MS = 5000;
 export const LEADERBOARD_DISPLAY_MS = 3000;
 
+// Pause before showing hand result so viewers can see the final board
+export const PRE_SHOWDOWN_PAUSE_MS = 2000;
+
 export function dealAnimDuration(playerCount: number): number {
   if (playerCount <= 0) return 0;
   return (

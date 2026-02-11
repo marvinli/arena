@@ -5,6 +5,7 @@ import {
   communityAnimDuration,
   dealAnimDuration,
   LEADERBOARD_DISPLAY_MS,
+  PRE_SHOWDOWN_PAUSE_MS,
   SHOWDOWN_DISPLAY_MS,
 } from "./timing";
 import type { GqlInstruction } from "./types";
@@ -46,6 +47,11 @@ export function createRenderQueue(deps: RenderQueueDeps) {
             inst.type === "PLAYER_ACTION"
           ) {
             await ttsGate;
+          }
+
+          // Pause before showdown so viewers can see the final board
+          if (inst.type === "HAND_RESULT") {
+            await delay(PRE_SHOWDOWN_PAUSE_MS, deps.signal);
           }
 
           // Capture player metadata before dispatching

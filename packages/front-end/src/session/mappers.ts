@@ -27,6 +27,9 @@ export function mapPlayer(
     isFolded: info.status === "FOLDED",
     isActive: existing?.isActive ?? false,
     isAllIn: info.status === "ALL_IN",
+    isWinner: false,
+    winAmount: null,
+    winHand: null,
     lastAction: existing?.lastAction ?? null,
     currentBet: info.bet,
   };
