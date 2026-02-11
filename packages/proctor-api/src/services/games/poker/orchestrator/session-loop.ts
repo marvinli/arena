@@ -85,9 +85,7 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
     const postHandState = poker.getGameState(ctx.gameId);
     updateGameState(session, postHandState);
 
-    if (
-      isGameOver(postHandState)
-    ) {
+    if (isGameOver(postHandState)) {
       const activePlayers = postHandState.players.filter(
         (p) => p.status !== "BUSTED",
       );

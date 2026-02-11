@@ -141,12 +141,9 @@ describe("orchestrator", () => {
     };
 
     const instructions = spyOnPublish();
-
-    // Both players always auto-fold → chips oscillate. Abort after first hand.
-    setTimeout(() => session.abortController.abort(), 100);
     await runSession(session, failingRunner, "test-module");
 
-    expect(["FINISHED", "STOPPED"]).toContain(session.status);
+    expect(session.status).toBe("FINISHED");
 
     // Should have emitted a PLAYER_ACTION with FOLD (or CHECK) as fallback
     const action = instructions.find((i) => i.type === "PLAYER_ACTION");
@@ -157,7 +154,7 @@ describe("orchestrator", () => {
     const analysis = instructions.find((i) => i.type === "PLAYER_ANALYSIS");
     expect(analysis).toBeDefined();
     expect(analysis!.playerAnalysis!.isApiError).toBe(true);
-  }, 30_000);
+  }, 60_000);
 
   it("stops on abort signal", async () => {
     const session = createSession("test-channel", {
@@ -298,12 +295,10 @@ describe("orchestrator", () => {
     };
 
     const instructions = spyOnPublish();
-
-    // Both players always auto-fold → chips oscillate. Abort after first hand.
-    setTimeout(() => session.abortController.abort(), 100);
     await runSession(session, badActionRunner, "test-module");
 
-    expect(["FINISHED", "STOPPED"]).toContain(session.status);
+    // Should have completed via blind escalation forcing all-in showdown
+    expect(session.status).toBe("FINISHED");
 
     // Agent should have been called at least once
     expect(callCount).toBeGreaterThanOrEqual(1);
@@ -312,7 +307,7 @@ describe("orchestrator", () => {
     const actions = instructions.filter((i) => i.type === "PLAYER_ACTION");
     expect(actions.length).toBeGreaterThan(0);
     expect(["FOLD", "CHECK"]).toContain(actions[0].playerAction!.action);
-  });
+  }, 30_000);
 
   it("injects opponent actions into other players' agents", async () => {
     const session = createSession("test-channel", baseConfig);
