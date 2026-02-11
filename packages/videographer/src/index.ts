@@ -1,4 +1,8 @@
-import "dotenv/config";
+import { createServer } from "node:http";
+import { join } from "node:path";
+import dotenv from "dotenv";
+
+dotenv.config({ path: join(import.meta.dirname, "../../../.env") });
 import { type BrowserCapture, startCapture } from "./browser.js";
 import { loadConfig } from "./config.js";
 import { type FfmpegProcess, startFfmpeg } from "./ffmpeg.js";
@@ -7,28 +11,107 @@ const config = loadConfig();
 let capture: BrowserCapture | null = null;
 let ffmpeg: FfmpegProcess | null = null;
 let shuttingDown = false;
+let status: "idle" | "starting" | "streaming" | "error" = "idle";
 
-async function shutdown(reason: string): Promise<void> {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  console.log(`[videographer] shutting down: ${reason}`);
+// ── Health server ────────────────────────────────────────
+
+const HEALTH_PORT = process.env.HEALTH_PORT ?? 3001;
+
+const healthServer = createServer((req, res) => {
+  if (req.url === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status }));
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
+
+healthServer.listen(HEALTH_PORT, () => {
+  console.log(`[videographer] health server on :${HEALTH_PORT}`);
+});
+
+// ── Live flag polling ────────────────────────────────────
+
+const PROCTOR_URL = process.env.PROCTOR_URL ?? "http://localhost:4001";
+const POLL_INTERVAL_MS = 5000;
+
+async function isLive(): Promise<boolean> {
+  try {
+    const res = await fetch(`${PROCTOR_URL}/graphql`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "{ live }" }),
+    });
+    const json = (await res.json()) as { data?: { live: boolean } };
+    return json.data?.live ?? false;
+  } catch {
+    return false;
+  }
+}
+
+// ── Start / stop streaming ───────────────────────────────
+
+async function startStreaming(): Promise<void> {
+  status = "starting";
+  const output = config.rtmpUrl ?? config.outputFile;
+  console.log("[videographer] starting...");
+  console.log(`[videographer] frontend: ${config.frontendUrl}`);
+  console.log(`[videographer] output: ${output}`);
+  console.log(
+    `[videographer] resolution: ${config.width}x${config.height}@${config.fps}fps`,
+  );
+
+  await waitForFrontend(config.frontendUrl);
+
+  capture = await startCapture(config);
+  console.log("[videographer] browser capture started");
+
+  ffmpeg = startFfmpeg(capture.stream, config);
+  console.log(
+    config.rtmpUrl
+      ? "[videographer] ffmpeg started, streaming to RTMP"
+      : `[videographer] ffmpeg started, recording to ${config.outputFile}`,
+  );
+
+  status = "streaming";
+}
+
+async function stopStreaming(): Promise<void> {
+  console.log("[videographer] stopping stream...");
 
   if (ffmpeg) {
     ffmpeg.process.kill("SIGTERM");
     const timeout = setTimeout(() => ffmpeg?.process.kill("SIGKILL"), 5000);
     await ffmpeg.done;
     clearTimeout(timeout);
+    ffmpeg = null;
   }
 
   if (capture) {
     await capture.cleanup();
+    capture = null;
   }
 
+  status = "idle";
+  console.log("[videographer] stream stopped, idle");
+}
+
+// ── Shutdown ─────────────────────────────────────────────
+
+async function shutdown(reason: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[videographer] shutting down: ${reason}`);
+  await stopStreaming();
+  healthServer.close();
   process.exit(0);
 }
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+
+// ── Helpers ──────────────────────────────────────────────
 
 async function waitForFrontend(url: string): Promise<void> {
   const maxAttempts = 30;
@@ -54,37 +137,46 @@ async function waitForFrontend(url: string): Promise<void> {
   );
 }
 
-async function start(): Promise<void> {
-  const output = config.rtmpUrl ?? config.outputFile;
-  console.log("[videographer] starting...");
-  console.log(`[videographer] frontend: ${config.frontendUrl}`);
-  console.log(`[videographer] output: ${output}`);
-  console.log(
-    `[videographer] resolution: ${config.width}x${config.height}@${config.fps}fps`,
-  );
+// ── Main loop ────────────────────────────────────────────
 
-  await waitForFrontend(config.frontendUrl);
+async function run(): Promise<void> {
+  while (!shuttingDown) {
+    const live = await isLive();
 
-  capture = await startCapture(config);
-  console.log("[videographer] browser capture started");
+    if (live && status === "idle") {
+      try {
+        await startStreaming();
+      } catch (err) {
+        console.error("[videographer] failed to start:", err);
+        status = "error";
+        // Wait before retrying
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        status = "idle";
+        continue;
+      }
+      // Monitor ffmpeg — if it exits unexpectedly, go back to idle
+      if (ffmpeg) {
+        ffmpeg.done.then(({ code, signal }) => {
+          if (!shuttingDown && status === "streaming") {
+            console.error(
+              `[ffmpeg] exited unexpectedly (code=${code}, signal=${signal})`,
+            );
+            capture?.cleanup().catch(() => {});
+            capture = null;
+            ffmpeg = null;
+            status = "idle";
+          }
+        });
+      }
+    } else if (!live && status === "streaming") {
+      await stopStreaming();
+    }
 
-  ffmpeg = startFfmpeg(capture.stream, config);
-  console.log(
-    config.rtmpUrl
-      ? "[videographer] ffmpeg started, streaming to RTMP"
-      : `[videographer] ffmpeg started, recording to ${config.outputFile}`,
-  );
-
-  const { code, signal } = await ffmpeg.done;
-  if (!shuttingDown) {
-    console.error(
-      `[ffmpeg] exited unexpectedly (code=${code}, signal=${signal})`,
-    );
-    await shutdown("ffmpeg exited");
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
 }
 
-start().catch(async (err) => {
+run().catch(async (err) => {
   console.error("[videographer] fatal error:", err);
   await shutdown("fatal error").catch(() => {});
   process.exit(1);
