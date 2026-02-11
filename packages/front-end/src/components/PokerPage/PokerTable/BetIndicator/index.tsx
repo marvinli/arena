@@ -1,6 +1,6 @@
-import { formatChips } from "../chips";
-import { ChipIcon } from "./ChipStack";
-import styles from "./PokerTable.module.css";
+import { formatChips } from "../../../../chips";
+import { ChipIcon } from "../ChipStack";
+import styles from "../PokerTable.module.css";
 
 export function BetIndicator({
   amount,

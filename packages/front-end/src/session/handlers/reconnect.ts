@@ -1,4 +1,4 @@
-import type { GamePhase, GameState } from "../../types";
+import type { GamePhase, GameState, GameView } from "../../types";
 import { CHANNEL_KEY } from "../config";
 import { mapCard, mapPlayers, mapPots } from "../mappers";
 import type { GqlChannelState } from "../types";
@@ -19,9 +19,14 @@ export function handleReconnect(cs: GqlChannelState): GameState {
   }));
 
   const status = cs.status === "FINISHED" ? "finished" : "running";
+  const currentView: GameView =
+    cs.phase === "WAITING" || cs.status === "FINISHED"
+      ? "leaderboard"
+      : "poker";
 
   return {
     status,
+    currentView,
     channelKey: CHANNEL_KEY,
     gameId: cs.gameId,
     handNumber: cs.handNumber,

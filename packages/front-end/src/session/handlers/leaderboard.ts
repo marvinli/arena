@@ -19,6 +19,7 @@ export function handleLeaderboard(
   return {
     ...state,
     phase: "WAITING" as GamePhase,
+    currentView: "leaderboard",
     players,
     communityCards: [],
     pots: [],

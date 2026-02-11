@@ -1,5 +1,8 @@
-import { PokerTable } from "./components/PokerTable";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { PokerLeaderboardPage } from "./components/PokerLeaderboardPage";
+import { PokerPage } from "./components/PokerPage";
 import { useGameSession } from "./hooks/useGameSession";
+import { useRouteSync } from "./hooks/useRouteSync";
 import { getMockFixture } from "./mockData";
 import "./styles/global.css";
 
@@ -9,11 +12,13 @@ const mockParam = params.get("mock");
 export function App() {
   const { state } = useGameSession();
 
+  useRouteSync(state.currentView);
+
   if (mockParam !== null) {
     const mock = getMockFixture(mockParam || "default");
     return (
       <div className="app">
-        <PokerTable
+        <PokerPage
           players={mock.players}
           communityCards={mock.communityCards}
           pots={mock.pots}
@@ -29,16 +34,33 @@ export function App() {
 
   return (
     <div className="app">
-      <PokerTable
-        players={state.players}
-        communityCards={state.communityCards}
-        pots={state.pots}
-        speakingPlayerId={state.speakingPlayerId}
-        analysisText={state.analysisText}
-        isApiError={state.isApiError}
-        handNumber={state.handNumber}
-        button={state.button}
-      />
+      <Routes>
+        <Route
+          path="/poker"
+          element={
+            <PokerPage
+              players={state.players}
+              communityCards={state.communityCards}
+              pots={state.pots}
+              speakingPlayerId={state.speakingPlayerId}
+              analysisText={state.analysisText}
+              isApiError={state.isApiError}
+              handNumber={state.handNumber}
+              button={state.button}
+            />
+          }
+        />
+        <Route
+          path="/poker/leaderboard"
+          element={
+            <PokerLeaderboardPage
+              players={state.players}
+              handNumber={state.handNumber}
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="/poker" replace />} />
+      </Routes>
     </div>
   );
 }

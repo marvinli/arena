@@ -1,4 +1,4 @@
-import { formatChips } from "../chips";
+import { formatChips } from "../../../../chips";
 import styles from "./ChipStack.module.css";
 
 export function ChipIcon({

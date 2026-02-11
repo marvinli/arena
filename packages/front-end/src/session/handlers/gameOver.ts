@@ -18,6 +18,7 @@ export function handleGameOver(
   return {
     ...state,
     status: "finished",
+    currentView: "leaderboard",
     players,
   };
 }

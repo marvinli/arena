@@ -34,6 +34,7 @@ export const INITIAL_STATE: GameState = {
   gameId: null,
   handNumber: 0,
   phase: "WAITING",
+  currentView: "poker",
   smallBlind: 0,
   bigBlind: 0,
   button: null,

@@ -1,0 +1,69 @@
+.sidePanel {
+  width: 18vw;
+  height: calc(100vh - 10vh);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1vw;
+  padding: 1.5vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1vw;
+  overflow-y: auto;
+}
+
+.sidePanelContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1vw;
+  width: 100%;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.sidePanelVisible {
+  opacity: 1;
+}
+
+.sidePanelAvatar {
+  width: 3.5vw;
+  height: 3.5vw;
+  border-radius: 50%;
+  background: rgba(15, 20, 25, 0.9);
+  border: 0.15vw solid var(--seat-color, #3b3f54);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #e0e4ef;
+}
+
+.sidePanelName {
+  font-size: 1vw;
+  font-weight: 700;
+  color: #e0e4ef;
+  text-align: center;
+}
+
+.apiErrorPill {
+  font-size: 0.7vw;
+  font-weight: 700;
+  color: #ff6b6b;
+  background: rgba(220, 50, 50, 0.2);
+  border: 1px solid rgba(220, 50, 50, 0.4);
+  border-radius: 0.5vw;
+  padding: 0.2vw 0.6vw;
+  letter-spacing: 0.04vw;
+  text-transform: uppercase;
+}
+
+.sidePanelText {
+  font-size: 1.1vw;
+  font-weight: 400;
+  color: #c0c4cf;
+  line-height: 1.6;
+  text-align: left;
+  width: 100%;
+}

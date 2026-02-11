@@ -39,6 +39,8 @@ export type CommunityCards = Card[];
 
 // ── Game state types ────────────────────────────────────
 
+export type GameView = "poker" | "leaderboard";
+
 export type GamePhase =
   | "WAITING"
   | "PREFLOP"
@@ -60,6 +62,7 @@ export interface GameState {
   gameId: string | null;
   handNumber: number;
   phase: GamePhase;
+  currentView: GameView;
   smallBlind: number;
   bigBlind: number;
   button: number | null;

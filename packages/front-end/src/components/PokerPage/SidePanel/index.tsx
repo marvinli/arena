@@ -1,6 +1,6 @@
-import type { Player } from "../types";
-import styles from "./PokerTable.module.css";
-import { ProviderIcon } from "./ProviderIcon";
+import type { Player } from "../../../types";
+import { ProviderIcon } from "../ProviderIcon";
+import styles from "./SidePanel.module.css";
 
 export function SidePanel({
   speakingPlayer,

@@ -21,6 +21,7 @@ export function handleDealHands(
     ...state,
     handNumber: dh.handNumber,
     phase: "PREFLOP" as GamePhase,
+    currentView: "poker",
     button: dh.button,
     players,
     communityCards: [],

@@ -10,6 +10,7 @@ Design docs live in `docs/`:
 - [PROGRAMMING_LOOP.md](docs/PROGRAMMING_LOOP.md) — module/instruction loop, channel state, reconnection
 - [POKER_PLAYER_TURNS.md](docs/POKER_PLAYER_TURNS.md) — how agents play poker, tool call schema, conversation state
 - [FRONT_END_INTEGRATION.md](docs/FRONT_END_INTEGRATION.md) — SSE subscription, render queue, ACK protocol
+- [FRONT_END_ROUTING.md](docs/FRONT_END_ROUTING.md) — client-side routing, component hierarchy, instruction-driven navigation
 - [VIDEOGRAPHER.md](docs/VIDEOGRAPHER.md) — headless capture pipeline, Puppeteer → ffmpeg → RTMP
 
 ## Packages
@@ -97,7 +98,36 @@ src/services/games/poker/
 
 ## Front-End Architecture
 
-The front-end is a pure renderer — no game logic. It subscribes to SSE render instructions, renders them with animations and TTS, and acks each one.
+The front-end is a pure renderer — no game logic. It subscribes to SSE render instructions, renders them with animations and TTS, and acks each one. Uses react-router-dom for client-side routing; navigation is **instruction-driven** (the proctor decides which page to show). See [FRONT_END_ROUTING.md](docs/FRONT_END_ROUTING.md) for details.
+
+### Routes
+
+- `/poker` — active hand play (PokerPage)
+- `/poker/leaderboard` — between-hands standings (PokerLeaderboardPage)
+- `/` — redirects to `/poker`
+
+### Component Hierarchy
+
+```
+src/components/
+  PokerPage/                         # Poker game page
+    index.tsx                        # Page shell (composes PokerTable + SidePanel)
+    PokerTable/
+      index.tsx                      # Table scene: seats, community, bets
+      PlayerSeat/                    # Individual player seat
+      CommunityArea/                 # Pot labels + 5 card slots
+      BetIndicator/                  # Bet chip with toward-center positioning
+      PlayingCard/                   # Card with 3D flip animation
+      ChipStack/                     # Chip icon + formatted amount
+      layout.ts                      # Seat positions + colors (data only)
+    SidePanel/                       # Speaking player + analysis text
+    ProviderIcon.tsx                 # AI provider brand icons
+  PokerLeaderboardPage/              # Between-hands leaderboard
+    index.tsx
+  shared/                            # Cross-page components (empty — emerges as needed)
+```
+
+### Other Source
 
 ```
 src/
@@ -113,18 +143,9 @@ src/
   hooks/
     useGameSession.ts    # Session lifecycle (start/stop)
     useSSELoop.ts        # SSE subscribe/ack/reconnect loop
+    useRouteSync.ts      # Syncs GameState.currentView → browser URL
     useDealAnimation.ts  # Staged hole card deal animation
     useCommunityDealAnimation.ts
-  components/
-    PokerTable.tsx       # Main table composition
-    CommunityArea.tsx    # Pot labels + 5 card slots
-    BetIndicator.tsx     # Bet chip with toward-center positioning
-    SidePanel.tsx        # Speaking player + analysis text
-    PlayerSeat.tsx       # Individual player seat
-    PlayingCard.tsx      # Card with 3D flip animation
-    ChipStack.tsx        # Chip icon + formatted amount
-    ProviderIcon.tsx     # AI provider brand icons
-    layout.ts            # Seat positions + colors (data, not UI)
   tts.ts                 # OpenAI streaming TTS (gpt-4o-mini-tts, PCM via Web Audio API)
   types.ts               # Core app types (Card, Player, GameState, etc.)
 ```
@@ -133,9 +154,15 @@ src/
 
 ```
 SSE stream → RenderQueue (animation/TTS gates) → useReducer dispatch → React components
+                                                      ↓
+                                              GameState.currentView
+                                                      ↓
+                                              useRouteSync → navigate()
 ```
 
 The render queue decouples instruction arrival rate from rendering. It uses Promise-based gates to sequence deal animations, display pauses (showdown, leaderboard), and TTS playback. The front-end ACKs each instruction immediately via GraphQL mutation, enabling the proctor to pipeline the next LLM call while the front-end renders at its own pace.
+
+The reducer sets `currentView` based on instruction type (e.g. `LEADERBOARD` → `"leaderboard"`, `DEAL_HANDS` → `"poker"`). The `useRouteSync` hook watches this field and calls `navigate()` to keep the URL in sync.
 
 ### TTS
 

@@ -20,6 +20,7 @@ export function handleGameStart(
   return {
     ...state,
     status: "running",
+    currentView: "poker",
     gameId: gs.gameId,
     smallBlind: gs.smallBlind,
     bigBlind: gs.bigBlind,

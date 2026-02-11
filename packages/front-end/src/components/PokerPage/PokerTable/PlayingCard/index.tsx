@@ -1,4 +1,4 @@
-import type { Card } from "../types";
+import type { Card } from "../../../../types";
 import styles from "./PlayingCard.module.css";
 
 const SUIT_SYMBOLS: Record<Card["suit"], string> = {

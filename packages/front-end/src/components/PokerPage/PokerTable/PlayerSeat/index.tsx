@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { formatChips } from "../chips";
-import type { Player } from "../types";
-import { ChipStackDisplay } from "./ChipStack";
+import { formatChips } from "../../../../chips";
+import type { Player } from "../../../../types";
+import { KNOWN_PROVIDERS, ProviderIcon } from "../../ProviderIcon";
+import { ChipStackDisplay } from "../ChipStack";
+import { PlayingCard } from "../PlayingCard";
 import styles from "./PlayerSeat.module.css";
-import { PlayingCard } from "./PlayingCard";
-import { KNOWN_PROVIDERS, ProviderIcon } from "./ProviderIcon";
 
 export function PlayerSeat({
   player,

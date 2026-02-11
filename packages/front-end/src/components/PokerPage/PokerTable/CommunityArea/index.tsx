@@ -1,8 +1,8 @@
-import { formatChips } from "../chips";
-import type { CommunityCardState } from "../hooks/useCommunityDealAnimation";
-import type { Card, Pot } from "../types";
-import { PlayingCard } from "./PlayingCard";
-import styles from "./PokerTable.module.css";
+import { formatChips } from "../../../../chips";
+import type { CommunityCardState } from "../../../../hooks/useCommunityDealAnimation";
+import type { Card, Pot } from "../../../../types";
+import { PlayingCard } from "../PlayingCard";
+import styles from "../PokerTable.module.css";
 
 export function CommunityArea({
   communityCards,
