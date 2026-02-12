@@ -31,6 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     fonts-noto-color-emoji \
     fonts-noto-cjk \
+    xvfb \
+    xauth \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -46,4 +48,4 @@ ENV CHROME_PATH=/usr/bin/chromium
 # Default: capture from the arena-app container on localhost
 ENV FRONTEND_URL=http://localhost/
 
-CMD ["node", "dist/index.js"]
+CMD xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node dist/index.js

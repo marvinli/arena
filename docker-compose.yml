@@ -18,7 +18,7 @@ services:
       dockerfile: Dockerfile.admin
       args:
         VITE_COGNITO_DOMAIN: arena-admin.auth.us-east-1.amazoncognito.com
-        VITE_COGNITO_CLIENT_ID: 38nfmbu76r9fikl87v61ltetor
+        VITE_COGNITO_CLIENT_ID: 3m1dh51noh49kblvjhgvuvjj1d
         VITE_REDIRECT_URI: http://localhost:8081
     ports:
       - "8081:8080"
@@ -26,8 +26,8 @@ services:
       PORT: 3000
       PROCTOR_URL: http://app:4001
       VIDEOGRAPHER_URL: http://videographer:3001
-      COGNITO_USER_POOL_ID: us-east-1_hnEgjGSN5
-      COGNITO_CLIENT_ID: 38nfmbu76r9fikl87v61ltetor
+      COGNITO_USER_POOL_ID: us-east-1_ceAFjiItB
+      COGNITO_CLIENT_ID: 3m1dh51noh49kblvjhgvuvjj1d
     depends_on:
       - app
 
