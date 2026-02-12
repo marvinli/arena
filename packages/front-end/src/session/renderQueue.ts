@@ -18,6 +18,7 @@ export interface RenderQueueDeps {
   dispatch: (action: Action) => void;
   voiceMap: Map<string, string>;
   signal: AbortSignal;
+  onProcessed?: (instruction: GqlInstruction) => void;
 }
 
 export function createRenderQueue(deps: RenderQueueDeps) {
@@ -97,6 +98,7 @@ async function drain(
     if (handler.preWait) await handler.preWait(inst, ctx);
     handler.execute(inst, ctx);
     if (handler.postWait) await handler.postWait(inst, ctx);
+    deps.onProcessed?.(inst);
   }
 }
 

@@ -32,9 +32,19 @@ export function useSSELoop(dispatch: (action: Action) => void) {
         dispatch,
         voiceMap,
         signal: abort.signal,
+        onProcessed: (instruction) => {
+          // Ack after the render queue has finished processing
+          // (animations + TTS) so the pointer reflects what's
+          // actually been rendered. Fire-and-forget is fine here.
+          void gqlFetch(COMPLETE_INSTRUCTION_MUT, {
+            channelKey: CHANNEL_KEY,
+            moduleId: instruction.moduleId,
+            instructionId: instruction.instructionId,
+          });
+        },
       });
 
-      // ── SSE consumer — acks immediately for pipelining ─
+      // ── SSE consumer ─────────────────────────────────────
       void (async () => {
         try {
           for await (const instruction of sseSubscribe(
@@ -44,14 +54,6 @@ export function useSSELoop(dispatch: (action: Action) => void) {
             onConnected,
           )) {
             rq.push(instruction);
-
-            // Ack immediately so the proctor can pipeline the
-            // next LLM call while we render at our own pace.
-            await gqlFetch(COMPLETE_INSTRUCTION_MUT, {
-              channelKey: CHANNEL_KEY,
-              moduleId: instruction.moduleId,
-              instructionId: instruction.instructionId,
-            });
           }
 
           // SSE stream ended normally — reconnect
