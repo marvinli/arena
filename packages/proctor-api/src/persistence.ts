@@ -41,6 +41,18 @@ db.exec(`
   );
 `);
 
+// ── Schema migrations (idempotent) ────────────────────────
+try {
+  db.exec("ALTER TABLE instructions ADD COLUMN state_snapshot TEXT");
+} catch {
+  /* column already exists */
+}
+try {
+  db.exec("ALTER TABLE channel_state ADD COLUMN acked_instruction_ts INTEGER");
+} catch {
+  /* column already exists */
+}
+
 // ── Row types (match SQLite column names) ─────────────────
 
 interface ModuleRow {
@@ -56,6 +68,7 @@ interface InstructionRow {
   timestamp_ms: number;
   type: string;
   payload: string;
+  state_snapshot: string | null;
 }
 
 interface ChannelStateRow {
@@ -63,6 +76,7 @@ interface ChannelStateRow {
   module_id: string;
   instruction_ts: number | null;
   state_snapshot: string | null;
+  acked_instruction_ts: number | null;
 }
 
 interface AgentMessageRow {
@@ -142,7 +156,7 @@ export interface Instruction {
 }
 
 const insertInstructionStmt = db.prepare(
-  "INSERT INTO instructions (module_id, timestamp_ms, type, payload) VALUES (?, ?, ?, ?)",
+  "INSERT INTO instructions (module_id, timestamp_ms, type, payload, state_snapshot) VALUES (?, ?, ?, ?, ?)",
 );
 
 const selectInstructionsStmt = db.prepare<[string], InstructionRow>(
@@ -174,12 +188,14 @@ export function insertInstruction(
   timestampMs: number,
   type: string,
   payload: object,
+  stateSnapshot: string | null = null,
 ): void {
   insertInstructionStmt.run(
     moduleId,
     timestampMs,
     type,
     JSON.stringify(payload),
+    stateSnapshot,
   );
 }
 
@@ -208,10 +224,11 @@ export interface ChannelState {
   moduleId: string;
   instructionTs: number | null;
   stateSnapshot: string | null;
+  ackedInstructionTs: number | null;
 }
 
 const selectChannelStateStmt = db.prepare<[string], ChannelStateRow>(
-  "SELECT channel_key, module_id, instruction_ts, state_snapshot FROM channel_state WHERE channel_key = ?",
+  "SELECT channel_key, module_id, instruction_ts, state_snapshot, acked_instruction_ts FROM channel_state WHERE channel_key = ?",
 );
 
 const upsertChannelStateStmt = db.prepare(`
@@ -229,6 +246,7 @@ function rowToChannelState(row: ChannelStateRow): ChannelState {
     moduleId: row.module_id,
     instructionTs: row.instruction_ts,
     stateSnapshot: row.state_snapshot,
+    ackedInstructionTs: row.acked_instruction_ts,
   };
 }
 
@@ -249,6 +267,32 @@ export function upsertChannelState(
     instructionTs,
     stateSnapshot,
   );
+}
+
+const ackInstructionStmt = db.prepare(
+  "UPDATE channel_state SET acked_instruction_ts = ? WHERE channel_key = ?",
+);
+
+export function ackInstruction(
+  channelKey: string,
+  instructionTs: number,
+): void {
+  ackInstructionStmt.run(instructionTs, channelKey);
+}
+
+const selectInstructionSnapshotStmt = db.prepare<
+  [string, number],
+  { state_snapshot: string | null }
+>(
+  "SELECT state_snapshot FROM instructions WHERE module_id = ? AND timestamp_ms = ?",
+);
+
+export function getInstructionSnapshot(
+  moduleId: string,
+  timestampMs: number,
+): string | null {
+  const row = selectInstructionSnapshotStmt.get(moduleId, timestampMs);
+  return row?.state_snapshot ?? null;
 }
 
 // ── Agent Messages ─────────────────────────────────────────

@@ -3,7 +3,11 @@ import type {
   ProctorGameState,
   RenderInstruction,
 } from "../../gql/resolverTypes.js";
-import { getChannelState as getChannelStateFromDb } from "../../persistence.js";
+import {
+  ackInstruction,
+  getChannelState as getChannelStateFromDb,
+  getInstructionSnapshot,
+} from "../../persistence.js";
 
 export interface SessionPlayer {
   id: string;
@@ -122,14 +126,22 @@ export function connect(channelKey: string): ConnectResult {
     };
   }
 
+  // Return the game state at the last acked instruction (not the latest emitted).
+  // The SSE subscription replays unacked instructions after this point.
   let gameState: ProctorGameState | null = null;
-  if (state.stateSnapshot) {
-    try {
-      gameState = JSON.parse(state.stateSnapshot) as ProctorGameState;
-    } catch (e) {
-      console.warn(
-        `[session-manager] Corrupt stateSnapshot for ${channelKey}, ignoring: ${e}`,
-      );
+  if (state.ackedInstructionTs != null) {
+    const snapshot = getInstructionSnapshot(
+      state.moduleId,
+      state.ackedInstructionTs,
+    );
+    if (snapshot) {
+      try {
+        gameState = JSON.parse(snapshot) as ProctorGameState;
+      } catch (e) {
+        console.warn(
+          `[session-manager] Corrupt acked snapshot for ${channelKey}, ignoring: ${e}`,
+        );
+      }
     }
   }
 
@@ -141,12 +153,11 @@ export function connect(channelKey: string): ConnectResult {
 }
 
 export function completeInstruction(
-  _channelKey: string,
+  channelKey: string,
   _moduleId: string,
-  _instructionId: string,
+  instructionId: string,
 ): boolean {
-  // Channel state is now persisted by the emitter on every instruction.
-  // This mutation is kept as a client ack signal for future back-pressure.
+  ackInstruction(channelKey, Number(instructionId));
   return true;
 }
 

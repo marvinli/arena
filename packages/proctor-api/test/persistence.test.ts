@@ -122,6 +122,7 @@ describe("persistence", () => {
         moduleId: "mod-1",
         instructionTs: 100,
         stateSnapshot: '{"x":1}',
+        ackedInstructionTs: null,
       });
     });
 

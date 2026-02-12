@@ -8,10 +8,16 @@ vi.mock("../../../src/persistence.js", () => ({
   insertInstruction: vi.fn(),
   appendAgentMessage: vi.fn(),
   getAgentMessages: vi.fn(() => []),
+  ackInstruction: vi.fn(),
+  getInstructionSnapshot: vi.fn(),
 }));
 
 import { GAME_CONFIG } from "../../../src/game-config.js";
-import { getChannelState as mockGetChannelState } from "../../../src/persistence.js";
+import {
+  ackInstruction as mockAckInstruction,
+  getChannelState as mockGetChannelState,
+  getInstructionSnapshot as mockGetInstructionSnapshot,
+} from "../../../src/persistence.js";
 import {
   _resetSessions,
   completeInstruction,
@@ -24,6 +30,7 @@ import {
 describe("session-manager", () => {
   beforeEach(() => {
     _resetSessions();
+    vi.clearAllMocks();
   });
 
   describe("createSession", () => {
@@ -88,19 +95,23 @@ describe("session-manager", () => {
       expect(result.gameState).toBeNull();
     });
 
-    it("returns null gameState for corrupted snapshot", () => {
+    it("returns null gameState for corrupted acked snapshot", () => {
       vi.mocked(mockGetChannelState).mockReturnValue({
         channelKey: "test-channel",
         moduleId: "mod-abc",
         instructionTs: 100,
-        stateSnapshot: "NOT VALID JSON {{{",
+        stateSnapshot: '{"valid":"json"}',
+        ackedInstructionTs: 100,
       });
+      vi.mocked(mockGetInstructionSnapshot).mockReturnValue(
+        "NOT VALID JSON {{{",
+      );
       const result = connect("test-channel");
       expect(result.moduleId).toBe("mod-abc");
       expect(result.gameState).toBeNull();
     });
 
-    it("returns snapshot for returning channel", () => {
+    it("returns acked snapshot for returning channel", () => {
       const snapshot = JSON.stringify({
         channelKey: "test-channel",
         handNumber: 3,
@@ -111,20 +122,37 @@ describe("session-manager", () => {
       vi.mocked(mockGetChannelState).mockReturnValue({
         channelKey: "test-channel",
         moduleId: "mod-abc",
-        instructionTs: 100,
-        stateSnapshot: snapshot,
+        instructionTs: 200,
+        stateSnapshot: "latest-not-used",
+        ackedInstructionTs: 100,
       });
+      vi.mocked(mockGetInstructionSnapshot).mockReturnValue(snapshot);
       const result = connect("test-channel");
       expect(result.moduleId).toBe("mod-abc");
       expect(result.moduleType).toBe("poker");
       expect(result.gameState).toEqual(JSON.parse(snapshot));
+      expect(mockGetInstructionSnapshot).toHaveBeenCalledWith("mod-abc", 100);
+    });
+
+    it("returns null gameState when no instructions acked", () => {
+      vi.mocked(mockGetChannelState).mockReturnValue({
+        channelKey: "test-channel",
+        moduleId: "mod-abc",
+        instructionTs: 100,
+        stateSnapshot: '{"some":"data"}',
+        ackedInstructionTs: null,
+      });
+      const result = connect("test-channel");
+      expect(result.moduleId).toBe("mod-abc");
+      expect(result.gameState).toBeNull();
     });
   });
 
   describe("completeInstruction", () => {
-    it("returns true (client ack signal)", () => {
+    it("acks the instruction and returns true", () => {
       const result = completeInstruction("test-channel", "mod-1", "12345");
       expect(result).toBe(true);
+      expect(mockAckInstruction).toHaveBeenCalledWith("test-channel", 12345);
     });
   });
 });

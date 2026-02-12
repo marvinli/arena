@@ -10,6 +10,8 @@ vi.mock("../src/persistence.js", () => ({
   getAgentMessages: vi.fn(() => []),
   getSetting: vi.fn(() => "true"),
   setSetting: vi.fn(),
+  ackInstruction: vi.fn(),
+  getInstructionSnapshot: vi.fn(),
 }));
 
 import { _resetGames } from "../src/services/games/poker/poker-engine/index.js";

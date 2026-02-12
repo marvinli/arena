@@ -36,17 +36,19 @@ function persistInstruction(
   session: Session,
   instruction: RenderInstruction,
 ): void {
+  const snapshot = buildSnapshot(session);
   insertInstruction(
     moduleId,
     Number(instruction.instructionId),
     instruction.type,
     instruction,
+    snapshot,
   );
   upsertChannelState(
     session.channelKey,
     moduleId,
     Number(instruction.instructionId),
-    buildSnapshot(session),
+    snapshot,
   );
 }
 
