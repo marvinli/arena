@@ -14,6 +14,10 @@ import type { RenderInstruction } from "../../../../src/gql/resolverTypes.js";
 import type { AgentRunner } from "../../../../src/services/games/poker/agent-runner.js";
 import { runSession } from "../../../../src/services/games/poker/orchestrator/index.js";
 import { _resetGames } from "../../../../src/services/games/poker/poker-engine/index.js";
+import {
+  _resetAckGate,
+  notifyAck,
+} from "../../../../src/services/session/ack-gate.js";
 import * as pubsub from "../../../../src/services/session/pubsub.js";
 import { _resetPubSub } from "../../../../src/services/session/pubsub.js";
 import {
@@ -58,11 +62,12 @@ const baseConfig = {
   handsPerLevel: 1,
 };
 
-/** Spy on publish to capture all emitted instructions */
+/** Spy on publish to capture all emitted instructions and auto-ack them */
 function spyOnPublish(): RenderInstruction[] {
   const instructions: RenderInstruction[] = [];
   vi.spyOn(pubsub, "publish").mockImplementation((_channelKey, instruction) => {
     instructions.push(instruction);
+    notifyAck(instruction.moduleId, instruction.instructionId);
   });
   return instructions;
 }
@@ -74,6 +79,7 @@ describe("orchestrator", () => {
     _resetSessions();
     _resetPubSub();
     _resetGames();
+    _resetAckGate();
     vi.restoreAllMocks();
   });
 
@@ -122,7 +128,9 @@ describe("orchestrator", () => {
     const instructions = spyOnPublish();
     await runSession(session, agentRunner, "test-module");
 
-    const dealCommunity = instructions.filter((i) => i.type === "DEAL_COMMUNITY");
+    const dealCommunity = instructions.filter(
+      (i) => i.type === "DEAL_COMMUNITY",
+    );
     expect(dealCommunity.length).toBe(3); // flop, turn, river
 
     expect(dealCommunity[0].dealCommunity!.phase).toBe("FLOP");
@@ -368,5 +376,113 @@ describe("orchestrator", () => {
       (m) => m.message.includes("calls") || m.message.includes("folds"),
     );
     expect(opponentActions.length).toBeGreaterThan(0);
+  });
+
+  it("blocks on GAME_START until acked", async () => {
+    const session = createSession("test-channel", baseConfig);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
+
+    // Capture instructions but do NOT auto-ack
+    const instructions: RenderInstruction[] = [];
+    vi.spyOn(pubsub, "publish").mockImplementation(
+      (_channelKey, instruction) => {
+        instructions.push(instruction);
+      },
+    );
+
+    let sessionDone = false;
+    const sessionPromise = runSession(session, agentRunner, "test-module").then(
+      () => {
+        sessionDone = true;
+      },
+    );
+
+    // Give the session loop time to emit GAME_START and block
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(instructions.length).toBe(1);
+    expect(instructions[0].type).toBe("GAME_START");
+    // Session should still be running — blocked waiting for GAME_START ack
+    expect(sessionDone).toBe(false);
+    expect(session.handNumber).toBe(0);
+
+    // Ack GAME_START — now auto-ack everything else so the game finishes
+    vi.spyOn(pubsub, "publish").mockImplementation(
+      (_channelKey, instruction) => {
+        instructions.push(instruction);
+        notifyAck(instruction.moduleId, instruction.instructionId);
+      },
+    );
+    notifyAck("test-module", instructions[0].instructionId);
+
+    await sessionPromise;
+    expect(sessionDone).toBe(true);
+    expect(session.status).toBe("FINISHED");
+  });
+
+  it("blocks on GAME_OVER until acked", async () => {
+    const session = createSession("test-channel", baseConfig);
+    const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
+
+    // Auto-ack everything except GAME_OVER
+    const instructions: RenderInstruction[] = [];
+    vi.spyOn(pubsub, "publish").mockImplementation(
+      (_channelKey, instruction) => {
+        instructions.push(instruction);
+        if (instruction.type !== "GAME_OVER") {
+          notifyAck(instruction.moduleId, instruction.instructionId);
+        }
+      },
+    );
+
+    let sessionDone = false;
+    const sessionPromise = runSession(session, agentRunner, "test-module").then(
+      () => {
+        sessionDone = true;
+      },
+    );
+
+    // Wait for the game to reach GAME_OVER
+    await new Promise((r) => setTimeout(r, 200));
+
+    const gameOver = instructions.find((i) => i.type === "GAME_OVER");
+    expect(gameOver).toBeDefined();
+    // Session should be blocked waiting for GAME_OVER ack
+    expect(sessionDone).toBe(false);
+
+    // Ack GAME_OVER
+    notifyAck("test-module", gameOver!.instructionId);
+
+    await sessionPromise;
+    expect(sessionDone).toBe(true);
+    expect(session.status).toBe("FINISHED");
+  });
+
+  it("abort during GAME_START wait stops without starting hand loop", async () => {
+    const session = createSession("test-channel", {
+      ...baseConfig,
+      startingChips: 10000,
+      smallBlind: 5,
+      bigBlind: 10,
+    });
+    const agentRunner = new PassiveAgentRunner();
+
+    // Do NOT auto-ack — GAME_START will block
+    const instructions: RenderInstruction[] = [];
+    vi.spyOn(pubsub, "publish").mockImplementation(
+      (_channelKey, instruction) => {
+        instructions.push(instruction);
+      },
+    );
+
+    // Abort after GAME_START is emitted but before it's acked
+    setTimeout(() => session.abortController.abort(), 50);
+
+    await runSession(session, agentRunner, "test-module");
+
+    // Only GAME_START should have been emitted — no DEAL_HANDS
+    expect(instructions.length).toBe(1);
+    expect(instructions[0].type).toBe("GAME_START");
+    expect(session.handNumber).toBe(0);
   });
 });

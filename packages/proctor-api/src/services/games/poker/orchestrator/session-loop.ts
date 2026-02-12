@@ -1,12 +1,13 @@
 import type { BlindLevel } from "../../../../game-config.js";
 import { getAgentMessages } from "../../../../persistence.js";
 import type { GameState } from "../../../../types.js";
+import { waitForAck } from "../../../session/ack-gate.js";
 import type { Session } from "../../../session/session-manager.js";
 import type { AgentRunner, PlayerConfig } from "../agent-runner.js";
 import {
-  type GameAwardPayload,
   buildGameOver,
   buildGameStart,
+  type GameAwardPayload,
 } from "../instruction-builder.js";
 import * as poker from "../poker-engine/index.js";
 import { emit, updateGameState } from "./emitter.js";
@@ -26,8 +27,7 @@ function computeAwards(
   tracker: ActionTracker,
   players: GameState["players"],
 ): GameAwardPayload[] {
-  const getName = (id: string) =>
-    players.find((p) => p.id === id)?.name ?? id;
+  const getName = (id: string) => players.find((p) => p.id === id)?.name ?? id;
 
   const entries = [...tracker.entries()].map(([id, s]) => {
     const total = s.folds + s.calls + s.checks + s.bets + s.raises;
@@ -113,9 +113,7 @@ function computeAwards(
   }
 
   // Yolo — most all-ins
-  const byAllIn = [...entries].sort(
-    (a, b) => b.stats.allIns - a.stats.allIns,
-  );
+  const byAllIn = [...entries].sort((a, b) => b.stats.allIns - a.stats.allIns);
   if (byAllIn[0].stats.allIns > 0) {
     const top = topBy(byAllIn, (e) => e.stats.allIns);
     awards.push({
@@ -156,7 +154,9 @@ function computeAwards(
   }
 
   // Analysis Paralysis — longest average analysis
-  const withAnalysis = entries.filter((e) => e.stats.analysisLengths.length > 0);
+  const withAnalysis = entries.filter(
+    (e) => e.stats.analysisLengths.length > 0,
+  );
   const avgAnalysis = (e: (typeof entries)[0]) => {
     const lengths = e.stats.analysisLengths;
     return lengths.length > 0
@@ -286,17 +286,15 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
 
       const awards = computeAwards(ctx.actionTracker, postHandState.players);
 
-      emit(
-        moduleId,
-        session,
-        buildGameOver(
-          winner.id,
-          winner.name,
-          postHandState.players,
-          session.handNumber,
-          awards,
-        ),
+      const gameOverInstruction = buildGameOver(
+        winner.id,
+        winner.name,
+        postHandState.players,
+        session.handNumber,
+        awards,
       );
+      emit(moduleId, session, gameOverInstruction);
+      await waitForAck(moduleId, gameOverInstruction.instructionId, signal);
 
       session.status = "FINISHED";
       poker.deleteGame(ctx.gameId);
@@ -367,19 +365,18 @@ export async function runSession(
     );
   }
 
-  emit(
-    moduleId,
-    session,
-    buildGameStart(
-      gameId,
-      createState.players,
-      {
-        smallBlind: session.config.smallBlind,
-        bigBlind: session.config.bigBlind,
-      },
-      session.config.players,
-    ),
+  const gameStartInstruction = buildGameStart(
+    gameId,
+    createState.players,
+    {
+      smallBlind: session.config.smallBlind,
+      bigBlind: session.config.bigBlind,
+    },
+    session.config.players,
   );
+  emit(moduleId, session, gameStartInstruction);
+  await waitForAck(moduleId, gameStartInstruction.instructionId, signal);
+  if (signal.aborted) return;
 
   await runHandLoop(ctx);
 }
@@ -474,19 +471,18 @@ export async function resumeSession(
   );
 
   // Emit GAME_START so front-end resets cleanly
-  emit(
-    moduleId,
-    session,
-    buildGameStart(
-      gameId,
-      createState.players,
-      {
-        smallBlind: session.config.smallBlind,
-        bigBlind: session.config.bigBlind,
-      },
-      session.config.players,
-    ),
+  const gameStartInstruction = buildGameStart(
+    gameId,
+    createState.players,
+    {
+      smallBlind: session.config.smallBlind,
+      bigBlind: session.config.bigBlind,
+    },
+    session.config.players,
   );
+  emit(moduleId, session, gameStartInstruction);
+  await waitForAck(moduleId, gameStartInstruction.instructionId, signal);
+  if (signal.aborted) return;
 
   await runHandLoop(ctx);
 }

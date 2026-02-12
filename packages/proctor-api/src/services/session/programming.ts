@@ -61,73 +61,80 @@ function detectOrphanedModule(
   }
 }
 
-/** Pause between games so the endcard is visible before the next game starts. */
-const INTER_GAME_DELAY_MS = 15_000;
+/** Channels that already have an active programming loop. */
+const activeLoops = new Set<string>();
 
 export async function runProgrammingLoop(
   channelKey: string,
   startIndex = 0,
 ): Promise<void> {
-  let index = startIndex;
+  if (activeLoops.has(channelKey)) return;
+  activeLoops.add(channelKey);
 
-  // Check for orphaned session from a previous crash
-  const recovery = detectOrphanedModule(channelKey);
-  if (recovery) {
-    const chipOverrides = new Map(
-      recovery.snapshot.players.map((p) => [p.id, p.chips]),
-    );
-    const session = createSession(channelKey, undefined, chipOverrides);
-    const agentRunner = new LlmAgentRunner();
+  try {
+    let index = startIndex;
 
-    try {
-      await resumeSession(
-        session,
-        agentRunner,
-        recovery.moduleId,
-        recovery.snapshot,
+    // Check for orphaned session from a previous crash
+    const recovery = detectOrphanedModule(channelKey);
+    if (recovery) {
+      const chipOverrides = new Map(
+        recovery.snapshot.players.map((p) => [p.id, p.chips]),
       );
-    } catch (err) {
-      logError(
-        "programming-loop",
-        `Resumed module ${recovery.moduleId} failed:`,
-        err instanceof Error ? err.message : String(err),
-      );
+      const session = createSession(channelKey, undefined, chipOverrides);
+      const agentRunner = new LlmAgentRunner();
+
+      try {
+        await resumeSession(
+          session,
+          agentRunner,
+          recovery.moduleId,
+          recovery.snapshot,
+        );
+      } catch (err) {
+        logError(
+          "programming-loop",
+          `Resumed module ${recovery.moduleId} failed:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+
+      completeModule(recovery.moduleId);
+      deleteSession(channelKey);
+      index++;
     }
 
-    completeModule(recovery.moduleId);
-    deleteSession(channelKey);
-    index++;
+    // Run games while live — each iteration waits for client ACKs
+    // (GAME_START ack before playing, GAME_OVER ack before next module)
+    while (getSetting("live") === "true") {
+      const moduleType = PROGRAMMING[index % PROGRAMMING.length];
+      const moduleId = crypto.randomUUID();
+      createModule(moduleId, moduleType, index % PROGRAMMING.length);
+      upsertChannelState(channelKey, moduleId);
+
+      const session = createSession(channelKey);
+      const agentRunner = new LlmAgentRunner();
+
+      try {
+        await runSession(session, agentRunner, moduleId);
+      } catch (err) {
+        logError(
+          "programming-loop",
+          `Module ${moduleId} failed:`,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+
+      completeModule(moduleId);
+      deleteSession(channelKey);
+      index++;
+    }
+
+    console.log("[programming-loop] Live is off, stopping loop");
+  } finally {
+    activeLoops.delete(channelKey);
   }
+}
 
-  // Run games continuously while live is on
-  while (getSetting("live") === "true") {
-    const moduleType = PROGRAMMING[index % PROGRAMMING.length];
-    const moduleId = crypto.randomUUID();
-    createModule(moduleId, moduleType, index % PROGRAMMING.length);
-    upsertChannelState(channelKey, moduleId);
-
-    const session = createSession(channelKey);
-    const agentRunner = new LlmAgentRunner();
-
-    try {
-      await runSession(session, agentRunner, moduleId);
-    } catch (err) {
-      logError(
-        "programming-loop",
-        `Module ${moduleId} failed:`,
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-
-    completeModule(moduleId);
-    deleteSession(channelKey);
-    index++;
-
-    // Brief pause so endcard is visible before next game
-    if (getSetting("live") === "true") {
-      await new Promise((r) => setTimeout(r, INTER_GAME_DELAY_MS));
-    }
-  }
-
-  console.log("[programming-loop] Live is off, stopping loop");
+export function _resetActiveLoops(): void {
+  activeLoops.clear();
 }

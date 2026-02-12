@@ -8,6 +8,7 @@ import {
   getChannelState as getChannelStateFromDb,
   getInstructionSnapshot,
 } from "../../persistence.js";
+import { notifyAck } from "./ack-gate.js";
 
 export interface SessionPlayer {
   id: string;
@@ -154,10 +155,11 @@ export function connect(channelKey: string): ConnectResult {
 
 export function completeInstruction(
   channelKey: string,
-  _moduleId: string,
+  moduleId: string,
   instructionId: string,
 ): boolean {
   ackInstruction(channelKey, Number(instructionId));
+  notifyAck(moduleId, instructionId);
   return true;
 }
 
