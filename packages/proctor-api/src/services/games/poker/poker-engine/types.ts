@@ -2,6 +2,7 @@ import type Poker from "poker-ts";
 import {
   type ActionRecord,
   ActionType,
+  type Card,
   GamePhase,
   type HandRecord,
 } from "../../../../types.js";
@@ -17,6 +18,14 @@ export interface PhaseActions {
   actions: ActionRecord[];
 }
 
+/** Tracks incremental community-card reveals during an all-in runout. */
+export interface AllInRunout {
+  /** All community cards dealt by poker-ts (always 5). */
+  cards: Card[];
+  /** How many have been revealed so far (3 = flop, 4 = turn, 5 = river). */
+  revealedCount: number;
+}
+
 export interface Game {
   table: InstanceType<typeof Poker.Table>;
   players: PlayerMapping[];
@@ -25,6 +34,7 @@ export interface Game {
   history: HandRecord[];
   currentPhaseActions: PhaseActions[];
   startingChips: Map<string, number>;
+  allInRunout?: AllInRunout;
 }
 
 export const roundToPhase: Record<string, GamePhase> = {

@@ -431,6 +431,123 @@ describe("poker-engine", () => {
     });
   });
 
+  describe("all-in runout", () => {
+    it("reveals flop, turn, river one at a time when both players go all-in preflop", () => {
+      const gameId = createGame({
+        players: HEADS_UP_PLAYERS,
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+
+      const handState = startHand(gameId);
+      let state = handState;
+
+      // SB raises all-in, BB calls all-in
+      state = submitAction(gameId, state.currentPlayerId!, "raise", 1000);
+      state = submitAction(gameId, state.currentPlayerId!, "call");
+
+      expect(state.phase).toBe(GamePhase.Preflop);
+      expect(state.currentPlayerId).toBeNull();
+
+      // Advance should reveal flop (3 cards), then turn (4), then river (5), then WAITING
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.Flop);
+      expect(state.communityCards).toHaveLength(3);
+
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.Turn);
+      expect(state.communityCards).toHaveLength(4);
+
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.River);
+      expect(state.communityCards).toHaveLength(5);
+
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.Waiting);
+
+      const history = getHistory(gameId);
+      expect(history).toHaveLength(1);
+      expect(history[0].winners.length).toBeGreaterThan(0);
+    });
+
+    it("reveals turn and river when both go all-in on the flop", () => {
+      const gameId = createGame({
+        players: HEADS_UP_PLAYERS,
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+
+      startHand(gameId);
+      // Play through preflop
+      let state = submitAction(gameId, "p1", "call");
+      state = submitAction(gameId, "p2", "check");
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.Flop);
+      expect(state.communityCards).toHaveLength(3);
+
+      // All-in on flop
+      const turn = getMyTurn(gameId, state.currentPlayerId!);
+      const hasBet = turn.validActions.some((a) => a.type === ActionType.Bet);
+      state = submitAction(
+        gameId,
+        state.currentPlayerId!,
+        hasBet ? "bet" : "raise",
+        980,
+      );
+      state = submitAction(gameId, state.currentPlayerId!, "call");
+
+      // Should reveal turn then river then showdown
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.Turn);
+      expect(state.communityCards).toHaveLength(4);
+
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.River);
+      expect(state.communityCards).toHaveLength(5);
+
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.Waiting);
+      expect(getHistory(gameId)[0].winners.length).toBeGreaterThan(0);
+    });
+
+    it("reveals river when both go all-in on the turn", () => {
+      const gameId = createGame({
+        players: HEADS_UP_PLAYERS,
+        smallBlind: 10,
+        bigBlind: 20,
+      });
+
+      startHand(gameId);
+      let state = submitAction(gameId, "p1", "call");
+      state = submitAction(gameId, "p2", "check");
+      state = advanceGame(gameId); // flop
+      while (state.currentPlayerId) {
+        state = submitAction(gameId, state.currentPlayerId, "check");
+      }
+      state = advanceGame(gameId); // turn
+      expect(state.phase).toBe(GamePhase.Turn);
+
+      // All-in on turn
+      const turn = getMyTurn(gameId, state.currentPlayerId!);
+      const hasBet = turn.validActions.some((a) => a.type === ActionType.Bet);
+      state = submitAction(
+        gameId,
+        state.currentPlayerId!,
+        hasBet ? "bet" : "raise",
+        980,
+      );
+      state = submitAction(gameId, state.currentPlayerId!, "call");
+
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.River);
+      expect(state.communityCards).toHaveLength(5);
+
+      state = advanceGame(gameId);
+      expect(state.phase).toBe(GamePhase.Waiting);
+      expect(getHistory(gameId)[0].winners.length).toBeGreaterThan(0);
+    });
+  });
+
   describe("multiple consecutive hands", () => {
     it("plays 3 hands and tracks history correctly", () => {
       const gameId = createTestGame();

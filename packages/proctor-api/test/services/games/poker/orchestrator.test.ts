@@ -113,6 +113,28 @@ describe("orchestrator", () => {
     expect(handResult!.handResult!.winners.length).toBeGreaterThan(0);
   });
 
+  it("emits DEAL_COMMUNITY for all-in runout streets", async () => {
+    // Both players start with 100 chips, blinds 50/100 → BB is all-in.
+    // PassiveAgentRunner always calls/checks so both end up all-in.
+    const session = createSession("test-channel", baseConfig);
+    const agentRunner = new PassiveAgentRunner();
+
+    const instructions = spyOnPublish();
+    await runSession(session, agentRunner, "test-module");
+
+    const dealCommunity = instructions.filter((i) => i.type === "DEAL_COMMUNITY");
+    expect(dealCommunity.length).toBe(3); // flop, turn, river
+
+    expect(dealCommunity[0].dealCommunity!.phase).toBe("FLOP");
+    expect(dealCommunity[0].dealCommunity!.communityCards).toHaveLength(3);
+
+    expect(dealCommunity[1].dealCommunity!.phase).toBe("TURN");
+    expect(dealCommunity[1].dealCommunity!.communityCards).toHaveLength(4);
+
+    expect(dealCommunity[2].dealCommunity!.phase).toBe("RIVER");
+    expect(dealCommunity[2].dealCommunity!.communityCards).toHaveLength(5);
+  });
+
   it("marks session as FINISHED when game completes", async () => {
     const session = createSession("test-channel", baseConfig);
     const agentRunner = new ScriptedAgentRunner([{ action: { type: "CALL" } }]);
