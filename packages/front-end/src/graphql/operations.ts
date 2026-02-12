@@ -130,7 +130,7 @@ export const RENDER_INSTRUCTIONS_SUB = /* GraphQL */ `
         winnerName
         players { id name chips bet status seatIndex }
         handsPlayed
-        awards { title playerId playerName }
+        awards { title playerIds playerNames description }
       }
     }
   }

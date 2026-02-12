@@ -77,8 +77,9 @@ export type DealHandsPayload = {
 
 export type GameAward = {
   __typename?: 'GameAward';
-  playerId: Scalars['ID']['output'];
-  playerName: Scalars['String']['output'];
+  description: Scalars['String']['output'];
+  playerIds: Array<Scalars['ID']['output']>;
+  playerNames: Array<Scalars['String']['output']>;
   title: Scalars['String']['output'];
 };
 
@@ -686,8 +687,9 @@ export type DealHandsPayloadResolvers<ContextType = Context, ParentType extends 
 };
 
 export type GameAwardResolvers<ContextType = Context, ParentType extends ResolversParentTypes['GameAward'] = ResolversParentTypes['GameAward']> = {
-  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  description?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  playerIds?: Resolver<Array<ResolversTypes['ID']>, ParentType, ContextType>;
+  playerNames?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>;
   title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };

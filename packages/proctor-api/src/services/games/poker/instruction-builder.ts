@@ -211,12 +211,19 @@ export function buildLeaderboard(
   };
 }
 
+export interface GameAwardPayload {
+  title: string;
+  playerIds: string[];
+  playerNames: string[];
+  description: string;
+}
+
 export function buildGameOver(
   winnerId: string,
   winnerName: string,
   players: GameState["players"],
   handsPlayed: number,
-  awards: Array<{ title: string; playerId: string; playerName: string }> = [],
+  awards: GameAwardPayload[] = [],
 ): RenderInstruction {
   return {
     ...base(InstructionType.GameOver),

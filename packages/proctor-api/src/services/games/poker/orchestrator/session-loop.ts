@@ -3,7 +3,11 @@ import { getAgentMessages } from "../../../../persistence.js";
 import type { GameState } from "../../../../types.js";
 import type { Session } from "../../../session/session-manager.js";
 import type { AgentRunner, PlayerConfig } from "../agent-runner.js";
-import { buildGameOver, buildGameStart } from "../instruction-builder.js";
+import {
+  type GameAwardPayload,
+  buildGameOver,
+  buildGameStart,
+} from "../instruction-builder.js";
 import * as poker from "../poker-engine/index.js";
 import { emit, updateGameState } from "./emitter.js";
 import { playHand } from "./hand-loop.js";
@@ -21,8 +25,9 @@ function isGameOver(state: GameState): boolean {
 function computeAwards(
   tracker: ActionTracker,
   players: GameState["players"],
-): Array<{ title: string; playerId: string; playerName: string }> {
-  const getName = (id: string) => players.find((p) => p.id === id)?.name ?? id;
+): GameAwardPayload[] {
+  const getName = (id: string) =>
+    players.find((p) => p.id === id)?.name ?? id;
 
   const entries = [...tracker.entries()].map(([id, s]) => {
     const total = s.folds + s.calls + s.checks + s.bets + s.raises;
@@ -31,42 +36,173 @@ function computeAwards(
 
   if (entries.length === 0) return [];
 
-  const awards: Array<{ title: string; playerId: string; playerName: string }> =
-    [];
+  const awards: GameAwardPayload[] = [];
 
-  // Most Aggressive — most bets + raises
+  /** Pick top scorers, including ties. */
+  function topBy(
+    sorted: typeof entries,
+    score: (e: (typeof entries)[0]) => number,
+  ): typeof entries {
+    const best = score(sorted[0]);
+    return sorted.filter((e) => score(e) === best);
+  }
+
+  // Most Aggressive — highest bet + raise count
+  const aggressiveScore = (e: (typeof entries)[0]) =>
+    e.stats.bets + e.stats.raises;
   const byAggressive = [...entries].sort(
-    (a, b) => b.stats.bets + b.stats.raises - (a.stats.bets + a.stats.raises),
+    (a, b) => aggressiveScore(b) - aggressiveScore(a),
   );
-  if (byAggressive[0].stats.bets + byAggressive[0].stats.raises > 0) {
+  if (aggressiveScore(byAggressive[0]) > 0) {
+    const top = topBy(byAggressive, aggressiveScore);
+    const count = aggressiveScore(top[0]);
     awards.push({
       title: "Most Aggressive",
-      playerId: byAggressive[0].id,
-      playerName: getName(byAggressive[0].id),
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `${count} bets/raises`,
     });
   }
 
-  // Most Passive — most calls + checks
+  // Most Passive — highest call + check count
+  const passiveScore = (e: (typeof entries)[0]) =>
+    e.stats.calls + e.stats.checks;
   const byPassive = [...entries].sort(
-    (a, b) => b.stats.calls + b.stats.checks - (a.stats.calls + a.stats.checks),
+    (a, b) => passiveScore(b) - passiveScore(a),
   );
-  if (byPassive[0].stats.calls + byPassive[0].stats.checks > 0) {
+  if (passiveScore(byPassive[0]) > 0) {
+    const top = topBy(byPassive, passiveScore);
+    const count = passiveScore(top[0]);
     awards.push({
       title: "Most Passive",
-      playerId: byPassive[0].id,
-      playerName: getName(byPassive[0].id),
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `${count} calls/checks`,
     });
   }
 
   // Tightest — highest fold rate
-  const byTight = [...entries]
-    .filter((e) => e.total > 0)
-    .sort((a, b) => b.stats.folds / b.total - a.stats.folds / a.total);
+  const withActions = entries.filter((e) => e.total > 0);
+  const foldRate = (e: (typeof entries)[0]) =>
+    e.total > 0 ? e.stats.folds / e.total : 0;
+  const byTight = [...withActions].sort((a, b) => foldRate(b) - foldRate(a));
   if (byTight.length > 0 && byTight[0].stats.folds > 0) {
+    const bestRate = foldRate(byTight[0]);
+    const top = byTight.filter((e) => foldRate(e) === bestRate);
+    const pct = Math.round(bestRate * 100);
     awards.push({
       title: "Tightest",
-      playerId: byTight[0].id,
-      playerName: getName(byTight[0].id),
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `${pct}% fold rate`,
+    });
+  }
+
+  // Loosest — lowest fold rate
+  const byLoose = [...withActions].sort((a, b) => foldRate(a) - foldRate(b));
+  if (byLoose.length > 0) {
+    const bestRate = foldRate(byLoose[0]);
+    const top = byLoose.filter((e) => foldRate(e) === bestRate);
+    const pct = Math.round(bestRate * 100);
+    awards.push({
+      title: "Loosest",
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `${pct}% fold rate`,
+    });
+  }
+
+  // Yolo — most all-ins
+  const byAllIn = [...entries].sort(
+    (a, b) => b.stats.allIns - a.stats.allIns,
+  );
+  if (byAllIn[0].stats.allIns > 0) {
+    const top = topBy(byAllIn, (e) => e.stats.allIns);
+    awards.push({
+      title: "Yolo",
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `${top[0].stats.allIns} all-ins`,
+    });
+  }
+
+  // Biggest Pot Won
+  const byBigPot = [...entries].sort(
+    (a, b) => b.stats.biggestPotWon - a.stats.biggestPotWon,
+  );
+  if (byBigPot[0].stats.biggestPotWon > 0) {
+    const top = topBy(byBigPot, (e) => e.stats.biggestPotWon);
+    const amount = top[0].stats.biggestPotWon.toLocaleString();
+    awards.push({
+      title: "Biggest Pot Won",
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `$${amount}`,
+    });
+  }
+
+  // Most Hands Won
+  const byHandsWon = [...entries].sort(
+    (a, b) => b.stats.handsWon - a.stats.handsWon,
+  );
+  if (byHandsWon[0].stats.handsWon > 0) {
+    const top = topBy(byHandsWon, (e) => e.stats.handsWon);
+    awards.push({
+      title: "Most Hands Won",
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `${top[0].stats.handsWon} hands`,
+    });
+  }
+
+  // Analysis Paralysis — longest average analysis
+  const withAnalysis = entries.filter((e) => e.stats.analysisLengths.length > 0);
+  const avgAnalysis = (e: (typeof entries)[0]) => {
+    const lengths = e.stats.analysisLengths;
+    return lengths.length > 0
+      ? lengths.reduce((a, b) => a + b, 0) / lengths.length
+      : 0;
+  };
+  const byLongAnalysis = [...withAnalysis].sort(
+    (a, b) => avgAnalysis(b) - avgAnalysis(a),
+  );
+  if (byLongAnalysis.length > 0) {
+    const bestAvg = avgAnalysis(byLongAnalysis[0]);
+    const top = byLongAnalysis.filter((e) => avgAnalysis(e) === bestAvg);
+    awards.push({
+      title: "Analysis Paralysis",
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `avg ${Math.round(bestAvg)} characters`,
+    });
+  }
+
+  // Just Do It — shortest average analysis
+  const byShortAnalysis = [...withAnalysis].sort(
+    (a, b) => avgAnalysis(a) - avgAnalysis(b),
+  );
+  if (byShortAnalysis.length > 0) {
+    const bestAvg = avgAnalysis(byShortAnalysis[0]);
+    const top = byShortAnalysis.filter((e) => avgAnalysis(e) === bestAvg);
+    awards.push({
+      title: "Just Do It",
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `avg ${Math.round(bestAvg)} characters`,
+    });
+  }
+
+  // Bounty Hunter — most eliminations
+  const byElim = [...entries].sort(
+    (a, b) => b.stats.eliminations - a.stats.eliminations,
+  );
+  if (byElim[0].stats.eliminations > 0) {
+    const top = topBy(byElim, (e) => e.stats.eliminations);
+    awards.push({
+      title: "Bounty Hunter",
+      playerIds: top.map((e) => e.id),
+      playerNames: top.map((e) => getName(e.id)),
+      description: `${top[0].stats.eliminations} eliminations`,
     });
   }
 

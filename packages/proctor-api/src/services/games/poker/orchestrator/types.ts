@@ -11,6 +11,11 @@ export interface PlayerActionStats {
   checks: number;
   bets: number;
   raises: number;
+  allIns: number;
+  handsWon: number;
+  biggestPotWon: number;
+  eliminations: number;
+  analysisLengths: number[];
 }
 
 export type ActionTracker = Map<string, PlayerActionStats>;
@@ -19,16 +24,33 @@ export function createActionTracker(): ActionTracker {
   return new Map();
 }
 
+function getOrCreate(tracker: ActionTracker, playerId: string): PlayerActionStats {
+  let stats = tracker.get(playerId);
+  if (!stats) {
+    stats = {
+      folds: 0,
+      calls: 0,
+      checks: 0,
+      bets: 0,
+      raises: 0,
+      allIns: 0,
+      handsWon: 0,
+      biggestPotWon: 0,
+      eliminations: 0,
+      analysisLengths: [],
+    };
+    tracker.set(playerId, stats);
+  }
+  return stats;
+}
+
 export function trackAction(
   tracker: ActionTracker,
   playerId: string,
   action: string,
+  isAllIn?: boolean,
 ): void {
-  let stats = tracker.get(playerId);
-  if (!stats) {
-    stats = { folds: 0, calls: 0, checks: 0, bets: 0, raises: 0 };
-    tracker.set(playerId, stats);
-  }
+  const stats = getOrCreate(tracker, playerId);
   switch (action) {
     case "FOLD":
       stats.folds++;
@@ -46,6 +68,34 @@ export function trackAction(
       stats.raises++;
       break;
   }
+  if (isAllIn) stats.allIns++;
+}
+
+export function trackHandWin(
+  tracker: ActionTracker,
+  playerId: string,
+  potAmount: number,
+): void {
+  const stats = getOrCreate(tracker, playerId);
+  stats.handsWon++;
+  if (potAmount > stats.biggestPotWon) stats.biggestPotWon = potAmount;
+}
+
+export function trackElimination(
+  tracker: ActionTracker,
+  eliminatorId: string,
+): void {
+  const stats = getOrCreate(tracker, eliminatorId);
+  stats.eliminations++;
+}
+
+export function trackAnalysis(
+  tracker: ActionTracker,
+  playerId: string,
+  analysisLength: number,
+): void {
+  const stats = getOrCreate(tracker, playerId);
+  stats.analysisLengths.push(analysisLength);
 }
 
 export interface SessionContext {

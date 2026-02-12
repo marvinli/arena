@@ -15,6 +15,7 @@ import {
   MAX_LLM_RETRIES,
   type SessionContext,
   trackAction,
+  trackAnalysis,
 } from "./types.js";
 
 interface ActionResult {
@@ -175,7 +176,12 @@ export async function playTurn(
   emit(ctx.moduleId, ctx.session, buildPlayerTurn(playerId, playerName));
 
   const { result, state } = await resolveAction(ctx, playerId);
-  trackAction(ctx.actionTracker, playerId, result.action.type);
+  const isAllIn =
+    state.players.find((p) => p.id === playerId)?.status === "ALL_IN";
+  trackAction(ctx.actionTracker, playerId, result.action.type, isAllIn);
+  if (result.analysis) {
+    trackAnalysis(ctx.actionTracker, playerId, result.analysis.length);
+  }
   updateGameState(ctx.session, state);
 
   if (result.analysis) {

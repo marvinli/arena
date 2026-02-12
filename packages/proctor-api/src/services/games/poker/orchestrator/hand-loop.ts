@@ -13,7 +13,11 @@ import {
 import * as poker from "../poker-engine/index.js";
 import { emit, updateGameState } from "./emitter.js";
 import { playTurn } from "./turn-resolver.js";
-import type { SessionContext } from "./types.js";
+import {
+  type SessionContext,
+  trackElimination,
+  trackHandWin,
+} from "./types.js";
 
 const SOLO_WIN_PROMPT =
   "You just won the pot! Say something short to the table — brag, trash talk, or celebrate. One sentence, 15 words max. Plain conversational English only, no emoji or markup.";
@@ -27,12 +31,25 @@ const SHOWDOWN_LOSS_PROMPT =
 async function handleHandResult(
   ctx: SessionContext,
   advancedState: GameState,
+  preHandBustedIds: Set<string>,
 ): Promise<void> {
   const history = poker.getHistory(ctx.gameId, 1);
   const lastHand = history[0];
   const winners = lastHand?.winners ?? [];
 
   emit(ctx.moduleId, ctx.session, buildHandResult(winners, advancedState));
+
+  // Track hand wins and biggest pot
+  for (const w of winners) {
+    trackHandWin(ctx.actionTracker, w.playerId, w.amount);
+  }
+
+  // Track eliminations — attribute to the winner(s) of this hand
+  for (const p of advancedState.players) {
+    if (p.status === "BUSTED" && !preHandBustedIds.has(p.id) && winners.length > 0) {
+      trackElimination(ctx.actionTracker, winners[0].playerId);
+    }
+  }
 
   for (const p of advancedState.players) {
     if (p.status === "BUSTED") continue;
@@ -111,6 +128,12 @@ export async function playHand(ctx: SessionContext): Promise<void> {
   const { session, moduleId, gameId, agentRunner, signal } = ctx;
   session.handNumber++;
 
+  const preHandBustedIds = new Set(
+    session.lastGameState?.players
+      .filter((p) => p.status === "BUSTED")
+      .map((p) => p.id) ?? [],
+  );
+
   const handState = poker.startHand(gameId);
   updateGameState(session, handState);
   session.button = handState.button ?? null;
@@ -178,7 +201,7 @@ export async function playHand(ctx: SessionContext): Promise<void> {
     updateGameState(session, advancedState);
 
     if (advancedState.phase === "WAITING") {
-      await handleHandResult(ctx, advancedState);
+      await handleHandResult(ctx, advancedState, preHandBustedIds);
       session.currentHands = [];
       break;
     }

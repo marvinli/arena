@@ -261,10 +261,14 @@ describe("orchestrator", () => {
     const leaderboards = instructions.filter((i) => i.type === "LEADERBOARD");
     expect(leaderboards.length).toBe(0);
 
-    // GAME_OVER should include awards
+    // GAME_OVER should include awards with new shape
     const gameOver = instructions.find((i) => i.type === "GAME_OVER");
     expect(gameOver).toBeDefined();
     expect(gameOver!.gameOver!.awards.length).toBeGreaterThan(0);
+    const award = gameOver!.gameOver!.awards[0];
+    expect(award.playerIds.length).toBeGreaterThan(0);
+    expect(award.playerNames.length).toBeGreaterThan(0);
+    expect(award.description).toBeDefined();
   }, 30_000);
 
   it("skips PLAYER_ANALYSIS when agent returns no analysis", async () => {

@@ -108,8 +108,9 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
 
   type GameAward {
     title: String!
-    playerId: ID!
-    playerName: String!
+    playerIds: [ID!]!
+    playerNames: [String!]!
+    description: String!
   }
 
   type GameOverPayload {
