@@ -55,7 +55,7 @@ RUN npm ci --omit=dev
 # ── Stage 5: runtime ────────────────────────────────────
 FROM node:20-slim AS runtime
 
-RUN apt-get update && apt-get install -y --no-install-recommends nginx \
+RUN apt-get update && apt-get install -y --no-install-recommends nginx curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Nginx config
