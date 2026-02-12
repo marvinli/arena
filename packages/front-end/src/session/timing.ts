@@ -7,8 +7,11 @@ export const FLIP_DURATION_MS = 400;
 export const ANIM_BUFFER_MS = 100;
 
 // Display time for states that need to be visible before the next instruction
-export const SHOWDOWN_DISPLAY_MS = 5000;
+export const SHOWDOWN_DISPLAY_MS = 3000;
 export const LEADERBOARD_DISPLAY_MS = 3000;
+
+// Pause after hand result + reaction before dealing next hand
+export const POST_HAND_PAUSE_MS = 2000;
 
 // Pause after a player action so viewers can see the bet/call chips
 export const POST_ACTION_PAUSE_MS = 1500;

@@ -39,11 +39,17 @@ export function handleHandResult(
     };
   });
 
+  // Keep existing community cards if result has none (fold-win pre-flop)
+  const communityCards =
+    hr.communityCards.length > 0
+      ? hr.communityCards.map(mapCard)
+      : state.communityCards;
+
   return {
     ...state,
     phase: "SHOWDOWN" as GamePhase,
     players,
-    communityCards: hr.communityCards.map(mapCard),
+    communityCards,
     pots: mapPots(hr.pots),
   };
 }

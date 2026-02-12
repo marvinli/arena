@@ -6,6 +6,7 @@ import {
   dealAnimDuration,
   LEADERBOARD_DISPLAY_MS,
   POST_ACTION_PAUSE_MS,
+  POST_HAND_PAUSE_MS,
   PRE_SHOWDOWN_PAUSE_MS,
   SHOWDOWN_DISPLAY_MS,
 } from "./timing";
@@ -23,6 +24,7 @@ export function createRenderQueue(deps: RenderQueueDeps) {
   let ttsGate: Promise<void> = Promise.resolve();
   let animGate: Promise<void> = Promise.resolve();
   let prevCommunityCardCount = 0;
+  let afterHandResult = false;
 
   function push(instruction: GqlInstruction) {
     queue.push(instruction);
@@ -60,6 +62,11 @@ export function createRenderQueue(deps: RenderQueueDeps) {
             await delay(PRE_SHOWDOWN_PAUSE_MS, deps.signal);
           }
 
+          // Pause before dealing the next hand so the result stays visible
+          if (inst.type === "DEAL_HANDS" && afterHandResult) {
+            await delay(POST_HAND_PAUSE_MS, deps.signal);
+          }
+
           // Capture player metadata before dispatching
           if (inst.gameStart?.playerMeta) {
             for (const meta of inst.gameStart.playerMeta) {
@@ -68,6 +75,13 @@ export function createRenderQueue(deps: RenderQueueDeps) {
           }
 
           deps.dispatch({ type: "INSTRUCTION", instruction: inst });
+
+          // Track whether we just saw a hand result (for post-hand pause)
+          if (inst.type === "HAND_RESULT") {
+            afterHandResult = true;
+          } else if (inst.type === "DEAL_HANDS" || inst.type === "GAME_OVER") {
+            afterHandResult = false;
+          }
 
           // Set animation gate after deal instructions
           if (inst.type === "DEAL_HANDS") {
@@ -80,6 +94,7 @@ export function createRenderQueue(deps: RenderQueueDeps) {
             prevCommunityCardCount = totalCards;
             animGate = delay(communityAnimDuration(newCards), deps.signal);
           } else if (inst.type === "HAND_RESULT") {
+            // Short pause so the result renders, then let reactions play
             animGate = delay(SHOWDOWN_DISPLAY_MS, deps.signal);
           } else if (inst.type === "LEADERBOARD") {
             animGate = delay(LEADERBOARD_DISPLAY_MS, deps.signal);
@@ -105,7 +120,7 @@ export function createRenderQueue(deps: RenderQueueDeps) {
               () => deps.dispatch({ type: "SPEAK_END" }),
             );
             // Block the next instruction until TTS finishes so post-hand
-            // reactions complete before LEADERBOARD or DEAL_HANDS.
+            // reactions complete before DEAL_HANDS or GAME_OVER.
             animGate = ttsGate;
           }
         }
