@@ -19,14 +19,8 @@ import {
   trackHandWin,
 } from "./types.js";
 
-const SOLO_WIN_PROMPT =
-  "You just won the pot! Say something short to the table — brag, trash talk, or celebrate. One sentence, 15 words max. Plain conversational English only, no emoji or markup.";
-
-const SPLIT_POT_PROMPT =
-  "The pot was split — you only got a share, not the whole thing. Say something short to the table about the split. One sentence, 15 words max. Plain conversational English only, no emoji or markup.";
-
-const SHOWDOWN_LOSS_PROMPT =
-  "You just lost at showdown heads-up. React naturally — complain about a bad beat, be shocked at what they called with, admit you were behind, or give grudging respect. One sentence, 15 words max. Plain conversational English only, no emoji or markup.";
+const HAND_REACTION_PROMPT =
+  "The hand is over. Say something short to the table about how it played out. One sentence, 15 words max. Plain conversational English only, no emoji or markup.";
 
 async function handleHandResult(
   ctx: SessionContext,
@@ -46,7 +40,11 @@ async function handleHandResult(
 
   // Track eliminations — attribute to the winner(s) of this hand
   for (const p of advancedState.players) {
-    if (p.status === "BUSTED" && !preHandBustedIds.has(p.id) && winners.length > 0) {
+    if (
+      p.status === "BUSTED" &&
+      !preHandBustedIds.has(p.id) &&
+      winners.length > 0
+    ) {
       trackElimination(ctx.actionTracker, winners[0].playerId);
     }
   }
@@ -59,47 +57,40 @@ async function handleHandResult(
     );
   }
 
-  const isSplit = winners.length > 1;
   const winnerIds = new Set(winners.map((w) => w.playerId));
 
-  // Detect heads-up showdown: exactly 2 non-folded, non-busted players and 1 winner
-  const showdownPlayers = advancedState.players.filter(
-    (p) => p.status !== "BUSTED" && p.status !== "FOLDED",
-  );
-  const headsUpShowdown = showdownPlayers.length === 2 && winners.length === 1;
-  const showdownLoser = headsUpShowdown
-    ? showdownPlayers.find((p) => !winnerIds.has(p.id))
-    : undefined;
+  // Build the list of players who get to react:
+  // 1. All winners
+  // 2. In a heads-up showdown, the loser too
+  const reactors: Array<{ id: string; name: string }> = [];
 
-  // Let each winner say a short reaction
   for (const w of winners) {
     const player = advancedState.players.find((p) => p.id === w.playerId);
-    if (!player || player.status === "BUSTED") continue;
-
-    const reaction = await ctx.agentRunner.promptReaction(
-      w.playerId,
-      isSplit ? SPLIT_POT_PROMPT : SOLO_WIN_PROMPT,
-    );
-    if (reaction) {
-      emit(
-        ctx.moduleId,
-        ctx.session,
-        buildPlayerAnalysis(w.playerId, player.name, reaction),
-      );
+    if (player && player.status !== "BUSTED") {
+      reactors.push({ id: player.id, name: player.name });
     }
   }
 
-  // In a heads-up showdown, let the loser react too
-  if (showdownLoser) {
+  const showdownPlayers = advancedState.players.filter(
+    (p) => p.status !== "BUSTED" && p.status !== "FOLDED",
+  );
+  if (showdownPlayers.length === 2 && winners.length === 1) {
+    const loser = showdownPlayers.find((p) => !winnerIds.has(p.id));
+    if (loser) {
+      reactors.push({ id: loser.id, name: loser.name });
+    }
+  }
+
+  for (const reactor of reactors) {
     const reaction = await ctx.agentRunner.promptReaction(
-      showdownLoser.id,
-      SHOWDOWN_LOSS_PROMPT,
+      reactor.id,
+      HAND_REACTION_PROMPT,
     );
     if (reaction) {
       emit(
         ctx.moduleId,
         ctx.session,
-        buildPlayerAnalysis(showdownLoser.id, showdownLoser.name, reaction),
+        buildPlayerAnalysis(reactor.id, reactor.name, reaction),
       );
     }
   }
