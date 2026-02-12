@@ -232,7 +232,7 @@ describe("orchestrator", () => {
     }
   });
 
-  it("plays multiple hands and emits LEADERBOARD between them", async () => {
+  it("plays multiple hands and emits GAME_OVER with awards", async () => {
     // Blind schedule: hands 1-2 at 10/20 (survivable with 200 chips),
     // then jumps to 100/200 which forces all-in and bust.
     // Guarantees 2+ hands and terminates within ~4 hands.
@@ -254,12 +254,17 @@ describe("orchestrator", () => {
 
     expect(session.handNumber).toBeGreaterThanOrEqual(2);
 
-    const leaderboards = instructions.filter((i) => i.type === "LEADERBOARD");
-    expect(leaderboards.length).toBeGreaterThanOrEqual(1);
-    expect(leaderboards[0].leaderboard!.players.length).toBe(2);
-
     const dealHands = instructions.filter((i) => i.type === "DEAL_HANDS");
     expect(dealHands.length).toBeGreaterThanOrEqual(2);
+
+    // No between-hands leaderboard
+    const leaderboards = instructions.filter((i) => i.type === "LEADERBOARD");
+    expect(leaderboards.length).toBe(0);
+
+    // GAME_OVER should include awards
+    const gameOver = instructions.find((i) => i.type === "GAME_OVER");
+    expect(gameOver).toBeDefined();
+    expect(gameOver!.gameOver!.awards.length).toBeGreaterThan(0);
   }, 30_000);
 
   it("skips PLAYER_ANALYSIS when agent returns no analysis", async () => {

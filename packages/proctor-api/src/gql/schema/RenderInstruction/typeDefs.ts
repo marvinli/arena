@@ -106,11 +106,18 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     bigBlind: Int!
   }
 
+  type GameAward {
+    title: String!
+    playerId: ID!
+    playerName: String!
+  }
+
   type GameOverPayload {
     winnerId: ID!
     winnerName: String!
     players: [PlayerInfo!]!
     handsPlayed: Int!
+    awards: [GameAward!]!
   }
 
   type RenderInstruction {

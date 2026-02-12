@@ -46,6 +46,7 @@ export const INITIAL_STATE: GameState = {
   analysisText: null,
   isApiError: false,
   error: null,
+  awards: [],
 };
 
 // ── Reducer ─────────────────────────────────────────────

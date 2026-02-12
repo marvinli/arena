@@ -216,6 +216,7 @@ export function buildGameOver(
   winnerName: string,
   players: GameState["players"],
   handsPlayed: number,
+  awards: Array<{ title: string; playerId: string; playerName: string }> = [],
 ): RenderInstruction {
   return {
     ...base(InstructionType.GameOver),
@@ -224,6 +225,7 @@ export function buildGameOver(
       winnerName,
       players: toPlayerInfos(players),
       handsPlayed,
+      awards,
     },
   };
 }

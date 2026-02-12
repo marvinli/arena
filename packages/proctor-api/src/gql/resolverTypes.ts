@@ -75,8 +75,16 @@ export type DealHandsPayload = {
   smallBlind: Scalars['Int']['output'];
 };
 
+export type GameAward = {
+  __typename?: 'GameAward';
+  playerId: Scalars['ID']['output'];
+  playerName: Scalars['String']['output'];
+  title: Scalars['String']['output'];
+};
+
 export type GameOverPayload = {
   __typename?: 'GameOverPayload';
+  awards: Array<GameAward>;
   handsPlayed: Scalars['Int']['output'];
   players: Array<PlayerInfo>;
   winnerId: Scalars['ID']['output'];
@@ -543,6 +551,7 @@ export type ResolversTypes = {
   CreateGameInput: CreateGameInput;
   DealCommunityPayload: ResolverTypeWrapper<DealCommunityPayload>;
   DealHandsPayload: ResolverTypeWrapper<DealHandsPayload>;
+  GameAward: ResolverTypeWrapper<GameAward>;
   GameOverPayload: ResolverTypeWrapper<GameOverPayload>;
   GamePhase: GamePhase;
   GameStartPayload: ResolverTypeWrapper<GameStartPayload>;
@@ -594,6 +603,7 @@ export type ResolversParentTypes = {
   CreateGameInput: CreateGameInput;
   DealCommunityPayload: DealCommunityPayload;
   DealHandsPayload: DealHandsPayload;
+  GameAward: GameAward;
   GameOverPayload: GameOverPayload;
   GameStartPayload: GameStartPayload;
   GameState: GameState;
@@ -675,7 +685,15 @@ export type DealHandsPayloadResolvers<ContextType = Context, ParentType extends 
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
 
+export type GameAwardResolvers<ContextType = Context, ParentType extends ResolversParentTypes['GameAward'] = ResolversParentTypes['GameAward']> = {
+  playerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  playerName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  title?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
+};
+
 export type GameOverPayloadResolvers<ContextType = Context, ParentType extends ResolversParentTypes['GameOverPayload'] = ResolversParentTypes['GameOverPayload']> = {
+  awards?: Resolver<Array<ResolversTypes['GameAward']>, ParentType, ContextType>;
   handsPlayed?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   players?: Resolver<Array<ResolversTypes['PlayerInfo']>, ParentType, ContextType>;
   winnerId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
@@ -943,6 +961,7 @@ export type Resolvers<ContextType = Context> = {
   ChannelConnection?: ChannelConnectionResolvers<ContextType>;
   DealCommunityPayload?: DealCommunityPayloadResolvers<ContextType>;
   DealHandsPayload?: DealHandsPayloadResolvers<ContextType>;
+  GameAward?: GameAwardResolvers<ContextType>;
   GameOverPayload?: GameOverPayloadResolvers<ContextType>;
   GameStartPayload?: GameStartPayloadResolvers<ContextType>;
   GameState?: GameStateResolvers<ContextType>;

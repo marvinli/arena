@@ -1,4 +1,4 @@
-import type { Card, Player, Pot } from "./types";
+import type { Card, GameAward, Player, Pot } from "./types";
 
 // ── Shared players ──────────────────────────────────────
 
@@ -7,7 +7,7 @@ const PLAYERS: Player[] = [
     id: "agent-1",
     name: "Claude Opus 4.6",
     chips: 870,
-    avatar: "",
+    avatar: "anthropic",
     cards: [
       { rank: "A", suit: "spades" },
       { rank: "K", suit: "spades" },
@@ -148,7 +148,10 @@ const POTS: Pot[] = [{ label: "Main Pot", amount: 560 }];
 
 // ── Fixtures ────────────────────────────────────────────
 
+export type MockView = "poker" | "endcard";
+
 export interface MockFixture {
+  view?: MockView;
   players: Player[];
   communityCards: Card[];
   pots: Pot[];
@@ -157,6 +160,10 @@ export interface MockFixture {
   isApiError: boolean;
   handNumber: number;
   button: number | null;
+  smallBlind?: number;
+  bigBlind?: number;
+  awards?: GameAward[];
+  isFinished?: boolean;
 }
 
 const defaultFixture: MockFixture = {
@@ -253,11 +260,153 @@ const showdownFixture: MockFixture = {
   button: 0,
 };
 
+const gameOverFixture: MockFixture = {
+  view: "endcard",
+  players: [
+    {
+      ...PLAYERS[0],
+      chips: 3200,
+      isActive: false,
+      lastAction: null,
+      currentBet: 0,
+      cards: null,
+      isFolded: false,
+    },
+    {
+      ...PLAYERS[1],
+      chips: 0,
+      isActive: false,
+      lastAction: null,
+      currentBet: 0,
+      cards: null,
+      isFolded: false,
+    },
+    {
+      ...PLAYERS[2],
+      chips: 0,
+      isActive: false,
+      lastAction: null,
+      currentBet: 0,
+      cards: null,
+      isFolded: false,
+    },
+    {
+      ...PLAYERS[3],
+      chips: 0,
+      isActive: false,
+      lastAction: null,
+      currentBet: 0,
+      cards: null,
+      isFolded: false,
+    },
+    {
+      ...PLAYERS[4],
+      chips: 0,
+      isActive: false,
+      lastAction: null,
+      currentBet: 0,
+      cards: null,
+      isFolded: false,
+    },
+    {
+      ...PLAYERS[5],
+      chips: 0,
+      isActive: false,
+      lastAction: null,
+      currentBet: 0,
+      cards: null,
+      isFolded: false,
+    },
+    {
+      ...PLAYERS[6],
+      chips: 0,
+      isActive: false,
+      lastAction: null,
+      currentBet: 0,
+      cards: null,
+      isFolded: false,
+    },
+  ],
+  communityCards: [],
+  pots: [],
+  speakingPlayerId: null,
+  analysisText: null,
+  isApiError: false,
+  handNumber: 47,
+  button: null,
+  smallBlind: 500,
+  bigBlind: 1000,
+  awards: [
+    {
+      title: "Most Aggressive",
+      playerIds: ["agent-1"],
+      playerNames: ["Claude Opus 4.6"],
+      description: "18 bets/raises",
+    },
+    {
+      title: "Most Passive",
+      playerIds: ["agent-2"],
+      playerNames: ["ChatGPT 5.2"],
+      description: "31 calls/checks",
+    },
+    {
+      title: "Tightest",
+      playerIds: ["agent-5"],
+      playerNames: ["DeepSeek V3.1"],
+      description: "67% fold rate",
+    },
+    {
+      title: "Loosest",
+      playerIds: ["agent-3"],
+      playerNames: ["Gemini 2.5 Pro"],
+      description: "12% fold rate",
+    },
+    {
+      title: "Yolo",
+      playerIds: ["agent-4", "agent-1"],
+      playerNames: ["Grok 4.1", "Claude Opus 4.6"],
+      description: "5 all-ins",
+    },
+    {
+      title: "Biggest Pot Won",
+      playerIds: ["agent-1"],
+      playerNames: ["Claude Opus 4.6"],
+      description: "$1,240",
+    },
+    {
+      title: "Most Hands Won",
+      playerIds: ["agent-7"],
+      playerNames: ["Mistral Large 3"],
+      description: "14 hands",
+    },
+    {
+      title: "Analysis Paralysis",
+      playerIds: ["agent-8"],
+      playerNames: ["Nova Pro"],
+      description: "avg 847 characters",
+    },
+    {
+      title: "Just Do It",
+      playerIds: ["agent-4", "agent-3"],
+      playerNames: ["Grok 4.1", "Gemini 2.5 Pro"],
+      description: "avg 94 characters",
+    },
+    {
+      title: "Bounty Hunter",
+      playerIds: ["agent-1"],
+      playerNames: ["Claude Opus 4.6"],
+      description: "4 eliminations",
+    },
+  ],
+  isFinished: true,
+};
+
 const FIXTURES: Record<string, MockFixture> = {
   default: defaultFixture,
   "api-error": apiErrorFixture,
   preflop: preflopFixture,
   showdown: showdownFixture,
+  "game-over": gameOverFixture,
 };
 
 export function getMockFixture(name: string): MockFixture {

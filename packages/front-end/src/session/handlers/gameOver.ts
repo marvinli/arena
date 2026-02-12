@@ -1,4 +1,4 @@
-import type { Card, GameState, PlayerAction } from "../../types";
+import type { Card, GameAward, GameState, PlayerAction } from "../../types";
 import type { GqlInstruction } from "../types";
 import { buildPlayers } from "./shared";
 
@@ -15,10 +15,25 @@ export function handleGameOver(
     isActive: false,
   }));
 
+  const awards: GameAward[] = (go.awards ?? []).map(
+    (a: {
+      title: string;
+      playerIds: string[];
+      playerNames: string[];
+      description: string;
+    }) => ({
+      title: a.title,
+      playerIds: a.playerIds,
+      playerNames: a.playerNames,
+      description: a.description,
+    }),
+  );
+
   return {
     ...state,
     status: "finished",
-    currentView: "leaderboard",
+    currentView: "endcard",
     players,
+    awards,
   };
 }

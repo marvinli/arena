@@ -21,7 +21,7 @@ export function handleReconnect(cs: GqlChannelState): GameState {
   const status = cs.status === "FINISHED" ? "finished" : "running";
   const currentView: GameView =
     cs.phase === "WAITING" || cs.status === "FINISHED"
-      ? "leaderboard"
+      ? "endcard"
       : "poker";
 
   return {
@@ -42,5 +42,6 @@ export function handleReconnect(cs: GqlChannelState): GameState {
     analysisText: null,
     isApiError: false,
     error: null,
+    awards: [],
   };
 }

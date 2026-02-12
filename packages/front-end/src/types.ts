@@ -34,12 +34,19 @@ export interface Pot {
   amount: number;
 }
 
+export interface GameAward {
+  title: string;
+  playerIds: string[];
+  playerNames: string[];
+  description: string;
+}
+
 /** Community cards dealt face-up on the board (0-5 cards). */
 export type CommunityCards = Card[];
 
 // ── Game state types ────────────────────────────────────
 
-export type GameView = "poker" | "leaderboard";
+export type GameView = "poker" | "endcard";
 
 export type GamePhase =
   | "WAITING"
@@ -74,4 +81,5 @@ export interface GameState {
   analysisText: string | null;
   isApiError: boolean;
   error: string | null;
+  awards: GameAward[];
 }

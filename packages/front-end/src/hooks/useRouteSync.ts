@@ -4,7 +4,7 @@ import type { GameView } from "../types";
 
 const VIEW_ROUTES: Record<GameView, string> = {
   poker: "/poker",
-  leaderboard: "/poker/leaderboard",
+  endcard: "/poker/endcard",
 };
 
 /**
@@ -12,10 +12,11 @@ const VIEW_ROUTES: Record<GameView, string> = {
  * Navigation is driven by the proctor's render instructions — the user
  * never navigates manually.
  */
-export function useRouteSync(currentView: GameView) {
+export function useRouteSync(currentView: GameView | null) {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!currentView) return;
     const target = VIEW_ROUTES[currentView];
     if (target && window.location.pathname !== target) {
       navigate(target, { replace: true });

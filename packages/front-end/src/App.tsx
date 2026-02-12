@@ -1,4 +1,10 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import { PokerLeaderboardPage } from "./components/PokerLeaderboardPage";
 import { PokerPage } from "./components/PokerPage";
 import { useGameSession } from "./hooks/useGameSession";
@@ -6,31 +12,43 @@ import { useRouteSync } from "./hooks/useRouteSync";
 import { getMockFixture } from "./mockData";
 import "./styles/global.css";
 
-const params = new URLSearchParams(window.location.search);
-const mockParam = params.get("mock");
+function MockPokerPage() {
+  const [params] = useSearchParams();
+  const mock = getMockFixture(params.get("mock") || "default");
+  return (
+    <PokerPage
+      players={mock.players}
+      communityCards={mock.communityCards}
+      pots={mock.pots}
+      speakingPlayerId={mock.speakingPlayerId}
+      analysisText={mock.analysisText}
+      isApiError={mock.isApiError}
+      handNumber={mock.handNumber}
+      button={mock.button}
+    />
+  );
+}
+
+function MockEndcardPage() {
+  const mock = getMockFixture("game-over");
+  return (
+    <PokerLeaderboardPage
+      players={mock.players}
+      handNumber={mock.handNumber}
+      smallBlind={mock.smallBlind ?? 10}
+      bigBlind={mock.bigBlind ?? 20}
+      awards={mock.awards ?? []}
+      isFinished={mock.isFinished ?? false}
+    />
+  );
+}
 
 export function App() {
   const { state } = useGameSession();
+  const { pathname } = useLocation();
+  const isMock = pathname.endsWith("/mock");
 
-  useRouteSync(state.currentView);
-
-  if (mockParam !== null) {
-    const mock = getMockFixture(mockParam || "default");
-    return (
-      <div className="app">
-        <PokerPage
-          players={mock.players}
-          communityCards={mock.communityCards}
-          pots={mock.pots}
-          speakingPlayerId={mock.speakingPlayerId}
-          analysisText={mock.analysisText}
-          isApiError={mock.isApiError}
-          handNumber={mock.handNumber}
-          button={mock.button}
-        />
-      </div>
-    );
-  }
+  useRouteSync(isMock ? null : state.currentView);
 
   return (
     <div className="app">
@@ -51,16 +69,20 @@ export function App() {
           }
         />
         <Route
-          path="/poker/leaderboard"
+          path="/poker/endcard"
           element={
             <PokerLeaderboardPage
               players={state.players}
               handNumber={state.handNumber}
               smallBlind={state.smallBlind}
               bigBlind={state.bigBlind}
+              awards={state.awards}
+              isFinished={state.status === "finished"}
             />
           }
         />
+        <Route path="/poker/mock" element={<MockPokerPage />} />
+        <Route path="/poker/endcard/mock" element={<MockEndcardPage />} />
         <Route path="*" element={<Navigate to="/poker" replace />} />
       </Routes>
     </div>

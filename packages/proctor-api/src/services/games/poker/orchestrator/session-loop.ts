@@ -3,19 +3,74 @@ import { getAgentMessages } from "../../../../persistence.js";
 import type { GameState } from "../../../../types.js";
 import type { Session } from "../../../session/session-manager.js";
 import type { AgentRunner, PlayerConfig } from "../agent-runner.js";
-import {
-  buildGameOver,
-  buildGameStart,
-  buildLeaderboard,
-} from "../instruction-builder.js";
+import { buildGameOver, buildGameStart } from "../instruction-builder.js";
 import * as poker from "../poker-engine/index.js";
 import { emit, updateGameState } from "./emitter.js";
 import { playHand } from "./hand-loop.js";
-import type { SessionContext } from "./types.js";
+import {
+  type ActionTracker,
+  createActionTracker,
+  type SessionContext,
+} from "./types.js";
 
 function isGameOver(state: GameState): boolean {
   const activePlayers = state.players.filter((p) => p.status !== "BUSTED");
   return activePlayers.length <= 1;
+}
+
+function computeAwards(
+  tracker: ActionTracker,
+  players: GameState["players"],
+): Array<{ title: string; playerId: string; playerName: string }> {
+  const getName = (id: string) => players.find((p) => p.id === id)?.name ?? id;
+
+  const entries = [...tracker.entries()].map(([id, s]) => {
+    const total = s.folds + s.calls + s.checks + s.bets + s.raises;
+    return { id, stats: s, total };
+  });
+
+  if (entries.length === 0) return [];
+
+  const awards: Array<{ title: string; playerId: string; playerName: string }> =
+    [];
+
+  // Most Aggressive — most bets + raises
+  const byAggressive = [...entries].sort(
+    (a, b) => b.stats.bets + b.stats.raises - (a.stats.bets + a.stats.raises),
+  );
+  if (byAggressive[0].stats.bets + byAggressive[0].stats.raises > 0) {
+    awards.push({
+      title: "Most Aggressive",
+      playerId: byAggressive[0].id,
+      playerName: getName(byAggressive[0].id),
+    });
+  }
+
+  // Most Passive — most calls + checks
+  const byPassive = [...entries].sort(
+    (a, b) => b.stats.calls + b.stats.checks - (a.stats.calls + a.stats.checks),
+  );
+  if (byPassive[0].stats.calls + byPassive[0].stats.checks > 0) {
+    awards.push({
+      title: "Most Passive",
+      playerId: byPassive[0].id,
+      playerName: getName(byPassive[0].id),
+    });
+  }
+
+  // Tightest — highest fold rate
+  const byTight = [...entries]
+    .filter((e) => e.total > 0)
+    .sort((a, b) => b.stats.folds / b.total - a.stats.folds / a.total);
+  if (byTight.length > 0 && byTight[0].stats.folds > 0) {
+    awards.push({
+      title: "Tightest",
+      playerId: byTight[0].id,
+      playerName: getName(byTight[0].id),
+    });
+  }
+
+  return awards;
 }
 
 /** Returns the blind level for the given hand number based on the schedule. */
@@ -93,6 +148,8 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
         activePlayers.sort((a, b) => b.chips - a.chips)[0] ??
         postHandState.players[0];
 
+      const awards = computeAwards(ctx.actionTracker, postHandState.players);
+
       emit(
         moduleId,
         session,
@@ -101,6 +158,7 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
           winner.name,
           postHandState.players,
           session.handNumber,
+          awards,
         ),
       );
 
@@ -108,15 +166,6 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
       poker.deleteGame(ctx.gameId);
       return;
     }
-
-    emit(
-      moduleId,
-      session,
-      buildLeaderboard(postHandState.players, session.handNumber, {
-        smallBlind: session.config.smallBlind,
-        bigBlind: session.config.bigBlind,
-      }),
-    );
   }
 
   if (session.status === "RUNNING") {
@@ -160,6 +209,7 @@ export async function runSession(
     gameId,
     agentRunner,
     signal,
+    actionTracker: createActionTracker(),
   };
 
   const createState = poker.getGameState(gameId);
@@ -251,6 +301,7 @@ export async function resumeSession(
     gameId,
     agentRunner,
     signal,
+    actionTracker: createActionTracker(),
   };
 
   const createState = poker.getGameState(gameId);
