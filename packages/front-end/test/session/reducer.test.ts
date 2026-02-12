@@ -333,6 +333,7 @@ describe("reducer — HAND_RESULT instruction", () => {
               status: "ACTIVE",
             },
           ],
+          winners: [{ playerId: "p1", amount: 60, hand: "Pair" }],
           communityCards: [
             { rank: "2", suit: "CLUBS" },
             { rank: "5", suit: "DIAMONDS" },

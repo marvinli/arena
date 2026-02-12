@@ -82,4 +82,6 @@ export interface GameState {
   isApiError: boolean;
   error: string | null;
   awards: GameAward[];
+  /** Avatar URLs keyed by player ID — persists across GAME_START → GAME_OVER so busted players retain avatars. */
+  playerAvatars: Map<string, string>;
 }

@@ -9,12 +9,12 @@ export function handleGameStart(
   const gs = inst.gameStart;
   if (!gs) return state;
 
-  const avatarMap = new Map(
+  const playerAvatars = new Map(
     (gs.playerMeta ?? []).map((m) => [m.id, m.avatarUrl ?? ""]),
   );
   const players = mapPlayers(gs.players, null, []).map((p) => ({
     ...p,
-    avatar: avatarMap.get(p.id) ?? "",
+    avatar: playerAvatars.get(p.id) ?? "",
   }));
 
   return {
@@ -25,5 +25,6 @@ export function handleGameStart(
     smallBlind: gs.smallBlind,
     bigBlind: gs.bigBlind,
     players,
+    playerAvatars,
   };
 }

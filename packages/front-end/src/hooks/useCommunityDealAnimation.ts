@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DEAL_INTERVAL_MS,
   FLIP_DURATION_MS,
@@ -22,19 +22,25 @@ export function useCommunityDealAnimation(
 ): Map<number, CommunityCardState> {
   // step = -1 means not animating (pass-through)
   const [step, setStep] = useState(-1);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevCountRef = useRef(0);
-  // Track how many cards were already on the board before this animation
-  const baseCountRef = useRef(0);
+  // Track previous count and base via state (not refs) so that both
+  // React strict-mode render invocations see the same values.
+  const [prevCount, setPrevCount] = useState(0);
+  const [baseCount, setBaseCount] = useState(0);
 
   const cardCount = communityCards.length;
-  const newCards = cardCount - baseCountRef.current;
+  const newCards = cardCount - baseCount;
+
+  // Reset when community cards are cleared (new hand started)
+  if (cardCount < prevCount) {
+    setPrevCount(cardCount);
+    setBaseCount(cardCount);
+  }
 
   // Detect new community cards synchronously during render to avoid a
   // flicker frame where cards appear face-up before the animation starts.
-  if (cardCount > prevCountRef.current) {
-    baseCountRef.current = prevCountRef.current;
-    prevCountRef.current = cardCount;
+  if (cardCount > prevCount) {
+    setBaseCount(prevCount);
+    setPrevCount(cardCount);
     setStep(0);
   }
 
@@ -57,7 +63,7 @@ export function useCommunityDealAnimation(
       delayMs = FLIP_DURATION_MS;
     }
 
-    timerRef.current = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (step <= totalDealSteps) {
         setStep((s) => s + 1);
       } else {
@@ -65,11 +71,7 @@ export function useCommunityDealAnimation(
       }
     }, delayMs);
 
-    return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-    };
+    return () => clearTimeout(timer);
   }, [step, totalDealSteps]);
 
   return useMemo(() => {
@@ -83,7 +85,7 @@ export function useCommunityDealAnimation(
       return map;
     }
 
-    const base = baseCountRef.current;
+    const base = baseCount;
     const faceUp = step > totalDealSteps;
     const cardsDealt = Math.min(step, totalDealSteps);
 
@@ -101,5 +103,5 @@ export function useCommunityDealAnimation(
     }
 
     return map;
-  }, [step, cardCount, totalDealSteps]);
+  }, [step, cardCount, baseCount, totalDealSteps]);
 }

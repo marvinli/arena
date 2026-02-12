@@ -12,6 +12,8 @@ import {
 } from "./timing";
 import type { GqlInstruction } from "./types";
 
+// ── Public API ──────────────────────────────────────────
+
 export interface RenderQueueDeps {
   dispatch: (action: Action) => void;
   voiceMap: Map<string, string>;
@@ -21,10 +23,13 @@ export interface RenderQueueDeps {
 export function createRenderQueue(deps: RenderQueueDeps) {
   const queue: GqlInstruction[] = [];
   let draining = false;
-  let ttsGate: Promise<void> = Promise.resolve();
-  let animGate: Promise<void> = Promise.resolve();
-  let prevCommunityCardCount = 0;
-  let afterHandResult = false;
+
+  // State persists across drain cycles (queue can empty and refill)
+  const state: QueueState = {
+    afterHandResult: false,
+    prevCommunityCardCount: 0,
+    ttsGate: Promise.resolve(),
+  };
 
   function push(instruction: GqlInstruction) {
     queue.push(instruction);
@@ -34,101 +39,203 @@ export function createRenderQueue(deps: RenderQueueDeps) {
   function startDrain() {
     if (draining) return;
     draining = true;
-    void (async () => {
-      try {
-        while (queue.length > 0) {
-          if (deps.signal.aborted) break;
-          const inst = queue.shift();
-          if (!inst) continue;
-
-          // Wait for in-flight deal/display animation to complete
-          await animGate;
-
-          // Wait for in-flight TTS before showing analysis or action
-          if (
-            inst.type === "PLAYER_ANALYSIS" ||
-            inst.type === "PLAYER_ACTION"
-          ) {
-            await ttsGate;
-          }
-
-          // Pause before new community cards so viewers can see the last action
-          if (inst.type === "DEAL_COMMUNITY") {
-            await delay(POST_ACTION_PAUSE_MS, deps.signal);
-          }
-
-          // Pause before showdown so viewers can see the final board
-          if (inst.type === "HAND_RESULT") {
-            await delay(PRE_SHOWDOWN_PAUSE_MS, deps.signal);
-          }
-
-          // Pause before dealing the next hand so the result stays visible
-          if (inst.type === "DEAL_HANDS" && afterHandResult) {
-            await delay(POST_HAND_PAUSE_MS, deps.signal);
-          }
-
-          // Capture player metadata before dispatching
-          if (inst.gameStart?.playerMeta) {
-            for (const meta of inst.gameStart.playerMeta) {
-              if (meta.ttsVoice) deps.voiceMap.set(meta.id, meta.ttsVoice);
-            }
-          }
-
-          deps.dispatch({ type: "INSTRUCTION", instruction: inst });
-
-          // Track whether we just saw a hand result (for post-hand pause)
-          if (inst.type === "HAND_RESULT") {
-            afterHandResult = true;
-          } else if (inst.type === "DEAL_HANDS" || inst.type === "GAME_OVER") {
-            afterHandResult = false;
-          }
-
-          // Set animation gate after deal instructions
-          if (inst.type === "DEAL_HANDS") {
-            prevCommunityCardCount = 0;
-            const playerCount = inst.dealHands?.hands?.length ?? 0;
-            animGate = delay(dealAnimDuration(playerCount), deps.signal);
-          } else if (inst.type === "DEAL_COMMUNITY") {
-            const totalCards = inst.dealCommunity?.communityCards?.length ?? 0;
-            const newCards = totalCards - prevCommunityCardCount;
-            prevCommunityCardCount = totalCards;
-            animGate = delay(communityAnimDuration(newCards), deps.signal);
-          } else if (inst.type === "HAND_RESULT") {
-            // Short pause so the result renders, then let reactions play
-            animGate = delay(SHOWDOWN_DISPLAY_MS, deps.signal);
-          } else if (inst.type === "LEADERBOARD") {
-            animGate = delay(LEADERBOARD_DISPLAY_MS, deps.signal);
-          }
-
-          // Fire-and-forget TTS after dispatching analysis
-          if (
-            inst.type === "PLAYER_ANALYSIS" &&
-            inst.playerAnalysis?.analysis
-          ) {
-            const { playerId, analysis, isApiError } = inst.playerAnalysis;
-            const voiceId = deps.voiceMap.get(playerId);
-            deps.dispatch({
-              type: "SPEAK_START",
-              playerId,
-              text: analysis,
-              isApiError,
-            });
-            ttsGate = (
-              voiceId ? speakAnalysis(analysis, voiceId) : Promise.resolve()
-            ).then(
-              () => deps.dispatch({ type: "SPEAK_END" }),
-              () => deps.dispatch({ type: "SPEAK_END" }),
-            );
-            // Block the next instruction until TTS finishes so post-hand
-            // reactions complete before DEAL_HANDS or GAME_OVER.
-            animGate = ttsGate;
-          }
-        }
-      } finally {
-        draining = false;
-      }
-    })();
+    void drain(queue, deps, state).finally(() => {
+      draining = false;
+    });
   }
 
   return { push };
 }
+
+// ── Handler interface ───────────────────────────────────
+
+interface InstructionHandler {
+  preWait?: (inst: GqlInstruction, ctx: DrainContext) => Promise<void>;
+  execute: (inst: GqlInstruction, ctx: DrainContext) => void;
+  postWait?: (inst: GqlInstruction, ctx: DrainContext) => Promise<void>;
+}
+
+interface DrainContext {
+  dispatch: (action: Action) => void;
+  voiceMap: Map<string, string>;
+  signal: AbortSignal;
+  /** Await the in-flight TTS gate. */
+  awaitTts: () => Promise<void>;
+  /** Shared mutable state across handlers. */
+  state: QueueState;
+}
+
+interface QueueState {
+  afterHandResult: boolean;
+  prevCommunityCardCount: number;
+  ttsGate: Promise<void>;
+}
+
+// ── Generic drain loop ──────────────────────────────────
+
+async function drain(
+  queue: GqlInstruction[],
+  deps: RenderQueueDeps,
+  state: QueueState,
+): Promise<void> {
+  const ctx: DrainContext = {
+    dispatch: deps.dispatch,
+    voiceMap: deps.voiceMap,
+    signal: deps.signal,
+    awaitTts: () => state.ttsGate,
+    state,
+  };
+
+  while (queue.length > 0) {
+    if (deps.signal.aborted) break;
+    const inst = queue.shift();
+    if (!inst) continue;
+
+    const handler =
+      handlers[inst.type as keyof typeof handlers] ?? defaultHandler;
+
+    if (handler.preWait) await handler.preWait(inst, ctx);
+    handler.execute(inst, ctx);
+    if (handler.postWait) await handler.postWait(inst, ctx);
+  }
+}
+
+// ── Default handler ─────────────────────────────────────
+
+const defaultHandler: InstructionHandler = {
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+  },
+};
+
+// ── Per-instruction-type handlers ───────────────────────
+
+const gameStartHandler: InstructionHandler = {
+  execute(inst, ctx) {
+    if (inst.gameStart?.playerMeta) {
+      for (const meta of inst.gameStart.playerMeta) {
+        if (meta.ttsVoice) ctx.voiceMap.set(meta.id, meta.ttsVoice);
+      }
+    }
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+  },
+};
+
+const dealHandsHandler: InstructionHandler = {
+  async preWait(_inst, ctx) {
+    if (ctx.state.afterHandResult) {
+      await delay(POST_HAND_PAUSE_MS, ctx.signal);
+    }
+  },
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+    ctx.state.afterHandResult = false;
+    ctx.state.prevCommunityCardCount = 0;
+  },
+  async postWait(inst, ctx) {
+    const playerCount = inst.dealHands?.hands?.length ?? 0;
+    await delay(dealAnimDuration(playerCount), ctx.signal);
+  },
+};
+
+const dealCommunityHandler: InstructionHandler = {
+  async preWait(_inst, ctx) {
+    await delay(POST_ACTION_PAUSE_MS, ctx.signal);
+  },
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+  },
+  async postWait(inst, ctx) {
+    const totalCards = inst.dealCommunity?.communityCards?.length ?? 0;
+    const newCards = totalCards - ctx.state.prevCommunityCardCount;
+    ctx.state.prevCommunityCardCount = totalCards;
+    await delay(communityAnimDuration(newCards), ctx.signal);
+  },
+};
+
+const playerTurnHandler: InstructionHandler = {
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+  },
+};
+
+const playerAnalysisHandler: InstructionHandler = {
+  async preWait(_inst, ctx) {
+    await ctx.awaitTts();
+  },
+  execute(inst, ctx) {
+    if (!inst.playerAnalysis?.analysis) {
+      ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+      return;
+    }
+
+    const { playerId, analysis, isApiError } = inst.playerAnalysis;
+    const voiceId = ctx.voiceMap.get(playerId);
+
+    ctx.dispatch({ type: "SPEAK_START", playerId, text: analysis, isApiError });
+
+    ctx.state.ttsGate = (
+      voiceId ? speakAnalysis(analysis, voiceId) : Promise.resolve()
+    ).then(
+      () => ctx.dispatch({ type: "SPEAK_END" }),
+      () => ctx.dispatch({ type: "SPEAK_END" }),
+    );
+  },
+  async postWait(_inst, ctx) {
+    // Block the next instruction until TTS finishes so post-hand
+    // reactions complete before DEAL_HANDS or GAME_OVER.
+    await ctx.awaitTts();
+  },
+};
+
+const playerActionHandler: InstructionHandler = {
+  async preWait(_inst, ctx) {
+    await ctx.awaitTts();
+  },
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+  },
+};
+
+const handResultHandler: InstructionHandler = {
+  async preWait(_inst, ctx) {
+    await delay(PRE_SHOWDOWN_PAUSE_MS, ctx.signal);
+  },
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+    ctx.state.afterHandResult = true;
+  },
+  async postWait(_inst, ctx) {
+    await delay(SHOWDOWN_DISPLAY_MS, ctx.signal);
+  },
+};
+
+const leaderboardHandler: InstructionHandler = {
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+  },
+  async postWait(_inst, ctx) {
+    await delay(LEADERBOARD_DISPLAY_MS, ctx.signal);
+  },
+};
+
+const gameOverHandler: InstructionHandler = {
+  execute(inst, ctx) {
+    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
+    ctx.state.afterHandResult = false;
+  },
+};
+
+// ── Handler map ─────────────────────────────────────────
+
+const handlers = {
+  GAME_START: gameStartHandler,
+  DEAL_HANDS: dealHandsHandler,
+  DEAL_COMMUNITY: dealCommunityHandler,
+  PLAYER_TURN: playerTurnHandler,
+  PLAYER_ANALYSIS: playerAnalysisHandler,
+  PLAYER_ACTION: playerActionHandler,
+  HAND_RESULT: handResultHandler,
+  LEADERBOARD: leaderboardHandler,
+  GAME_OVER: gameOverHandler,
+} as const;

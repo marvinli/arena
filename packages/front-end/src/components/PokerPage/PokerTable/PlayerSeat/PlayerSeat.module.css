@@ -85,7 +85,7 @@
 }
 
 .loser {
-  opacity: 0.4;
+  opacity: 0.65;
 }
 
 /* ── Winner action badge ──────────────────────────────── */
@@ -241,6 +241,31 @@
     transform: translateX(-50%) scale(1);
   }
   65% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9);
+  }
+}
+
+/* Winner badge: pop in, hold ~3s, fade out.
+   Compound selector for higher specificity than .actionBadge above. */
+.actionBadge.actionWinner {
+  animation: badgeWinner 4s ease-out forwards;
+}
+
+@keyframes badgeWinner {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.4);
+  }
+  7% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  75% {
     opacity: 1;
     transform: translateX(-50%) scale(1);
   }

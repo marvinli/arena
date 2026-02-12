@@ -61,11 +61,14 @@ function detectOrphanedModule(
   }
 }
 
+/** Pause between games so the endcard is visible before the next game starts. */
+const INTER_GAME_DELAY_MS = 15_000;
+
 export async function runProgrammingLoop(
   channelKey: string,
   startIndex = 0,
 ): Promise<void> {
-  const index = startIndex;
+  let index = startIndex;
 
   // Check for orphaned session from a previous crash
   const recovery = detectOrphanedModule(channelKey);
@@ -93,32 +96,38 @@ export async function runProgrammingLoop(
 
     completeModule(recovery.moduleId);
     deleteSession(channelKey);
-    return;
+    index++;
   }
 
-  if (getSetting("live") !== "true") {
-    console.log("[programming-loop] Live is off, not starting module");
-    return;
+  // Run games continuously while live is on
+  while (getSetting("live") === "true") {
+    const moduleType = PROGRAMMING[index % PROGRAMMING.length];
+    const moduleId = crypto.randomUUID();
+    createModule(moduleId, moduleType, index % PROGRAMMING.length);
+    upsertChannelState(channelKey, moduleId);
+
+    const session = createSession(channelKey);
+    const agentRunner = new LlmAgentRunner();
+
+    try {
+      await runSession(session, agentRunner, moduleId);
+    } catch (err) {
+      logError(
+        "programming-loop",
+        `Module ${moduleId} failed:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
+    completeModule(moduleId);
+    deleteSession(channelKey);
+    index++;
+
+    // Brief pause so endcard is visible before next game
+    if (getSetting("live") === "true") {
+      await new Promise((r) => setTimeout(r, INTER_GAME_DELAY_MS));
+    }
   }
 
-  const moduleType = PROGRAMMING[index % PROGRAMMING.length];
-  const moduleId = crypto.randomUUID();
-  createModule(moduleId, moduleType, index % PROGRAMMING.length);
-  upsertChannelState(channelKey, moduleId);
-
-  const session = createSession(channelKey);
-  const agentRunner = new LlmAgentRunner();
-
-  try {
-    await runSession(session, agentRunner, moduleId);
-  } catch (err) {
-    logError(
-      "programming-loop",
-      `Module ${moduleId} failed:`,
-      err instanceof Error ? err.message : String(err),
-    );
-  }
-
-  completeModule(moduleId);
-  deleteSession(channelKey);
+  console.log("[programming-loop] Live is off, stopping loop");
 }

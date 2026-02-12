@@ -24,14 +24,14 @@ export function handleHandResult(
         winHand: win.hand ?? null,
       };
     }
-    // Non-winner who hasn't already folded → muck
+    // Keep showdown losers visible (isFolded stays false) so their
+    // cards remain on screen during post-hand reactions / TTS.
+    // Cards clear when the next DEAL_HANDS dispatches.
     const alreadyFolded = p.isFolded;
     return {
       cards: state.holeCards.get(p.id) ?? null,
-      lastAction: alreadyFolded
-        ? (null as PlayerAction)
-        : ("muck" as PlayerAction),
-      isFolded: true,
+      lastAction: null as PlayerAction,
+      isFolded: alreadyFolded,
       isActive: false,
       isWinner: false,
       winAmount: null,

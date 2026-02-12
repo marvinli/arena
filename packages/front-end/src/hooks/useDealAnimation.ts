@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   DEAL_INTERVAL_MS,
   FLIP_DURATION_MS,
@@ -20,8 +20,8 @@ export interface DealAnimationState {
 function computeDealOrder(button: number | null, players: Player[]): number[] {
   if (button === null || players.length === 0) return [];
 
-  // Find the dealer's index in the players array
-  const dealerIdx = players.findIndex((_, i) => i === button);
+  // Find the dealer by the isDealer flag (robust after busted players are filtered)
+  const dealerIdx = players.findIndex((p) => p.isDealer);
   if (dealerIdx === -1) return [];
 
   const order: number[] = [];
@@ -49,8 +49,10 @@ export function useDealAnimation(
   // step = -1 means not animating (pass-through)
   // step 0..2N = dealing cards, step 2N+1 = flipping
   const [step, setStep] = useState(-1);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevHandRef = useRef(0);
+  // Track previous hand number via state (not ref) so that both
+  // React strict-mode render invocations see the same value and
+  // produce identical setState calls.
+  const [prevHand, setPrevHand] = useState(0);
 
   const dealOrder = useMemo(
     () => (step >= 0 ? computeDealOrder(button, players) : []),
@@ -62,8 +64,8 @@ export function useDealAnimation(
 
   // Detect new hand synchronously during render to avoid a flicker frame
   // where cards appear face-up before the animation starts.
-  if (handNumber > prevHandRef.current && handNumber > 0) {
-    prevHandRef.current = handNumber;
+  if (handNumber > prevHand && handNumber > 0) {
+    setPrevHand(handNumber);
     setStep(0);
   }
 
@@ -83,7 +85,7 @@ export function useDealAnimation(
       delayMs = FLIP_DURATION_MS;
     }
 
-    timerRef.current = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (step <= totalDealSteps) {
         setStep((s) => s + 1);
       } else {
@@ -92,11 +94,7 @@ export function useDealAnimation(
       }
     }, delayMs);
 
-    return () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-      }
-    };
+    return () => clearTimeout(timer);
   }, [step, totalDealSteps]);
 
   // Build the visibility map

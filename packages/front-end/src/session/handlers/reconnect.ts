@@ -5,24 +5,26 @@ import type { GqlChannelState } from "../types";
 import { buildHoleCards } from "./shared";
 
 export function handleReconnect(cs: GqlChannelState): GameState {
-  const avatarMap = new Map(
+  const playerAvatars = new Map(
     cs.playerMeta.map((m) => [m.id, m.avatarUrl ?? ""]),
   );
 
   const holeCards = buildHoleCards(cs.hands);
 
-  const activePlayers = cs.players.filter((p) => p.status !== "BUSTED");
-  const players = mapPlayers(activePlayers, cs.button, []).map((p) => ({
-    ...p,
-    avatar: avatarMap.get(p.id) ?? "",
-    cards: holeCards.get(p.id) ?? null,
-  }));
-
   const status = cs.status === "FINISHED" ? "finished" : "running";
   const currentView: GameView =
-    cs.phase === "WAITING" || cs.status === "FINISHED"
-      ? "endcard"
-      : "poker";
+    cs.phase === "WAITING" || cs.status === "FINISHED" ? "endcard" : "poker";
+
+  // Include all players on endcard; filter busted during active play
+  const rawPlayers =
+    currentView === "endcard"
+      ? cs.players
+      : cs.players.filter((p) => p.status !== "BUSTED");
+  const players = mapPlayers(rawPlayers, cs.button, []).map((p) => ({
+    ...p,
+    avatar: playerAvatars.get(p.id) ?? "",
+    cards: holeCards.get(p.id) ?? null,
+  }));
 
   return {
     status,
@@ -43,5 +45,6 @@ export function handleReconnect(cs: GqlChannelState): GameState {
     isApiError: false,
     error: null,
     awards: [],
+    playerAvatars,
   };
 }
