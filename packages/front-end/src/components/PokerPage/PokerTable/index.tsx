@@ -41,22 +41,26 @@ export function PokerTable({
       />
 
       {/* Empty seat placeholders */}
-      {SEAT_POSITIONS.slice(players.length).map((seat, i) => (
-        <div
-          // biome-ignore lint/suspicious/noArrayIndexKey: fixed empty seats never reorder
-          key={`empty-${i}`}
-          className={styles.emptySeat}
-          style={{
-            left: `${seat.x}%`,
-            top: `${seat.y}%`,
-          }}
-        />
-      ))}
+      {SEAT_POSITIONS.map((seat, i) => {
+        if (players.some((p) => p.seatIndex === i)) return null;
+        return (
+          <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed seat positions never reorder
+            key={`empty-${i}`}
+            className={styles.emptySeat}
+            style={{
+              left: `${seat.x}%`,
+              top: `${seat.y}%`,
+            }}
+          />
+        );
+      })}
 
-      {players.map((player, i) => {
-        const seat = SEAT_POSITIONS[i];
+      {players.map((player) => {
+        const seat = SEAT_POSITIONS[player.seatIndex];
         if (!seat) return null;
-        const seatColor = BRAND_COLORS[player.avatar] ?? SEAT_COLORS[i];
+        const seatColor =
+          BRAND_COLORS[player.avatar] ?? SEAT_COLORS[player.seatIndex];
 
         return (
           <div key={player.id}>
@@ -75,8 +79,10 @@ export function PokerTable({
                 isSpeaking={player.id === speakingPlayerId}
                 isDimmed={highlightedId !== null && player.id !== highlightedId}
                 hasWinner={hasWinner}
-                visibleCards={dealAnimation.get(i)?.visibleCards ?? 2}
-                faceUp={dealAnimation.get(i)?.faceUp ?? true}
+                visibleCards={
+                  dealAnimation.get(player.seatIndex)?.visibleCards ?? 2
+                }
+                faceUp={dealAnimation.get(player.seatIndex)?.faceUp ?? true}
               />
             </div>
             {player.currentBet > 0 && (
@@ -86,13 +92,12 @@ export function PokerTable({
                 seatColor={seatColor}
                 seatX={seat.x}
                 seatY={seat.y}
-                seatIndex={i}
+                seatIndex={player.seatIndex}
               />
             )}
           </div>
         );
       })}
-
     </div>
   );
 }

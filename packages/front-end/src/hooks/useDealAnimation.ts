@@ -16,6 +16,7 @@ export interface DealAnimationState {
 /**
  * Compute deal order: clockwise starting from the player after the dealer,
  * only including players who were dealt cards.
+ * Returns seatIndex values (not array indices).
  */
 function computeDealOrder(button: number | null, players: Player[]): number[] {
   if (button === null || players.length === 0) return [];
@@ -29,7 +30,7 @@ function computeDealOrder(button: number | null, players: Player[]): number[] {
     const idx = (dealerIdx + i) % players.length;
     // Only include players who were actually dealt cards
     if (players[idx]?.cards !== null) {
-      order.push(idx);
+      order.push(players[idx].seatIndex);
     }
   }
   return order;
@@ -103,8 +104,8 @@ export function useDealAnimation(
 
     if (step < 0 || dealtPlayerCount === 0) {
       // Not animating — pass-through
-      for (let i = 0; i < players.length; i++) {
-        map.set(i, { visibleCards: 2, faceUp: true });
+      for (const p of players) {
+        map.set(p.seatIndex, { visibleCards: 2, faceUp: true });
       }
       return map;
     }
@@ -113,8 +114,8 @@ export function useDealAnimation(
     const faceUp = step > totalDealSteps;
 
     // Initialize all players to 0 visible cards
-    for (let i = 0; i < players.length; i++) {
-      map.set(i, { visibleCards: 0, faceUp });
+    for (const p of players) {
+      map.set(p.seatIndex, { visibleCards: 0, faceUp });
     }
 
     // Count how many cards have been dealt so far
@@ -131,5 +132,5 @@ export function useDealAnimation(
     }
 
     return map;
-  }, [step, players.length, dealtPlayerCount, totalDealSteps, dealOrder]);
+  }, [step, players, dealtPlayerCount, totalDealSteps, dealOrder]);
 }
