@@ -75,8 +75,9 @@ export function buildPlayers(game: Game): Player[] {
     } else if (game.folded.has(pm.seatIndex)) {
       status = PlayerStatus.Folded;
     } else if (
-      handPlayers?.[pm.seatIndex]?.stack === 0 &&
-      game.table.isHandInProgress()
+      game.table.isHandInProgress() &&
+      (handPlayers?.[pm.seatIndex]?.stack === 0 ||
+        (seat.stack === 0 && seat.betSize > 0))
     ) {
       status = PlayerStatus.AllIn;
     }

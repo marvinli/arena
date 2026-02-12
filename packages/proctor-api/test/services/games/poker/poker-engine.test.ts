@@ -431,6 +431,48 @@ describe("poker-engine", () => {
     });
   });
 
+  describe("blinds consume entire stack", () => {
+    it("marks both players ALL_IN when blinds exceed stacks", () => {
+      const gameId = createGame({
+        players: [
+          { id: "p1", name: "Alice", chips: 200 },
+          { id: "p2", name: "Bob", chips: 200 },
+        ],
+        smallBlind: 500,
+        bigBlind: 1000,
+      });
+
+      const state = startHand(gameId);
+      expect(state.currentPlayerId).toBeNull();
+
+      const p1 = state.players.find((p) => p.id === "p1")!;
+      const p2 = state.players.find((p) => p.id === "p2")!;
+      expect(p1.status).toBe(PlayerStatus.AllIn);
+      expect(p2.status).toBe(PlayerStatus.AllIn);
+      expect(p1.bet).toBe(200);
+      expect(p2.bet).toBe(200);
+    });
+
+    it("marks BB as ALL_IN when only BB stack is consumed", () => {
+      const gameId = createGame({
+        players: [
+          { id: "p1", name: "Alice", chips: 500 },
+          { id: "p2", name: "Bob", chips: 150 },
+        ],
+        smallBlind: 100,
+        bigBlind: 200,
+      });
+
+      const state = startHand(gameId);
+      const p1 = state.players.find((p) => p.id === "p1")!;
+      const p2 = state.players.find((p) => p.id === "p2")!;
+      expect(p1.status).toBe(PlayerStatus.Active);
+      expect(p2.status).toBe(PlayerStatus.AllIn);
+      expect(p2.bet).toBe(150);
+      expect(p2.chips).toBe(0);
+    });
+  });
+
   describe("all-in runout", () => {
     it("reveals flop, turn, river one at a time when both players go all-in preflop", () => {
       const gameId = createGame({
