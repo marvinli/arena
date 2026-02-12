@@ -25,6 +25,8 @@ function MockPokerPage() {
       isApiError={mock.isApiError}
       handNumber={mock.handNumber}
       button={mock.button}
+      smallBlind={mock.smallBlind ?? 10}
+      bigBlind={mock.bigBlind ?? 20}
     />
   );
 }
@@ -65,6 +67,8 @@ export function App() {
               isApiError={state.isApiError}
               handNumber={state.handNumber}
               button={state.button}
+              smallBlind={state.smallBlind}
+              bigBlind={state.bigBlind}
             />
           }
         />

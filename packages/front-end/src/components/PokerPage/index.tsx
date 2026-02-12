@@ -14,6 +14,8 @@ export function PokerPage({
   isApiError,
   handNumber,
   button,
+  smallBlind,
+  bigBlind,
 }: {
   players: Player[];
   communityCards: Card[];
@@ -23,6 +25,8 @@ export function PokerPage({
   isApiError: boolean;
   handNumber: number;
   button: number | null;
+  smallBlind: number;
+  bigBlind: number;
 }) {
   const speakingIdx = speakingPlayerId
     ? players.findIndex((p) => p.id === speakingPlayerId)
@@ -48,6 +52,9 @@ export function PokerPage({
         analysisText={analysisText}
         isApiError={isApiError}
       />
+      <div className={styles.infoBar}>
+        Hand {handNumber} &middot; Blinds {smallBlind}/{bigBlind}
+      </div>
     </div>
   );
 }
