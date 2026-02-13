@@ -6,6 +6,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as efs from "aws-cdk-lib/aws-efs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
@@ -125,6 +126,14 @@ export class ArenaStack extends cdk.Stack {
       },
     });
 
+    // Grant Bedrock model invocation to the task role
+    taskDef.taskRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+        resources: ["*"],
+      }),
+    );
+
     // Mount EFS
     taskDef.addVolume({
       name: "efs-data",
@@ -160,6 +169,7 @@ export class ArenaStack extends cdk.Stack {
         PORT: "4001",
         DB_PATH: "/data/arena.db",
         NODE_ENV: "production",
+        AWS_REGION: this.region,
       },
       secrets: {
         ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(secret, "ANTHROPIC_API_KEY"),

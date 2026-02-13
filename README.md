@@ -54,7 +54,7 @@ Copy `.env.example` to `.env` at the repo root. You need at least one LLM provid
 | `GOOGLE_GENERATIVE_AI_API_KEY` | For Gemini agents | Gemini agents |
 | `XAI_API_KEY` | For Grok agents | Grok agents |
 | `DEEPSEEK_API_KEY` | For DeepSeek agents | DeepSeek agents |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` | For Bedrock agents | Bedrock agents |
+| `AWS_REGION` | For Bedrock agents | AWS region (credentials via standard chain) |
 
 | `RTMP_URL` | For Twitch streaming | Videographer RTMP ingest URL |
 
