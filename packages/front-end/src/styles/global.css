@@ -15,21 +15,23 @@ body,
 
 body {
   font-family: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: radial-gradient(
-    ellipse at 50% 50%,
-    #1a5c2a 0%,
-    #0a2410 45%,
-    #040e06 100%
-  );
+  background: #040e06;
   color: #e0e4ef;
   overflow: hidden;
 }
 
 .app {
+  --gradient-x: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
   width: 100%;
   padding: 5vh 4vw;
+  background: radial-gradient(
+    ellipse at var(--gradient-x) 50%,
+    #1a5c2a 0%,
+    #0a2410 45%,
+    #040e06 100%
+  );
 }

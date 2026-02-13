@@ -1,4 +1,6 @@
 import * as cdk from "aws-cdk-lib";
+import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
@@ -12,16 +14,22 @@ import * as path from "node:path";
 /** Root of the monorepo (two levels up from this file). */
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 
-export interface ArenaStackProps extends cdk.StackProps {
-  userPool: cognito.IUserPool;
-  userPoolClient: cognito.IUserPoolClient;
-}
-
 export class ArenaStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: ArenaStackProps) {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const { userPool, userPoolClient } = props;
+    // ── Cognito ─────────────────────────────────────────────
+    const userPool = new cognito.UserPool(this, "AdminUsers", {
+      selfSignUpEnabled: false,
+      signInAliases: { email: true },
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const userPoolDomain = userPool.addDomain("Domain", {
+      cognitoDomain: { domainPrefix: "arena-admin" },
+    });
+
+    const cognitoDomainName = `${userPoolDomain.domainName}.auth.${this.region}.amazoncognito.com`;
 
     // ── VPC ────────────────────────────────────────────────
     const vpc = new ec2.Vpc(this, "Vpc", {
@@ -159,7 +167,38 @@ export class ArenaStack extends cdk.Stack {
       condition: ecs.ContainerDependencyCondition.HEALTHY,
     });
 
-    // ── admin container ──────────────────────────────────
+    // ── ALB (fronted by CloudFront) ────────────────────────
+    const alb = new elbv2.ApplicationLoadBalancer(this, "AdminAlb", {
+      vpc,
+      internetFacing: true,
+    });
+
+    // ── CloudFront ──────────────────────────────────────────
+    const distribution = new cloudfront.Distribution(this, "AdminCdn", {
+      defaultBehavior: {
+        origin: new origins.LoadBalancerV2Origin(alb, {
+          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+        }),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      },
+    });
+
+    const cfUrl = `https://${distribution.distributionDomainName}`;
+
+    // ── Cognito client (needs CloudFront URL for callback) ──
+    const userPoolClient = userPool.addClient("AdminApp", {
+      oAuth: {
+        flows: { implicitCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
+        callbackUrls: [cfUrl, "http://localhost:5174", "http://localhost:8081"],
+      },
+      authFlows: { userSrp: true },
+    });
+
+    // ── admin container (after Cognito so we can reference IDs) ──
     const adminContainer = taskDef.addContainer("admin", {
       image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
         file: "Dockerfile.admin",
@@ -183,17 +222,12 @@ export class ArenaStack extends cdk.Stack {
         VIDEOGRAPHER_URL: "http://localhost:3001",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
+        COGNITO_DOMAIN: cognitoDomainName,
         AWS_REGION: this.region,
       },
     });
 
     adminContainer.addPortMappings({ containerPort: 8080 });
-
-    // ── ALB (admin only) ─────────────────────────────────
-    const alb = new elbv2.ApplicationLoadBalancer(this, "AdminAlb", {
-      vpc,
-      internetFacing: true,
-    });
 
     // ── Fargate service ───────────────────────────────────
     const service = new ecs.FargateService(this, "Service", {
@@ -226,8 +260,20 @@ export class ArenaStack extends cdk.Stack {
 
     // ── Outputs ───────────────────────────────────────────
     new cdk.CfnOutput(this, "AdminUrl", {
-      value: `http://${alb.loadBalancerDnsName}`,
-      description: "Admin dashboard URL",
+      value: cfUrl,
+      description: "Admin dashboard URL (CloudFront HTTPS)",
+    });
+
+    new cdk.CfnOutput(this, "UserPoolId", {
+      value: userPool.userPoolId,
+    });
+
+    new cdk.CfnOutput(this, "CognitoClientId", {
+      value: userPoolClient.userPoolClientId,
+    });
+
+    new cdk.CfnOutput(this, "CognitoDomain", {
+      value: cognitoDomainName,
     });
   }
 }

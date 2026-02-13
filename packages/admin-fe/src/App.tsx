@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
-// ── Cognito config (from Vite env) ──────────────────────
+// ── Cognito config (runtime injection or Vite env fallback) ──
 
-const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN as string;
-const COGNITO_CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID as string;
-const REDIRECT_URI = import.meta.env.VITE_REDIRECT_URI as string || window.location.origin;
+const runtimeConfig = (window as Record<string, unknown>).__ARENA_CONFIG__ as
+  | { cognitoDomain?: string; cognitoClientId?: string }
+  | undefined;
+
+const COGNITO_DOMAIN = runtimeConfig?.cognitoDomain || (import.meta.env.VITE_COGNITO_DOMAIN as string);
+const COGNITO_CLIENT_ID = runtimeConfig?.cognitoClientId || (import.meta.env.VITE_COGNITO_CLIENT_ID as string);
+const REDIRECT_URI = (import.meta.env.VITE_REDIRECT_URI as string) || window.location.origin;
 
 function getLoginUrl(): string {
   return `https://${COGNITO_DOMAIN}/login?client_id=${COGNITO_CLIENT_ID}&response_type=token&scope=openid+email&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;

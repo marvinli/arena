@@ -49,11 +49,17 @@ export function App() {
   const { state } = useGameSession();
   const { pathname } = useLocation();
   const isMock = pathname.endsWith("/mock");
+  const isPokerTable =
+    pathname === "/poker" || pathname === "/poker/mock";
 
   useRouteSync(isMock ? null : state.currentView);
 
+  const appStyle = isPokerTable
+    ? ({ "--gradient-x": "calc(50% - 9vw)" } as React.CSSProperties)
+    : undefined;
+
   return (
-    <div className="app">
+    <div className="app" style={appStyle}>
       <Routes>
         <Route
           path="/poker"
