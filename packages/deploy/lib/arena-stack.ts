@@ -6,6 +6,7 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as efs from "aws-cdk-lib/aws-efs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import type { Construct } from "constructs";
@@ -19,11 +20,55 @@ export class ArenaStack extends cdk.Stack {
     super(scope, id, props);
 
     // ── Cognito ─────────────────────────────────────────────
+    const ALLOWED_EMAILS = ["marvinli@gmail.com"];
+
+    const preSignUpFn = new lambda.Function(this, "PreSignUp", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: "index.handler",
+      code: lambda.Code.fromInline(`
+        exports.handler = async (event) => {
+          const allowed = process.env.ALLOWED_EMAILS.split(",");
+          const email = (event.request.userAttributes.email || "").toLowerCase();
+          if (!allowed.includes(email)) {
+            throw new Error("Email not authorized");
+          }
+          event.response.autoConfirmUser = true;
+          event.response.autoVerifyEmail = true;
+          return event;
+        };
+      `),
+      environment: { ALLOWED_EMAILS: ALLOWED_EMAILS.join(",") },
+    });
+
     const userPool = new cognito.UserPool(this, "AdminUsers", {
       selfSignUpEnabled: false,
       signInAliases: { email: true },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      lambdaTriggers: { preSignUp: preSignUpFn },
     });
+
+    const googleOAuthSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "GoogleOAuth",
+      "arena/google-oauth",
+    );
+
+    const googleProvider = new cognito.UserPoolIdentityProviderGoogle(
+      this,
+      "Google",
+      {
+        userPool,
+        clientId: googleOAuthSecret
+          .secretValueFromJson("clientId")
+          .unsafeUnwrap(),
+        clientSecretValue:
+          googleOAuthSecret.secretValueFromJson("clientSecret"),
+        scopes: ["email", "openid", "profile"],
+        attributeMapping: {
+          email: cognito.ProviderAttribute.GOOGLE_EMAIL,
+        },
+      },
+    );
 
     const userPoolDomain = userPool.addDomain("Domain", {
       cognitoDomain: { domainPrefix: "arena-admin" },
@@ -95,6 +140,9 @@ export class ArenaStack extends cdk.Stack {
       image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
         file: "Dockerfile.app",
         exclude: ["**/cdk.out"],
+        buildArgs: {
+          OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
+        },
       }),
       memoryLimitMiB: 2048,
       logging: ecs.LogDrivers.awsLogs({
@@ -190,13 +238,16 @@ export class ArenaStack extends cdk.Stack {
 
     // ── Cognito client (needs CloudFront URL for callback) ──
     const userPoolClient = userPool.addClient("AdminApp", {
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.GOOGLE,
+      ],
       oAuth: {
         flows: { implicitCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
         callbackUrls: [cfUrl, "http://localhost:5174", "http://localhost:8081"],
       },
-      authFlows: { userSrp: true },
     });
+    userPoolClient.node.addDependency(googleProvider);
 
     // ── admin container (after Cognito so we can reference IDs) ──
     const adminContainer = taskDef.addContainer("admin", {

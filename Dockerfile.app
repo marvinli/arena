@@ -20,9 +20,9 @@ WORKDIR /workspace
 COPY packages/front-end/ packages/front-end/
 COPY tsconfig.json ./
 
-# Vite reads env from envDir (repo root) — pass API keys needed at build time
+# Vite reads env from envDir (repo root) — write .env for Vite to pick up
 ARG OPENAI_API_KEY=""
-ENV OPENAI_API_KEY=$OPENAI_API_KEY
+RUN echo "OPENAI_API_KEY=$OPENAI_API_KEY" > .env
 
 RUN npm run build -w @arena/front-end
 
