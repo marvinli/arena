@@ -4,6 +4,7 @@ import type { Action } from "./reducer";
 import {
   communityAnimDuration,
   dealAnimDuration,
+  ENDCARD_DISPLAY_MS,
   LEADERBOARD_DISPLAY_MS,
   POST_ACTION_PAUSE_MS,
   POST_HAND_PAUSE_MS,
@@ -225,6 +226,9 @@ const gameOverHandler: InstructionHandler = {
   execute(inst, ctx) {
     ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
     ctx.state.afterHandResult = false;
+  },
+  async postWait(_inst, ctx) {
+    await delay(ENDCARD_DISPLAY_MS, ctx.signal);
   },
 };
 

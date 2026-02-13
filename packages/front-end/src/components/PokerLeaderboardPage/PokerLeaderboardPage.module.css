@@ -1,4 +1,5 @@
 .wrapper {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -129,6 +130,26 @@
   font-size: 0.8rem;
   font-weight: 400;
   color: #d0d4e0;
+}
+
+/* ── Countdown ───────────────────────────────── */
+
+.countdown {
+  position: absolute;
+  bottom: 2rem;
+  left: 3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: rgba(56, 189, 248, 0.85);
+}
+
+.countdownRing {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
 /* ── Between-hands leaderboard (fallback) ────── */

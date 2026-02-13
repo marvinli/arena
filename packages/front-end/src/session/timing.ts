@@ -9,6 +9,7 @@ export const ANIM_BUFFER_MS = 100;
 // Display time for states that need to be visible before the next instruction
 export const SHOWDOWN_DISPLAY_MS = 3000;
 export const LEADERBOARD_DISPLAY_MS = 3000;
+export const ENDCARD_DISPLAY_MS = 15000;
 
 // Pause after hand result + reaction before dealing next hand
 export const POST_HAND_PAUSE_MS = 2000;

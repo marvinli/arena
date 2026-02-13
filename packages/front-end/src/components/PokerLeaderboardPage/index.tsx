@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { ENDCARD_DISPLAY_MS } from "../../session/timing";
 import type { GameAward, Player } from "../../types";
 import {
   BRAND_COLORS,
@@ -76,6 +78,19 @@ export function PokerLeaderboardPage({
   const sorted = [...players].sort((a, b) => b.chips - a.chips);
   const playerMap = new Map(players.map((p) => [p.id, p]));
 
+  const [countdown, setCountdown] = useState(
+    Math.ceil(ENDCARD_DISPLAY_MS / 1000),
+  );
+
+  useEffect(() => {
+    if (!isFinished) return;
+    setCountdown(Math.ceil(ENDCARD_DISPLAY_MS / 1000));
+    const id = setInterval(() => {
+      setCountdown((prev) => (prev > 1 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isFinished]);
+
   if (isFinished) {
     return (
       <div className={styles.wrapper}>
@@ -120,6 +135,24 @@ export function PokerLeaderboardPage({
             </div>
           )}
         </div>
+        {countdown > 0 && (
+          <div className={styles.countdown}>
+            <svg className={styles.countdownRing} viewBox="0 0 32 32">
+              <circle cx="16" cy="16" r="14" fill="none" stroke="rgba(56,189,248,0.2)" strokeWidth="2.5" />
+              <circle
+                cx="16" cy="16" r="14"
+                fill="none"
+                stroke="rgba(56,189,248,0.85)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray={2 * Math.PI * 14}
+                strokeDashoffset={2 * Math.PI * 14 * (1 - countdown / Math.ceil(ENDCARD_DISPLAY_MS / 1000))}
+                style={{ transition: "stroke-dashoffset 1s linear", transform: "rotate(-90deg)", transformOrigin: "center" }}
+              />
+            </svg>
+            <span>Next game starting in {countdown}</span>
+          </div>
+        )}
       </div>
     );
   }
