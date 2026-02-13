@@ -28,6 +28,7 @@ FROM node:20-slim AS runtime
 # Install Chromium and ffmpeg for browser capture + RTMP streaming
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
+    curl \
     ffmpeg \
     fonts-noto-color-emoji \
     fonts-noto-cjk \
