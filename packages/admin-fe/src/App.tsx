@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 // ── Cognito config (runtime injection or Vite env fallback) ──
 
-const runtimeConfig = (window as Record<string, unknown>).__ARENA_CONFIG__ as
+const runtimeConfig = (window as unknown as Record<string, unknown>).__ARENA_CONFIG__ as
   | { cognitoDomain?: string; cognitoClientId?: string }
   | undefined;
 
