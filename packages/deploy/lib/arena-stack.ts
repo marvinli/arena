@@ -66,6 +66,10 @@ export class ArenaStack extends cdk.Stack {
     const taskDef = new ecs.FargateTaskDefinition(this, "Task", {
       cpu: 4096,
       memoryLimitMiB: 8192,
+      runtimePlatform: {
+        cpuArchitecture: ecs.CpuArchitecture.ARM64,
+        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+      },
     });
 
     // Mount EFS
@@ -139,6 +143,13 @@ export class ArenaStack extends cdk.Stack {
       },
       secrets: {
         RTMP_URL: ecs.Secret.fromSecretsManager(secret, "RTMP_URL"),
+      },
+      healthCheck: {
+        command: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"],
+        interval: cdk.Duration.seconds(30),
+        timeout: cdk.Duration.seconds(5),
+        retries: 3,
+        startPeriod: cdk.Duration.seconds(60),
       },
       essential: false,
     });
