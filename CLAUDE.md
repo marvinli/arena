@@ -12,12 +12,16 @@ Design docs live in `docs/`:
 - [FRONT_END_INTEGRATION.md](docs/FRONT_END_INTEGRATION.md) — SSE subscription, render queue, ACK protocol
 - [FRONT_END_ROUTING.md](docs/FRONT_END_ROUTING.md) — client-side routing, component hierarchy, instruction-driven navigation
 - [VIDEOGRAPHER.md](docs/VIDEOGRAPHER.md) — headless capture pipeline, Puppeteer → ffmpeg → RTMP
+- [ADMIN.md](docs/ADMIN.md) — admin service architecture, auth flow, environment variables
 
 ## Packages
 
 - `proctor-api` — orchestrator + game engines (GraphQL, port 4001). Business logic under `src/services/` (session management at `services/session/`, poker at `services/games/poker/`)
 - `front-end` — React renderer (TTS, animations, no game logic)
 - `videographer` — headless browser capture → Twitch RTMP (Puppeteer + ffmpeg)
+- `admin-api` — admin GraphQL API (health monitoring, start/stop control, Cognito JWT auth)
+- `admin-fe` — admin dashboard SPA (Vite React, Cognito login)
+- `deploy` — AWS CDK infrastructure (single ArenaStack: VPC, ECS Fargate, EFS, ALB, CloudFront, Cognito)
 
 ## Monorepo Setup
 
@@ -92,7 +96,7 @@ src/services/games/poker/
   llm-agent-runner.ts    # LLM implementation (ai SDK, multi-provider)
   instruction-builder.ts # Builds poker-specific RenderInstruction payloads
   message-formatter.ts   # Human-readable game event strings for agent conversations
-  prompt-template.ts     # Shared system prompt template for agents
+  prompt-template.ts     # System prompt template for agents (interpolates name + provider)
   fallback-lines.ts      # Fallback commentary when agent analysis fails
 ```
 
@@ -103,7 +107,7 @@ The front-end is a pure renderer — no game logic. It subscribes to SSE render 
 ### Routes
 
 - `/poker` — active hand play (PokerPage)
-- `/poker/leaderboard` — between-hands standings (PokerLeaderboardPage)
+- `/poker/endcard` — between-hands standings and final results (PokerLeaderboardPage)
 - `/` — redirects to `/poker`
 
 ### Component Hierarchy
@@ -121,10 +125,10 @@ src/components/
       ChipStack/                     # Chip icon + formatted amount
       layout.ts                      # Seat positions + colors (data only)
     SidePanel/                       # Speaking player + analysis text
-    ProviderIcon.tsx                 # AI provider brand icons
-  PokerLeaderboardPage/              # Between-hands leaderboard
+  PokerLeaderboardPage/              # Between-hands leaderboard and endcard
     index.tsx
-  shared/                            # Cross-page components (empty — emerges as needed)
+  shared/                            # Cross-page components
+    ProviderIcon.tsx                 # AI provider brand icons
 ```
 
 ### Other Source
@@ -146,7 +150,10 @@ src/
     useRouteSync.ts      # Syncs GameState.currentView → browser URL
     useDealAnimation.ts  # Staged hole card deal animation
     useCommunityDealAnimation.ts
+  graphql/               # GraphQL client + operations + generated types
+  styles/                # Global CSS
   tts.ts                 # OpenAI streaming TTS (gpt-4o-mini-tts, PCM via Web Audio API)
+  chips.ts               # Chip formatting utilities
   types.ts               # Core app types (Card, Player, GameState, etc.)
 ```
 
@@ -160,9 +167,9 @@ SSE stream → RenderQueue (animation/TTS gates) → useReducer dispatch → Rea
                                               useRouteSync → navigate()
 ```
 
-The render queue decouples instruction arrival rate from rendering. It uses Promise-based gates to sequence deal animations, display pauses (showdown, leaderboard), and TTS playback. The front-end ACKs each instruction immediately via GraphQL mutation, enabling the proctor to pipeline the next LLM call while the front-end renders at its own pace.
+The render queue decouples instruction arrival rate from rendering. It uses Promise-based gates to sequence deal animations, display pauses (showdown, leaderboard), and TTS playback. The front-end ACKs each instruction after the render queue finishes processing it (animations + TTS complete). The proctor gates on ACKs for specific instructions (GAME_START, GAME_OVER) while pipelining LLM calls during normal play.
 
-The reducer sets `currentView` based on instruction type (e.g. `LEADERBOARD` → `"leaderboard"`, `DEAL_HANDS` → `"poker"`). The `useRouteSync` hook watches this field and calls `navigate()` to keep the URL in sync.
+The reducer sets `currentView` based on instruction type (e.g. `LEADERBOARD` → `"endcard"`, `DEAL_HANDS` → `"poker"`). The `useRouteSync` hook watches this field and calls `navigate()` to keep the URL in sync.
 
 ### TTS
 

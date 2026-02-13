@@ -9,7 +9,7 @@ The front-end evolves from a single-page poker renderer into a multi-page app wi
 | Path                 | Page Component           | When Active                                    |
 |----------------------|--------------------------|------------------------------------------------|
 | `/poker`             | `PokerPage`              | During active hand play (GAME_START through HAND_RESULT) |
-| `/poker/leaderboard` | `PokerLeaderboardPage`   | Between hands (LEADERBOARD instruction)        |
+| `/poker/endcard`     | `PokerLeaderboardPage`   | Between hands (LEADERBOARD) and game end (GAME_OVER) |
 | `/`                  | Redirects to `/poker`    | Default entry point                            |
 
 ## Instruction-Driven Navigation
@@ -17,17 +17,17 @@ The front-end evolves from a single-page poker renderer into a multi-page app wi
 A `useRouteSync` hook in `App.tsx` watches the game state and navigates accordingly:
 
 - **DEAL_HANDS** → `/poker` (new hand starting)
-- **LEADERBOARD** → `/poker/leaderboard` (between-hands standings)
+- **LEADERBOARD** → `/poker/endcard` (between-hands standings)
 - **GAME_START** → `/poker` (game beginning)
-- **GAME_OVER** → `/poker/leaderboard` (final standings)
-- **RECONNECT** → derived from game phase (WAITING = leaderboard, else poker)
+- **GAME_OVER** → `/poker/endcard` (final standings)
+- **RECONNECT** → derived from game phase (WAITING or FINISHED = endcard, else poker)
 
 The hook reads from a new `currentView` field on `GameState` that the reducer sets based on instruction type. This keeps routing logic pure (in the reducer) and the hook simply syncs state to URL.
 
 ### GameState Addition
 
 ```typescript
-type GameView = "poker" | "leaderboard";
+type GameView = "poker" | "endcard";
 
 interface GameState {
   // ... existing fields ...
@@ -36,9 +36,9 @@ interface GameState {
 ```
 
 The reducer updates `currentView`:
-- `handleLeaderboard` / `handleGameOver` → `"leaderboard"`
+- `handleLeaderboard` / `handleGameOver` → `"endcard"`
 - `handleGameStart` / `handleDealHands` → `"poker"`
-- `handleReconnect` → based on phase
+- `handleReconnect` → based on phase (WAITING or FINISHED = `"endcard"`, else `"poker"`)
 
 ## State Management
 
@@ -50,7 +50,7 @@ App.tsx
 ├── useRouteSync(state)  ← syncs state.currentView → router
 ├── <Routes>
 │   ├── /poker            → <PokerPage state={...} />
-│   └── /poker/leaderboard → <PokerLeaderboardPage state={...} />
+│   └── /poker/endcard    → <PokerLeaderboardPage state={...} />
 ```
 
 ## Component Hierarchy
@@ -79,23 +79,22 @@ src/components/
 │   │   └── ChipStack/
 │   │       ├── index.tsx
 │   │       └── ChipStack.module.css
-│   ├── SidePanel/
-│   │   └── index.tsx                      # Uses PokerPage.module.css
-│   └── ProviderIcon.tsx                   # Used by PlayerSeat + SidePanel
+│   └── SidePanel/
+│       ├── index.tsx
+│       └── SidePanel.module.css
 │
 ├── PokerLeaderboardPage/
-│   ├── index.tsx                          # Leaderboard standings view
+│   ├── index.tsx                          # Leaderboard standings and endcard view
 │   └── PokerLeaderboardPage.module.css
 │
-└── shared/                                # Empty for now — sharing emerges as needed
+└── shared/
+    └── ProviderIcon.tsx                   # AI provider brand icons (used by PlayerSeat + SidePanel)
 ```
 
 ### Key Decisions
 
-- **ProviderIcon** lives under `PokerPage/` because it's used by both `PlayerSeat` and `SidePanel` (both children of PokerPage). When the leaderboard or other pages need it, it moves to `shared/`.
+- **ProviderIcon** lives under `shared/` because it's used across pages (PlayerSeat, SidePanel, and potentially the leaderboard).
 - **CommunityArea** and **BetIndicator** don't have their own CSS modules — they import from `PokerTable.module.css` (their styles are tightly coupled to the table layout). This avoids unnecessary file proliferation.
-- **StartScreen** is removed (unused in the live flow).
-- **App.module.css** is removed (unused — was a leftover).
 - **layout.ts** stays under `PokerTable/` as pure data.
 
 ### Import Convention
@@ -113,4 +112,4 @@ import { PlayerSeat } from "./PlayerSeat";
 
 ## Mock Mode
 
-Mock mode (`?mock=...`) continues to work. When active, the app renders the `PokerPage` directly with mock data, bypassing routing and SSE.
+Mock mode uses dedicated routes (`/poker/mock` and `/poker/endcard/mock`) with `?mock=...` query params. When active, the app renders components directly with mock data, bypassing SSE. Route sync is disabled for mock routes.

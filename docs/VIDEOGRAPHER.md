@@ -22,7 +22,7 @@ The videographer is a headless camera. It opens the front-end in Chrome via `pup
 └──────────────────────────────────────────────────────┘
 ```
 
-The videographer has no connection to the proctor-api. It doesn't subscribe to GraphQL, doesn't know about instructions, and doesn't call `completeInstruction`. It is a dumb screen recorder pointed at a URL.
+The videographer polls the proctor-api's `{ live }` GraphQL query to decide when to start and stop streaming. When `live` becomes `true`, it launches Chrome and begins capture; when `live` becomes `false`, it stops. It doesn't subscribe to SSE, doesn't know about render instructions, and doesn't call `completeInstruction`. It also exposes a tiny health server (`/health`) for monitoring.
 
 ## How It Works
 
@@ -40,25 +40,21 @@ For RTMP streaming:
 ffmpeg \
   -i pipe:0 \                    # WebM from puppeteer-stream
   -c:v libx264 -preset veryfast \ # VP8 → H.264
-  -b:v 6000k \                   # 6 Mbps video
-  -c:a aac -b:a 128k \           # Opus → AAC
+  -tune zerolatency \            # Low-latency for RTMP
+  -pix_fmt yuv420p \
+  -r 30 -g 60 \                  # Framerate + keyframe interval
+  -b:v 4500k -maxrate 4500k \   # 4.5 Mbps video
+  -bufsize 9000k \
+  -c:a aac -b:a 160k -ar 44100 \ # Opus → AAC
   -f flv \                       # RTMP container
   rtmp://live.twitch.tv/app/{STREAM_KEY}
 ```
 
-For local file recording:
-
-```bash
-ffmpeg \
-  -i pipe:0 \                    # WebM from puppeteer-stream
-  -c:v libx264 -preset veryfast \
-  -c:a aac \
-  output.mp4
-```
+For local file recording the same pipeline is used, minus `-tune zerolatency` and `-f flv`.
 
 ## Configuration
 
-All configuration via environment variables (see `.env.example`):
+All configuration via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -69,42 +65,44 @@ All configuration via environment variables (see `.env.example`):
 | `CAPTURE_HEIGHT` | `1080` | Viewport height |
 | `CAPTURE_FPS` | `30` | Target framerate |
 | `CHROME_PATH` | auto-detect | Custom Chrome/Chromium path |
+| `HEALTH_PORT` | `3001` | Port for the `/health` endpoint |
+| `PROCTOR_URL` | `http://localhost:4001` | proctor-api URL (polled for `{ live }` flag) |
 
-Either `RTMP_URL` or `OUTPUT_FILE` must be set (not both).
+At least one of `RTMP_URL` or `OUTPUT_FILE` must be set. If both are set, `RTMP_URL` takes precedence.
 
 Chrome is auto-detected on macOS (`/Applications/Google Chrome.app/...`), Linux (`/usr/bin/google-chrome`), and Windows.
 
 ## Process Lifecycle
 
 ```
-1. Wait for front-end to be reachable (HEAD request health check)
-2. Launch Chrome in --app mode with fixed viewport
-3. Navigate to FRONTEND_URL
-4. Start puppeteer-stream tab capture → WebM stream
-5. Spawn ffmpeg, pipe WebM to stdin
-6. ffmpeg transcodes and pushes to RTMP (or writes to file)
+1. Start health server on HEALTH_PORT (/health endpoint)
+2. Poll proctor-api { live } query every 5 seconds
 
-   ... runs indefinitely until stopped ...
+   When live = true and currently idle:
+     3. Wait for front-end to be reachable (HEAD request, up to 30 attempts)
+     4. Launch Chrome in --app mode with fixed viewport
+     5. Start puppeteer-stream tab capture → WebM stream
+     6. Spawn ffmpeg, pipe WebM to stdin
+     7. ffmpeg transcodes and pushes to RTMP (or writes to file)
 
-7. On SIGTERM/SIGINT:
-   - Stop capture stream
-   - Kill ffmpeg
-   - Close browser
-   - Exit
+   When live = false and currently streaming:
+     8. Stop capture stream, kill ffmpeg, close browser → back to idle
+
+   On SIGTERM/SIGINT:
+     9. Stop streaming (if active), close health server, exit
 ```
 
-The process is long-lived and stateless. If it crashes, restart it — it'll reconnect to whatever the front-end is showing.
+The process is long-lived. It automatically starts and stops streaming based on the proctor's live flag. If it crashes, restart it — it will resume polling and start streaming when `live` is true again.
 
 ## Package Structure
 
 ```
 packages/videographer/
   src/
-    index.ts          # Entry point — health check, launch browser, start capture, graceful shutdown
+    index.ts          # Entry point — health server, live-flag polling, start/stop streaming, graceful shutdown
     browser.ts        # puppeteer-stream launch + tab capture (WebM VP8+Opus)
     ffmpeg.ts         # Spawn ffmpeg, pipe WebM stdin → RTMP or file
     config.ts         # Env var loading, Chrome auto-detection, validation
-  .env.example
   package.json
   tsconfig.json
 ```
@@ -118,7 +116,6 @@ ffmpeg is a system dependency, not an npm package.
 ## What This Package Does NOT Do
 
 - No game logic. Doesn't know what poker is.
-- No GraphQL. Doesn't talk to proctor-api.
 - No rendering. Doesn't draw cards or chips.
 - No TTS. The front-end handles TTS via OpenAI — the videographer just captures the audio output.
 - No instruction processing. Doesn't call `completeInstruction`.

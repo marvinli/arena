@@ -24,6 +24,9 @@ npm workspaces monorepo — TypeScript, ESM, strict mode throughout.
 | `proctor-api` | Game orchestrator + poker engine. GraphQL API with SSE subscriptions. SQLite for persistence. |
 | `front-end` | Pure renderer — subscribes to SSE instructions, animates the table, plays TTS via OpenAI. No game logic. |
 | `videographer` | Puppeteer captures the front-end, pipes through ffmpeg to Twitch RTMP (or local file). |
+| `admin-api` | Admin control plane. GraphQL API (graphql-yoga) that proxies to proctor-api and videographer. Cognito JWT auth. |
+| `admin-fe` | Admin dashboard. React SPA — Cognito login, health indicators, start/stop toggle. |
+| `deploy` | AWS CDK infrastructure (ECS Fargate, ALB, CloudFront). |
 
 ## Commands
 
@@ -31,6 +34,8 @@ npm workspaces monorepo — TypeScript, ESM, strict mode throughout.
 npm run proctor-api              # dev server (tsx watch, hot reload)
 npm run front-end                # vite dev server
 npm run videographer             # headless capture → stream
+npm run admin-api                # admin API dev server (tsx watch)
+npm run admin-fe                 # admin dashboard dev server (vite, port 5174)
 npm run run-game                 # CLI game runner (no front-end needed)
 npm run test:proctor-api         # vitest
 npm run test:front-end           # vitest
@@ -80,4 +85,4 @@ npm run docker:down            # stop and remove containers
 | `admin` | [localhost:8081](http://localhost:8081) | Nginx + admin-api + admin dashboard |
 | `videographer` | — | Headless Chrome + ffmpeg (captures app, streams to RTMP) |
 
-Secrets are read from the root `.env` file. Cognito auth is bypassed automatically — the admin dashboard works without login.
+Secrets are read from the root `.env` file. See [docs/ADMIN.md](docs/ADMIN.md) for admin service details and auth configuration.

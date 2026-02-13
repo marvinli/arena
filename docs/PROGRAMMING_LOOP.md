@@ -48,7 +48,7 @@ Per `channelKey` (which identifies the client), the proctor tracks the client's 
 | `instruction_ts` | Timestamp of last completed instruction |
 | `state_snapshot` | JSON snapshot of game state at that instruction |
 
-This is a bookmark — a pointer into the instruction stream. The proctor does not wait for `completeInstruction` before advancing the game. It writes instructions to the DB and pushes them to connected clients via SSE independently. The bookmark just records how far the client has rendered, so it can resume from that point after a disconnect.
+This is a bookmark — a pointer into the instruction stream. The proctor does not wait for `completeInstruction` for most instructions. It writes instructions to the DB and pushes them to connected clients via SSE independently. The bookmark records how far the client has rendered, so it can resume from that point after a disconnect. The exceptions are `GAME_START` and `GAME_OVER` — the proctor gates on client ACKs for these instructions via `ack-gate.ts` to synchronize session boundaries.
 
 The snapshot is updated alongside the bookmark on each `completeInstruction` call. This avoids the need to replay instructions to reconstruct state on reconnect — the snapshot is always the front-end's visual state at its last completed instruction.
 
@@ -183,7 +183,7 @@ Module engine produces an event (deal, action, etc.)
                                                 state_snapshot = ?
 ```
 
-The proctor does **not** wait for `completeInstruction`. It writes the instruction to the DB and immediately continues the game loop. The front-end queues instructions and renders them in order at its own pace. `completeInstruction` only updates the client's bookmark.
+The proctor does **not** wait for `completeInstruction` for most instructions. It writes the instruction to the DB and immediately continues the game loop. The front-end queues instructions and renders them in order at its own pace. `completeInstruction` updates the client's bookmark and notifies the ack gate. The proctor gates on ACKs for `GAME_START` and `GAME_OVER` to synchronize session boundaries.
 
 ## Module Transitions
 
@@ -292,8 +292,8 @@ mutation completeInstruction(
 
 ## Key Design Decisions
 
-**Why doesn't the proctor wait for `completeInstruction`?**
-The proctor runs the game to completion regardless of client state. `completeInstruction` is a bookmark, not a synchronization point. This decouples the game loop from the renderer — the game runs at inference speed, the front-end renders at its own pace, and disconnected clients don't block game progress.
+**Why doesn't the proctor wait for `completeInstruction` on most instructions?**
+The proctor runs the game without waiting for the front-end to acknowledge most instructions. This decouples the game loop from the renderer — the game runs at inference speed, the front-end renders at its own pace. The exceptions are `GAME_START` and `GAME_OVER`, where the proctor gates on client ACKs via `ack-gate.ts` to synchronize session boundaries (ensuring the front-end is ready before playing hands, and has rendered the game-over screen before starting the next module).
 
 **Why store a snapshot on channel state instead of replaying instructions?**
 Replaying instructions to derive state requires a server-side reducer per module type — duplicating front-end logic. A snapshot is simpler: the client's visual state is captured on each `completeInstruction` and returned verbatim on reconnect. One column, no replay logic, no divergence risk between server and client reducers.

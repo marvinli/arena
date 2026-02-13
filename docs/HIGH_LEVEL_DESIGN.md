@@ -19,8 +19,10 @@ packages/
       db.ts           # SQLite database connection (better-sqlite3)
       services/
         session/
-          session-manager.ts  # Session CRUD, client tracking, renderComplete acks
+          session-manager.ts  # Session CRUD, client tracking, completeInstruction acks
           pubsub.ts           # In-memory pub/sub for RenderInstructions
+          programming.ts      # Programming loop — cycles through modules, recovery
+          ack-gate.ts         # Promise-based gate for awaiting client ACKs
         games/
           poker/
             poker-engine/          # Pure rules engine (state, actions, hand evaluation, store)
@@ -65,7 +67,7 @@ A single GraphQL server (port 4001) that serves two roles:
 - `query connect(channelKey)` — returns current state (snapshot + moduleId) or empty state for first connect
 - `subscribe renderInstructions(channelKey)` — stream of render instructions via SSE
 - `mutate startModule(channelKey)` — create and start a module; idempotent (no-op if already running)
-- `mutate completeInstruction(channelKey, moduleId, instructionId)` — client ack; currently a no-op, reserved for future back-pressure
+- `mutate completeInstruction(channelKey, moduleId, instructionId)` — client ack; persists the ack timestamp and notifies the session loop (unblocks `waitForAck` gates on `GAME_START`/`GAME_OVER`)
 - `query getChannelState(channelKey)` — returns the current full game state for reconnection
 - `mutate stopSession(channelKey)` — stop a running session
 
@@ -77,7 +79,7 @@ A single GraphQL server (port 4001) that serves two roles:
 - `PLAYER_ANALYSIS` — the agent's audience-facing commentary (e.g., "Player X has been very aggressive, I put his range at..."). The front-end renders this text and plays TTS.
 - `PLAYER_ACTION` — the agent's action (fold/call/raise) with updated game state
 
-The proctor emits instructions as fast as the game loop runs — it does not wait for the front-end to acknowledge. The front-end queues instructions and renders them at its own pace (animations, TTS). `completeInstruction` is called by the front-end as a bookmark but is currently a no-op on the server, reserved for future back-pressure.
+The proctor emits most instructions without waiting for the front-end to acknowledge. The front-end queues instructions and renders them at its own pace (animations, TTS). However, the proctor gates on client ACKs for `GAME_START` and `GAME_OVER` instructions — it waits for `completeInstruction` before proceeding. For all other instructions, `completeInstruction` persists the ack timestamp as a bookmark for reconnection.
 
 Multiple front-end instances can connect to the same channel key.
 
@@ -100,7 +102,7 @@ Analysis (audience-facing commentary) is extracted from the agent's natural lang
 
 Each agent is configured server-side in `game-config.ts`:
 - **Model** — which LLM to use (provider + modelId)
-- **System prompt** — shared template with player metadata interpolated (name, model name, provider)
+- **System prompt** — shared template with player metadata interpolated (name, provider)
 - **Temperature** — optional creativity setting
 - **Avatar URL** — front-end display image
 - **TTS Voice** — OpenAI TTS voice name for spoken analysis
@@ -126,7 +128,7 @@ On their turn:
 - Other agents' analysis
 - Other agents' internal chain-of-thought
 
-**Agent failure handling:** If an agent's LLM call fails or times out, the orchestrator auto-folds for that player. Invalid actions trigger a reject-and-retry loop (up to 3 retries), then auto-fold.
+**Agent failure handling:** If an agent's LLM call fails or times out, the orchestrator auto-checks (if check is valid) or auto-folds. Invalid actions trigger a reject-and-retry loop (up to 3 retries), then auto-check/fold.
 
 **Future:** Add a `trash_talk(message)` tool that IS visible to other agents — goes into their game state as table chat.
 
@@ -141,14 +143,14 @@ Flow:
 4. Receives render instructions on subscription — queues them in a render queue
 5. Renders each instruction at its own pace — card animation, chip movement, player action display, etc.
 6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via OpenAI TTS (`gpt-4o-mini-tts` with streaming PCM)
-7. Calls `completeInstruction` after each (currently a no-op, reserved for future back-pressure)
+7. Calls `completeInstruction` after each (persists ack; gates on `GAME_START`/`GAME_OVER` to synchronize with the proctor)
 
 The front-end doesn't track turns or game state. It just renders instructions. It can join mid-game via the snapshot from `connect`.
 
 Responsibilities:
 - Render whatever it's told — cards, chips, player actions, leaderboards, transitions
 - For `PLAYER_ANALYSIS`, render analysis text and convert to speech via OpenAI TTS
-- Control pacing via `renderComplete` — proctor won't advance until front-end is done
+- Control pacing via `completeInstruction` — proctor gates on ACKs for `GAME_START` and `GAME_OVER`
 - Handle scene transitions (game → leaderboard → next game) based on instruction type
 
 ### videographer (the camera)
@@ -237,7 +239,7 @@ Proctor:
 
 **Orchestrator** — run the game loop with scripted agent responses (ScriptedAgentRunner). No LLM calls, no front-end. Uses `vi.spyOn(pubsub, "publish")` to capture emitted instructions. Verifies the procedural flow works (deals, turns, hand evaluation, game-over detection, scene transitions).
 
-**Session management** — unit tests for session creation, client registration, renderComplete tracking, abort handling.
+**Session management** — unit tests for session creation, client registration, completeInstruction tracking, abort handling.
 
 **Agents** — real LLM calls, always. Use cheap/fast models for local dev. The point is seeing how an LLM interprets game state and picks actions.
 
@@ -264,8 +266,8 @@ npm run run-game --workspace=@arena/proctor-api
 **Why GraphQL?**
 Consistent interface across the system. Game engine: pre-canned queries give agents exactly the data they need in resolved objects, mutations handle actions. Orchestrator: subscriptions for async render instructions, mutations for acks. Agent identity is implicit via headers, keeping the schema clean.
 
-**Why does the proctor emit without waiting for acks?**
-The proctor runs the game to completion regardless of client state. `completeInstruction` is a bookmark, not a synchronization point. This decouples the game loop from the renderer — the game runs at inference speed, the front-end renders at its own pace via a render queue, and disconnected clients don't block game progress.
+**Why does the proctor mostly emit without waiting for acks?**
+The proctor runs the game without waiting for the front-end to acknowledge most instructions. This decouples the game loop from the renderer — the game runs at inference speed, the front-end renders at its own pace via a render queue. The exceptions are `GAME_START` and `GAME_OVER`, where the proctor gates on client ACKs to synchronize session boundaries. For all other instructions, `completeInstruction` persists the ack timestamp as a bookmark for reconnection.
 
 **Why split PLAYER_TURN / PLAYER_ANALYSIS / PLAYER_ACTION?**
 Splitting the player's turn into three instructions gives the front-end granular control over rendering. `PLAYER_TURN` highlights the active seat. `PLAYER_ANALYSIS` triggers TTS. `PLAYER_ACTION` shows the action animation. The render queue sequences these with animation gates and TTS coordination.
@@ -274,7 +276,7 @@ Splitting the player's turn into three instructions gives the front-end granular
 Eliminates ~270 lines of HTTP client boilerplate per game. Game engines are called directly in-process — simpler, faster, easier to test. New games add an engine under `src/services/games/` and GQL schema folders under `src/gql/schema/`. The single server approach is right for a local-first system with no scaling requirements between game logic and orchestration.
 
 **Why agents in-process instead of separate processes?**
-Agents run inside the proctor-api process via the `ai` SDK (Vercel AI SDK). The agent runner holds per-agent conversation state in a Map and calls LLM APIs directly. This avoids IPC complexity and makes the system easy to run locally. Each agent uses a different model/provider, but they all run through the same agent runner. Failures are caught and handled (auto-fold) without affecting other agents.
+Agents run inside the proctor-api process via the `ai` SDK (Vercel AI SDK). The agent runner holds per-agent conversation state in a Map and calls LLM APIs directly. This avoids IPC complexity and makes the system easy to run locally. Each agent uses a different model/provider, but they all run through the same agent runner. Failures are caught and handled (auto-check/fold) without affecting other agents.
 
 ## AWS Deployment (Later)
 
