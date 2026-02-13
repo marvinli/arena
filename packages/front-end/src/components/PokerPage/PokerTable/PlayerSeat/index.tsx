@@ -74,7 +74,7 @@ export function PlayerSeat({
                 <span className={styles.winnerLabel}>WINNER</span>
                 {player.winAmount != null && (
                   <span className={styles.winnerAmount}>
-                    {formatChips(player.winAmount)}
+                    +{formatChips(player.winAmount)}
                   </span>
                 )}
               </div>
