@@ -91,6 +91,9 @@ export async function speakAnalysis(
   text: string,
   voice: string,
 ): Promise<void> {
-  if (DISABLE_TTS || !OPENAI_API_KEY) return;
+  if (DISABLE_TTS || !OPENAI_API_KEY) {
+    await new Promise((r) => setTimeout(r, 200));
+    return;
+  }
   return speakOpenAI(text, voice);
 }

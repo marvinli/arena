@@ -210,7 +210,12 @@ export class ArenaStack extends cdk.Stack {
     const listener = alb.addListener("Http", { port: 80 });
     listener.addTargets("Admin", {
       port: 8080,
-      targets: [service],
+      targets: [
+        service.loadBalancerTarget({
+          containerName: "admin",
+          containerPort: 8080,
+        }),
+      ],
       healthCheck: {
         path: "/",
         port: "8080",
