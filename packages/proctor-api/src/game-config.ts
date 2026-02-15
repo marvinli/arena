@@ -7,7 +7,7 @@ export interface AgentConfig {
   modelName: string;
   provider: string;
   avatarUrl?: string;
-  ttsVoice?: string;
+  ttsVoices?: { openai?: string; inworld?: string };
   temperature?: number;
 }
 
@@ -34,7 +34,7 @@ export const GAME_CONFIG: GameConfig = {
       modelName: "Opus 4.6",
       provider: "anthropic",
       avatarUrl: "anthropic",
-      ttsVoice: "ash",
+      ttsVoices: { openai: "ash", inworld: "Dennis" },
     },
     {
       playerId: "agent-2",
@@ -43,7 +43,7 @@ export const GAME_CONFIG: GameConfig = {
       modelName: "5.2",
       provider: "openai",
       avatarUrl: "openai",
-      ttsVoice: "fable",
+      ttsVoices: { openai: "fable", inworld: "Ashley" },
     },
     {
       playerId: "agent-3",
@@ -52,7 +52,7 @@ export const GAME_CONFIG: GameConfig = {
       modelName: "2.5 Pro",
       provider: "google",
       avatarUrl: "google",
-      ttsVoice: "nova",
+      ttsVoices: { openai: "nova", inworld: "Timothy" },
     },
     {
       playerId: "agent-4",
@@ -61,7 +61,7 @@ export const GAME_CONFIG: GameConfig = {
       modelName: "4.1",
       provider: "xai",
       avatarUrl: "xai",
-      ttsVoice: "shimmer",
+      ttsVoices: { openai: "shimmer", inworld: "Elizabeth" },
     },
     {
       playerId: "agent-5",
@@ -70,7 +70,7 @@ export const GAME_CONFIG: GameConfig = {
       modelName: "V3",
       provider: "deepseek",
       avatarUrl: "deepseek",
-      ttsVoice: "echo",
+      ttsVoices: { openai: "echo", inworld: "Mark" },
     },
     {
       playerId: "agent-7",
@@ -79,7 +79,7 @@ export const GAME_CONFIG: GameConfig = {
       modelName: "Large 3",
       provider: "bedrock",
       avatarUrl: "mistral",
-      ttsVoice: "coral",
+      ttsVoices: { openai: "coral", inworld: "Ronald" },
     },
     {
       playerId: "agent-8",
@@ -88,7 +88,7 @@ export const GAME_CONFIG: GameConfig = {
       modelName: "Pro",
       provider: "bedrock",
       avatarUrl: "nova",
-      ttsVoice: "onyx",
+      ttsVoices: { openai: "onyx", inworld: "Edward" },
     },
   ],
   startingChips: 1000,
