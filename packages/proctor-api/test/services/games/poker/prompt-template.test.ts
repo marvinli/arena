@@ -15,7 +15,7 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(config);
 
     expect(prompt).toContain(
-      "You are Alice from Anthropic, a professional poker player",
+      "You are Alice, representing Anthropic in a winner-takes-all Texas Hold'em tournament",
     );
   });
 
@@ -80,7 +80,7 @@ describe("buildSystemPrompt", () => {
       const prompt = buildSystemPrompt(config);
 
       expect(prompt).toContain(
-        `You are ${config.name} from ${config.provider}`,
+        `You are ${config.name}, representing ${config.provider}`,
       );
       expect(prompt).not.toMatch(/\{\{.*?\}\}/);
     }

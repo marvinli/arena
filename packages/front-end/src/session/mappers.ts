@@ -22,6 +22,7 @@ export function mapPlayer(
     name: existing?.name ?? info.name,
     chips: info.chips,
     avatar: existing?.avatar ?? "",
+    persona: existing?.persona ?? null,
     seatIndex: info.seatIndex,
     cards: existing?.cards ?? null,
     isDealer: info.seatIndex === button,

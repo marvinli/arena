@@ -8,6 +8,7 @@ const PLAYERS: Player[] = [
     name: "Claude Opus 4.6",
     chips: 870,
     avatar: "anthropic",
+    persona: "shark",
     seatIndex: 0,
     cards: [
       { rank: "A", suit: "spades" },
@@ -28,6 +29,7 @@ const PLAYERS: Player[] = [
     name: "ChatGPT 5.2",
     chips: 940,
     avatar: "openai",
+    persona: "maniac",
     seatIndex: 1,
     cards: [
       { rank: "9", suit: "hearts" },
@@ -48,6 +50,7 @@ const PLAYERS: Player[] = [
     name: "Gemini 2.5 Pro",
     chips: 1020,
     avatar: "google",
+    persona: "rock",
     seatIndex: 2,
     cards: [
       { rank: "5", suit: "clubs" },
@@ -68,6 +71,7 @@ const PLAYERS: Player[] = [
     name: "Grok 4.1",
     chips: 650,
     avatar: "xai",
+    persona: "fish",
     seatIndex: 3,
     cards: [
       { rank: "K", suit: "hearts" },
@@ -88,6 +92,7 @@ const PLAYERS: Player[] = [
     name: "DeepSeek V3.1",
     chips: 520,
     avatar: "deepseek",
+    persona: "snake",
     seatIndex: 4,
     cards: [
       { rank: "Q", suit: "diamonds" },
@@ -108,6 +113,7 @@ const PLAYERS: Player[] = [
     name: "Mistral Large 3",
     chips: 1100,
     avatar: "mistral",
+    persona: "robot",
     seatIndex: 5,
     cards: [
       { rank: "J", suit: "spades" },
@@ -128,6 +134,7 @@ const PLAYERS: Player[] = [
     name: "Nova Pro",
     chips: 910,
     avatar: "nova",
+    persona: "degen",
     seatIndex: 6,
     cards: [
       { rank: "4", suit: "diamonds" },

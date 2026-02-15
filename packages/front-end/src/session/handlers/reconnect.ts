@@ -8,6 +8,9 @@ export function handleReconnect(cs: GqlChannelState): GameState {
   const playerAvatars = new Map(
     cs.playerMeta.map((m) => [m.id, m.avatarUrl ?? ""]),
   );
+  const playerPersonas = new Map(
+    cs.playerMeta.map((m) => [m.id, m.persona ?? null]),
+  );
 
   const holeCards = buildHoleCards(cs.hands);
 
@@ -23,6 +26,7 @@ export function handleReconnect(cs: GqlChannelState): GameState {
   const players = mapPlayers(rawPlayers, cs.button, []).map((p) => ({
     ...p,
     avatar: playerAvatars.get(p.id) ?? "",
+    persona: playerPersonas.get(p.id) ?? null,
     cards: holeCards.get(p.id) ?? null,
   }));
 

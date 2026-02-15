@@ -8,6 +8,7 @@ export const gameStateTypeDefs = /* GraphQL */ `
     id: ID!
     ttsVoice: String
     avatarUrl: String
+    persona: String
   }
 
   type ProctorGameState {

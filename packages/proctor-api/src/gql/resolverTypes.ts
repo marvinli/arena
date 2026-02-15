@@ -304,6 +304,7 @@ export type PlayerMeta = {
   __typename?: 'PlayerMeta';
   avatarUrl?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  persona?: Maybe<Scalars['String']['output']>;
   ttsVoice?: Maybe<Scalars['String']['output']>;
 };
 
@@ -311,6 +312,7 @@ export type PlayerMetaInfo = {
   __typename?: 'PlayerMetaInfo';
   avatarUrl?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
+  persona?: Maybe<Scalars['String']['output']>;
   ttsVoice?: Maybe<Scalars['String']['output']>;
 };
 
@@ -844,6 +846,7 @@ export type PlayerInfoResolvers<ContextType = Context, ParentType extends Resolv
 export type PlayerMetaResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerMeta'] = ResolversParentTypes['PlayerMeta']> = {
   avatarUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  persona?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ttsVoice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };
@@ -851,6 +854,7 @@ export type PlayerMetaResolvers<ContextType = Context, ParentType extends Resolv
 export type PlayerMetaInfoResolvers<ContextType = Context, ParentType extends ResolversParentTypes['PlayerMetaInfo'] = ResolversParentTypes['PlayerMetaInfo']> = {
   avatarUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  persona?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   ttsVoice?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 };

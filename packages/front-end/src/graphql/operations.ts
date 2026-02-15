@@ -15,7 +15,7 @@ export const CONNECT_QUERY = /* GraphQL */ `
         communityCards { rank suit }
         pots { size eligiblePlayerIds }
         hands { playerId cards { rank suit } }
-        playerMeta { id ttsVoice avatarUrl }
+        playerMeta { id ttsVoice avatarUrl persona }
       }
     }
   }
@@ -53,7 +53,7 @@ export const GET_CHANNEL_STATE = /* GraphQL */ `
       communityCards { rank suit }
       pots { size eligiblePlayerIds }
       hands { playerId cards { rank suit } }
-      playerMeta { id ttsVoice avatarUrl }
+      playerMeta { id ttsVoice avatarUrl persona }
     }
   }
 `;
@@ -69,7 +69,7 @@ export const RENDER_INSTRUCTIONS_SUB = /* GraphQL */ `
       gameStart {
         gameId
         players { id name chips bet status seatIndex }
-        playerMeta { id ttsVoice avatarUrl }
+        playerMeta { id ttsVoice avatarUrl persona }
         smallBlind
         bigBlind
       }

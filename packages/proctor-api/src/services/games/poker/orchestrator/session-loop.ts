@@ -10,6 +10,7 @@ import {
   type GameAwardPayload,
 } from "../instruction-builder.js";
 import * as poker from "../poker-engine/index.js";
+import { PERSONA_KEYS } from "../prompts/personas/index.js";
 import { emit, updateGameState } from "./emitter.js";
 import { playHand } from "./hand-loop.js";
 import {
@@ -220,15 +221,18 @@ export function getBlindLevel(
   return schedule[clamped];
 }
 
-function buildPlayerConfig(agentConfig: {
-  playerId: string;
-  name: string;
-  modelId: string;
-  modelName: string;
-  provider: string;
-  avatarUrl?: string | null;
-  temperature?: number | null;
-}): PlayerConfig {
+function buildPlayerConfig(
+  agentConfig: {
+    playerId: string;
+    name: string;
+    modelId: string;
+    modelName: string;
+    provider: string;
+    avatarUrl?: string | null;
+    temperature?: number | null;
+  },
+  persona?: string,
+): PlayerConfig {
   return {
     id: agentConfig.playerId,
     name: agentConfig.name,
@@ -237,6 +241,7 @@ function buildPlayerConfig(agentConfig: {
     provider: agentConfig.provider,
     avatarUrl: agentConfig.avatarUrl ?? undefined,
     temperature: agentConfig.temperature ?? undefined,
+    persona,
   };
 }
 
@@ -325,6 +330,15 @@ export async function runSession(
 
   const shuffledPlayers = shuffle(session.config.players);
 
+  const shuffledPersonas = shuffle(PERSONA_KEYS);
+  session.personaAssignments = new Map();
+  for (let i = 0; i < shuffledPlayers.length; i++) {
+    session.personaAssignments.set(
+      shuffledPlayers[i].playerId,
+      shuffledPersonas[i],
+    );
+  }
+
   const gameId = poker.createGame({
     players: shuffledPlayers.map((p) => ({
       id: p.playerId,
@@ -357,7 +371,7 @@ export async function runSession(
   for (const p of session.config.players) {
     agentRunner.initAgent(
       p.playerId,
-      buildPlayerConfig(p),
+      buildPlayerConfig(p, session.personaAssignments.get(p.playerId)),
       moduleId,
       tournamentInfo,
     );
@@ -371,6 +385,7 @@ export async function runSession(
       bigBlind: session.config.bigBlind,
     },
     session.config.players,
+    session.personaAssignments,
   );
   await emit(moduleId, session, gameStartInstruction);
   await waitForAck(moduleId, gameStartInstruction.instructionId, signal);
@@ -440,6 +455,19 @@ export async function resumeSession(
   session.handNumber = snapshot.handNumber;
   updateGameState(session, createState);
 
+  // Assign fresh personas for resumed session
+  const resumeShuffledPersonas = shuffle(PERSONA_KEYS);
+  session.personaAssignments = new Map();
+  const resumeActivePlayers = session.config.players.filter((p) =>
+    activePlayers.some((ap) => ap.id === p.playerId),
+  );
+  for (let i = 0; i < resumeActivePlayers.length; i++) {
+    session.personaAssignments.set(
+      resumeActivePlayers[i].playerId,
+      resumeShuffledPersonas[i],
+    );
+  }
+
   // Initialize agents and restore conversation history
   const recoveryTournamentInfo = {
     startingChips: session.config.startingChips,
@@ -449,7 +477,7 @@ export async function resumeSession(
   for (const p of session.config.players) {
     agentRunner.initAgent(
       p.playerId,
-      buildPlayerConfig(p),
+      buildPlayerConfig(p, session.personaAssignments.get(p.playerId)),
       moduleId,
       recoveryTournamentInfo,
     );
@@ -477,6 +505,7 @@ export async function resumeSession(
       bigBlind: session.config.bigBlind,
     },
     session.config.players,
+    session.personaAssignments,
   );
   await emit(moduleId, session, gameStartInstruction);
   await waitForAck(moduleId, gameStartInstruction.instructionId, signal);

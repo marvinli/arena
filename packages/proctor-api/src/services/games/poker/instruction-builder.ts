@@ -59,6 +59,7 @@ export function toPlayerMeta(
     ttsVoices?: { openai?: string; inworld?: string } | null;
     avatarUrl?: string | null;
   }>,
+  personaAssignments?: Map<string, string>,
 ) {
   const provider = (process.env.TTS_PROVIDER ?? "openai") as
     | "openai"
@@ -67,6 +68,7 @@ export function toPlayerMeta(
     id: p.playerId,
     ttsVoice: p.ttsVoices?.[provider] ?? null,
     avatarUrl: p.avatarUrl ?? null,
+    persona: personaAssignments?.get(p.playerId) ?? null,
   }));
 }
 
@@ -79,13 +81,14 @@ export function buildGameStart(
     ttsVoices?: { openai?: string; inworld?: string } | null;
     avatarUrl?: string | null;
   }>,
+  personaAssignments?: Map<string, string>,
 ): RenderInstruction {
   return {
     ...base(InstructionType.GameStart),
     gameStart: {
       gameId,
       players: toPlayerInfos(players),
-      playerMeta: toPlayerMeta(agentConfigs),
+      playerMeta: toPlayerMeta(agentConfigs, personaAssignments),
       smallBlind: config.smallBlind,
       bigBlind: config.bigBlind,
     },

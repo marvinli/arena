@@ -48,6 +48,7 @@ export interface Session {
   }>;
   lastInstruction: RenderInstruction | null;
   lastGameState: GameStateSnapshot | null;
+  personaAssignments?: Map<string, string>;
   abortController: AbortController;
 }
 

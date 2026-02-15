@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatChips } from "../../../../chips";
+import { PERSONAS } from "../../../../personas";
 import type { Player } from "../../../../types";
 import { KNOWN_PROVIDERS, ProviderIcon } from "../../ProviderIcon";
 import { ChipStackDisplay } from "../ChipStack";
@@ -122,6 +123,14 @@ export function PlayerSeat({
           </div>
           <div className={styles.infoBadge}>
             <span className={styles.name}>{player.name}</span>
+            {player.persona && PERSONAS[player.persona] && (
+              <span
+                className={styles.persona}
+                style={{ color: PERSONAS[player.persona].color }}
+              >
+                {PERSONAS[player.persona].emoji} {PERSONAS[player.persona].name}
+              </span>
+            )}
             <ChipStackDisplay amount={player.chips} color={seatColor} />
           </div>
         </div>

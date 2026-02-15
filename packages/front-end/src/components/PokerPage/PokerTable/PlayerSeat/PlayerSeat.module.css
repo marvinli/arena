@@ -196,7 +196,7 @@
 }
 
 .name {
-  font-size: 1.1cqw;
+  font-size: 1.5cqw;
   font-weight: 700;
   color: #e0e4ef;
   max-width: 12cqw;
@@ -204,6 +204,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.persona {
+  font-size: 1.5cqw;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0.02cqw;
 }
 
 /* ── Action badge ──────────────────────────────────────── */

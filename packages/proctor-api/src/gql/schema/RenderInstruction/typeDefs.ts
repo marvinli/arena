@@ -40,6 +40,7 @@ export const renderInstructionTypeDefs = /* GraphQL */ `
     id: ID!
     ttsVoice: String
     avatarUrl: String
+    persona: String
   }
 
   type GameStartPayload {

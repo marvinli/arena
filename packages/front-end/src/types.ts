@@ -17,6 +17,7 @@ export interface Player {
   name: string;
   chips: number;
   avatar: string;
+  persona: string | null;
   seatIndex: number;
   cards: [Card, Card] | null; // null = show card backs
   isDealer: boolean;

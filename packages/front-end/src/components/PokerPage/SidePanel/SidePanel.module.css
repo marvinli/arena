@@ -45,6 +45,28 @@
   font-weight: 700;
   color: #e0e4ef;
   text-align: center;
+  margin-bottom: -0.3vw;
+}
+
+.personaBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15vw;
+}
+
+.personaName {
+  font-size: 1vw;
+  font-weight: 700;
+  letter-spacing: 0.02vw;
+}
+
+.personaTags {
+  font-size: 0.85vw;
+  font-weight: 500;
+  color: #c0c4cf;
+  letter-spacing: 0.02vw;
+  margin-bottom: 1vw;
 }
 
 .apiErrorPill {

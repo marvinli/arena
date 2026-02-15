@@ -145,7 +145,7 @@ export class LlmAgentRunner implements AgentRunner {
     this.agents.set(playerId, {
       config,
       moduleId,
-      systemPrompt: buildSystemPrompt(config, tournamentInfo),
+      systemPrompt: buildSystemPrompt(config, tournamentInfo, config.persona),
       messages: [],
     });
   }

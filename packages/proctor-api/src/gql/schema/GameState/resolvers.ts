@@ -40,7 +40,10 @@ const getChannelState: QueryResolvers["getChannelState"] = (
     communityCards: lastState?.communityCards ?? [],
     pots: lastState?.pots ?? [],
     hands: session.currentHands,
-    playerMeta: toPlayerMeta(session.config.players),
+    playerMeta: toPlayerMeta(
+      session.config.players,
+      session.personaAssignments,
+    ),
     lastInstruction: session.lastInstruction,
   };
 };

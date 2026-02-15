@@ -23,7 +23,7 @@ export function BetIndicator({
   const dx = cx - seatX;
   const dy = cy - seatY;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const step = Math.min(0.35, 14 / dist);
+  const step = Math.min(0.42, 16 / dist);
   const betX = seatX + dx * step;
 
   // Nudge bets away from player info to avoid overlap

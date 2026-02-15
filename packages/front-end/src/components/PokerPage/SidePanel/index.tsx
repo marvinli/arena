@@ -1,3 +1,4 @@
+import { PERSONAS } from "../../../personas";
 import type { Player } from "../../../types";
 import { ProviderIcon } from "../ProviderIcon";
 import styles from "./SidePanel.module.css";
@@ -30,6 +31,23 @@ export function SidePanel({
               />
             </div>
             <div className={styles.sidePanelName}>{speakingPlayer.name}</div>
+            {speakingPlayer.persona &&
+              PERSONAS[speakingPlayer.persona] && (
+                <div
+                  className={styles.personaBlock}
+                  style={{
+                    color: PERSONAS[speakingPlayer.persona].color,
+                  }}
+                >
+                  <div className={styles.personaName}>
+                    {PERSONAS[speakingPlayer.persona].emoji}{" "}
+                    {PERSONAS[speakingPlayer.persona].name}
+                  </div>
+                  <div className={styles.personaTags}>
+                    {PERSONAS[speakingPlayer.persona].tags.join(" \u00B7 ")}
+                  </div>
+                </div>
+              )}
           </>
         )}
         {isApiError && <div className={styles.apiErrorPill}>API Error</div>}

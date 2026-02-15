@@ -6,6 +6,7 @@ export interface PlayerConfig {
   provider: string;
   avatarUrl?: string;
   temperature?: number;
+  persona?: string;
 }
 
 export interface AgentTurnContext {

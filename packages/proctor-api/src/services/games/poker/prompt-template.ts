@@ -1,4 +1,5 @@
 import type { PlayerConfig, TournamentInfo } from "./agent-runner.js";
+import { PERSONA_PROMPTS } from "./prompts/personas/index.js";
 import { SYSTEM_PROMPT_TEMPLATE } from "./prompts/system.js";
 
 function buildTournamentSection(info: TournamentInfo): string {
@@ -32,12 +33,19 @@ function buildTournamentSection(info: TournamentInfo): string {
 export function buildSystemPrompt(
   config: PlayerConfig,
   tournamentInfo?: TournamentInfo,
+  personaKey?: string,
 ): string {
   const tournamentSection = tournamentInfo
     ? buildTournamentSection(tournamentInfo)
     : "";
 
+  const personaSection =
+    personaKey && PERSONA_PROMPTS[personaKey]
+      ? `${PERSONA_PROMPTS[personaKey]}\n\n`
+      : "";
+
   return SYSTEM_PROMPT_TEMPLATE.replace("{{name}}", config.name)
     .replace("{{provider}}", config.provider)
+    .replace("{{persona}}", personaSection)
     .replace("{{tournamentSection}}", tournamentSection);
 }
