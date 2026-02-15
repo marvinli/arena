@@ -125,7 +125,7 @@ async function speakInworld(text: string, voice: string): Promise<void> {
     body: JSON.stringify({
       text,
       voiceId: voice,
-      modelId: "inworld-tts-1.5-max",
+      modelId: "inworld-tts-1.5-mini",
       audioConfig: {
         audioEncoding: "LINEAR16",
         sampleRateHertz: PCM_SAMPLE_RATE,
