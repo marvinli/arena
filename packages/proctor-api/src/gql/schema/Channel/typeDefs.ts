@@ -39,5 +39,6 @@ export const channelTypeDefs = /* GraphQL */ `
     completeInstruction(channelKey: String!, moduleId: String!, instructionId: String!): Boolean!
     stopSession(channelKey: String!): Boolean!
     setLive(live: Boolean!): Boolean!
+    resetDatabase: Boolean!
   }
 `;

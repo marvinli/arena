@@ -1,7 +1,9 @@
 import {
+  BatchWriteCommand,
   GetCommand,
   PutCommand,
   QueryCommand,
+  ScanCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import docClient, { tableNames } from "./db.js";
@@ -313,4 +315,51 @@ export async function setSetting(key: string, value: string): Promise<void> {
       Item: { key, value },
     }),
   );
+}
+
+// ── Reset Database ──────────────────────────────────────
+
+/** Delete all items from game data tables (preserves settings). */
+export async function resetDatabase(): Promise<void> {
+  const tableKeys: { table: string; keys: string[] }[] = [
+    { table: tableNames.modules, keys: ["moduleId"] },
+    { table: tableNames.instructions, keys: ["moduleId", "timestampMs"] },
+    { table: tableNames.channelState, keys: ["channelKey"] },
+    { table: tableNames.agentMessages, keys: ["pk", "seq"] },
+  ];
+
+  for (const { table, keys } of tableKeys) {
+    let lastKey: Record<string, unknown> | undefined;
+    do {
+      const scan = await docClient.send(
+        new ScanCommand({
+          TableName: table,
+          ProjectionExpression: keys.map((k) => `#${k}`).join(", "),
+          ExpressionAttributeNames: Object.fromEntries(
+            keys.map((k) => [`#${k}`, k]),
+          ),
+          ExclusiveStartKey: lastKey,
+        }),
+      );
+
+      const items = scan.Items ?? [];
+      // BatchWrite supports up to 25 items per call
+      for (let i = 0; i < items.length; i += 25) {
+        const batch = items.slice(i, i + 25);
+        await docClient.send(
+          new BatchWriteCommand({
+            RequestItems: {
+              [table]: batch.map((item) => ({
+                DeleteRequest: {
+                  Key: Object.fromEntries(keys.map((k) => [k, item[k]])),
+                },
+              })),
+            },
+          }),
+        );
+      }
+
+      lastKey = scan.LastEvaluatedKey;
+    } while (lastKey);
+  }
 }

@@ -2,13 +2,19 @@ import { useCallback, useEffect, useState } from "react";
 
 // ── Cognito config (runtime injection or Vite env fallback) ──
 
-const runtimeConfig = (window as unknown as Record<string, unknown>).__ARENA_CONFIG__ as
+const runtimeConfig = (window as unknown as Record<string, unknown>)
+  .__ARENA_CONFIG__ as
   | { cognitoDomain?: string; cognitoClientId?: string }
   | undefined;
 
-const COGNITO_DOMAIN = runtimeConfig?.cognitoDomain || (import.meta.env.VITE_COGNITO_DOMAIN as string);
-const COGNITO_CLIENT_ID = runtimeConfig?.cognitoClientId || (import.meta.env.VITE_COGNITO_CLIENT_ID as string);
-const REDIRECT_URI = (import.meta.env.VITE_REDIRECT_URI as string) || window.location.origin;
+const COGNITO_DOMAIN =
+  runtimeConfig?.cognitoDomain ||
+  (import.meta.env.VITE_COGNITO_DOMAIN as string);
+const COGNITO_CLIENT_ID =
+  runtimeConfig?.cognitoClientId ||
+  (import.meta.env.VITE_COGNITO_CLIENT_ID as string);
+const REDIRECT_URI =
+  (import.meta.env.VITE_REDIRECT_URI as string) || window.location.origin;
 
 function getLoginUrl(): string {
   return `https://${COGNITO_DOMAIN}/login?client_id=${COGNITO_CLIENT_ID}&response_type=token&scope=openid+email&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`;
@@ -27,7 +33,9 @@ async function gql<T>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
@@ -67,11 +75,15 @@ function Dashboard({ token }: { token: string }) {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [live, setLive] = useState(false);
   const [toggling, setToggling] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const [h, l] = await Promise.all([
-        gql<{ health: HealthData }>(token, "{ health { proctor { status } videographer { status } } }"),
+        gql<{ health: HealthData }>(
+          token,
+          "{ health { proctor { status } videographer { status } } }",
+        ),
         gql<{ live: boolean }>(token, "{ live }"),
       ]);
       setHealth(h.health);
@@ -100,6 +112,20 @@ function Dashboard({ token }: { token: string }) {
       console.error("Failed to toggle live:", err);
     }
     setToggling(false);
+  };
+
+  const resetDb = async () => {
+    if (!confirm("Reset the database? This will delete all game data.")) return;
+    setResetting(true);
+    try {
+      await gql<{ resetDatabase: boolean }>(
+        token,
+        "mutation { resetDatabase }",
+      );
+    } catch (err) {
+      console.error("Failed to reset database:", err);
+    }
+    setResetting(false);
   };
 
   return (
@@ -143,6 +169,28 @@ function Dashboard({ token }: { token: string }) {
           {live ? "Stop" : "Start"}
         </button>
       </div>
+
+      <h2 style={{ fontSize: 16, marginTop: 24, marginBottom: 12 }}>
+        Database
+      </h2>
+      <div>
+        <button
+          type="button"
+          onClick={resetDb}
+          disabled={resetting}
+          style={{
+            padding: "8px 20px",
+            fontSize: 14,
+            cursor: resetting ? "wait" : "pointer",
+            background: "#ef4444",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+          }}
+        >
+          {resetting ? "Resetting..." : "Reset Database"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -169,7 +217,9 @@ export function App() {
 
   if (!token) {
     return (
-      <div style={{ fontFamily: "system-ui", padding: 32, textAlign: "center" }}>
+      <div
+        style={{ fontFamily: "system-ui", padding: 32, textAlign: "center" }}
+      >
         <h1 style={{ fontSize: 24, marginBottom: 24 }}>Arena Admin</h1>
         <a
           href={getLoginUrl()}

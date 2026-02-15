@@ -3,7 +3,8 @@ import { createSchema, createYoga } from "graphql-yoga";
 import { verifyToken } from "./auth.js";
 
 const PROCTOR_URL = process.env.PROCTOR_URL ?? "http://localhost:4001";
-const VIDEOGRAPHER_URL = process.env.VIDEOGRAPHER_URL ?? "http://localhost:3001";
+const VIDEOGRAPHER_URL =
+  process.env.VIDEOGRAPHER_URL ?? "http://localhost:3001";
 
 // ── Schema ───────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ const schema = createSchema({
 
     type Mutation {
       setLive(live: Boolean!): Boolean!
+      resetDatabase: Boolean!
     }
   `,
   resolvers: {
@@ -61,15 +63,26 @@ const schema = createSchema({
         };
         return json.data?.setLive ?? false;
       },
+      resetDatabase: async () => {
+        const res = await fetch(`${PROCTOR_URL}/graphql`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: "mutation { resetDatabase }",
+          }),
+        });
+        const json = (await res.json()) as {
+          data?: { resetDatabase: boolean };
+        };
+        return json.data?.resetDatabase ?? false;
+      },
     },
   },
 });
 
 // ── Helpers ──────────────────────────────────────────────
 
-async function fetchHealth(
-  url: string,
-): Promise<{ status: string }> {
+async function fetchHealth(url: string): Promise<{ status: string }> {
   try {
     const res = await fetch(url);
     if (!res.ok) return { status: "unreachable" };

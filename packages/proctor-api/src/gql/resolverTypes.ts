@@ -186,6 +186,7 @@ export type Mutation = {
   advanceGame: GameState;
   completeInstruction: Scalars['Boolean']['output'];
   createGame: GameState;
+  resetDatabase: Scalars['Boolean']['output'];
   setLive: Scalars['Boolean']['output'];
   startHand: GameState;
   startModule: Scalars['Boolean']['output'];
@@ -775,6 +776,7 @@ export type MutationResolvers<ContextType = Context, ParentType extends Resolver
   advanceGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationAdvanceGameArgs, 'gameId'>>;
   completeInstruction?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCompleteInstructionArgs, 'channelKey' | 'instructionId' | 'moduleId'>>;
   createGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationCreateGameArgs, 'input'>>;
+  resetDatabase?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   setLive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSetLiveArgs, 'live'>>;
   startHand?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationStartHandArgs, 'gameId'>>;
   startModule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStartModuleArgs, 'channelKey'>>;

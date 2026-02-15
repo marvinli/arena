@@ -1,7 +1,8 @@
 import { logError } from "../../../logger.js";
-import { getSetting, setSetting } from "../../../persistence.js";
+import { getSetting, resetDatabase, setSetting } from "../../../persistence.js";
 import { runProgrammingLoop } from "../../../services/session/programming.js";
 import {
+  _resetSessions,
   completeInstruction,
   connect,
   getSession,
@@ -78,6 +79,14 @@ const setLiveMutation: MutationResolvers["setLive"] = async (
   return live;
 };
 
+const resetDatabaseMutation: MutationResolvers["resetDatabase"] = async () => {
+  // Stop any running sessions and mark stream as offline before wiping
+  await setSetting("live", "false");
+  _resetSessions();
+  await resetDatabase();
+  return true;
+};
+
 export const channelResolvers = {
   Query: {
     getSession: getSessionQuery,
@@ -89,5 +98,6 @@ export const channelResolvers = {
     completeInstruction: completeInstructionMutation,
     stopSession: stopSessionMutation,
     setLive: setLiveMutation,
+    resetDatabase: resetDatabaseMutation,
   },
 };

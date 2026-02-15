@@ -227,7 +227,6 @@ function buildPlayerConfig(agentConfig: {
   modelName: string;
   provider: string;
   avatarUrl?: string | null;
-  ttsVoice?: string | null;
   temperature?: number | null;
 }): PlayerConfig {
   return {
@@ -237,7 +236,6 @@ function buildPlayerConfig(agentConfig: {
     modelName: agentConfig.modelName,
     provider: agentConfig.provider,
     avatarUrl: agentConfig.avatarUrl ?? undefined,
-    ttsVoice: agentConfig.ttsVoice ?? undefined,
     temperature: agentConfig.temperature ?? undefined,
   };
 }

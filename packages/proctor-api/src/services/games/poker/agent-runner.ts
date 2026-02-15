@@ -5,7 +5,6 @@ export interface PlayerConfig {
   modelName: string;
   provider: string;
   avatarUrl?: string;
-  ttsVoice?: string;
   temperature?: number;
 }
 
