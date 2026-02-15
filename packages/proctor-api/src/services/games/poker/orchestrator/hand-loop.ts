@@ -13,14 +13,12 @@ import {
 import * as poker from "../poker-engine/index.js";
 import { emit, updateGameState } from "./emitter.js";
 import { playTurn } from "./turn-resolver.js";
+import { HAND_REACTION_PROMPT } from "../prompts/hand-reaction.js";
 import {
   type SessionContext,
   trackElimination,
   trackHandWin,
 } from "./types.js";
-
-const HAND_REACTION_PROMPT =
-  "The hand is over. Say something short to the table about how it played out. One sentence, 15 words max. Plain conversational English only, no emoji or markup.";
 
 async function handleHandResult(
   ctx: SessionContext,
