@@ -212,7 +212,13 @@ export type MutationCreateGameArgs = {
 };
 
 
+export type MutationResetDatabaseArgs = {
+  channelKey: Scalars['String']['input'];
+};
+
+
 export type MutationSetLiveArgs = {
+  channelKey: Scalars['String']['input'];
   live: Scalars['Boolean']['input'];
 };
 
@@ -399,6 +405,11 @@ export type QueryGetMyTurnArgs = {
 
 
 export type QueryGetSessionArgs = {
+  channelKey: Scalars['String']['input'];
+};
+
+
+export type QueryLiveArgs = {
   channelKey: Scalars['String']['input'];
 };
 
@@ -778,8 +789,8 @@ export type MutationResolvers<ContextType = Context, ParentType extends Resolver
   advanceGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationAdvanceGameArgs, 'gameId'>>;
   completeInstruction?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationCompleteInstructionArgs, 'channelKey' | 'instructionId' | 'moduleId'>>;
   createGame?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationCreateGameArgs, 'input'>>;
-  resetDatabase?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
-  setLive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSetLiveArgs, 'live'>>;
+  resetDatabase?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationResetDatabaseArgs, 'channelKey'>>;
+  setLive?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationSetLiveArgs, 'channelKey' | 'live'>>;
   startHand?: Resolver<ResolversTypes['GameState'], ParentType, ContextType, RequireFields<MutationStartHandArgs, 'gameId'>>;
   startModule?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStartModuleArgs, 'channelKey'>>;
   stopSession?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationStopSessionArgs, 'channelKey'>>;
@@ -903,7 +914,7 @@ export type QueryResolvers<ContextType = Context, ParentType extends ResolversPa
   getHistory?: Resolver<Array<ResolversTypes['HandRecord']>, ParentType, ContextType, RequireFields<QueryGetHistoryArgs, 'gameId'>>;
   getMyTurn?: Resolver<ResolversTypes['MyTurnResponse'], ParentType, ContextType, RequireFields<QueryGetMyTurnArgs, 'gameId'>>;
   getSession?: Resolver<Maybe<ResolversTypes['Session']>, ParentType, ContextType, RequireFields<QueryGetSessionArgs, 'channelKey'>>;
-  live?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  live?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryLiveArgs, 'channelKey'>>;
 };
 
 export type RenderInstructionResolvers<ContextType = Context, ParentType extends ResolversParentTypes['RenderInstruction'] = ResolversParentTypes['RenderInstruction']> = {

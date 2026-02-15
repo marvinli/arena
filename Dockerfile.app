@@ -24,9 +24,11 @@ COPY tsconfig.json ./
 ARG OPENAI_API_KEY=""
 ARG INWORLD_API_KEY=""
 ARG TTS_PROVIDER="openai"
+ARG VITE_CHANNEL_KEY="poker-stream-1"
 RUN echo "OPENAI_API_KEY=$OPENAI_API_KEY" > .env \
     && echo "INWORLD_API_KEY=$INWORLD_API_KEY" >> .env \
-    && echo "TTS_PROVIDER=$TTS_PROVIDER" >> .env
+    && echo "TTS_PROVIDER=$TTS_PROVIDER" >> .env \
+    && echo "VITE_CHANNEL_KEY=$VITE_CHANNEL_KEY" >> .env
 
 RUN npm run build -w @arena/front-end
 

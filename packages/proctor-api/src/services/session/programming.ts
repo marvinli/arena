@@ -105,7 +105,7 @@ export async function runProgrammingLoop(
 
     // Run games while live — each iteration waits for client ACKs
     // (GAME_START ack before playing, GAME_OVER ack before next module)
-    while ((await getSetting("live")) === "true") {
+    while ((await getSetting(`live:${channelKey}`)) === "true") {
       const moduleType = PROGRAMMING[index % PROGRAMMING.length];
       const moduleId = crypto.randomUUID();
       await createModule(moduleId, moduleType, index % PROGRAMMING.length);

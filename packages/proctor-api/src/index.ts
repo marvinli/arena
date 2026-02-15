@@ -23,7 +23,7 @@ const yoga = createYoga({
 
 export { yoga };
 
-const CHANNEL_KEY = "poker-stream-1";
+const CHANNEL_KEY = process.env.CHANNEL_KEY ?? "local-dev";
 
 const server = createServer((req, res) => {
   if (req.url === "/health") {

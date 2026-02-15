@@ -144,6 +144,7 @@ export class ArenaStack extends cdk.Stack {
           OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
           INWORLD_API_KEY: process.env.INWORLD_API_KEY ?? "",
           TTS_PROVIDER: process.env.TTS_PROVIDER ?? "inworld",
+          VITE_CHANNEL_KEY: "poker-stream-1",
         },
       }),
       memoryLimitMiB: 2048,
@@ -164,6 +165,7 @@ export class ArenaStack extends cdk.Stack {
       environment: {
         PORT: "4001",
         TABLE_PREFIX: props.tablePrefix,
+        CHANNEL_KEY: "poker-stream-1",
         NODE_ENV: "production",
         AWS_REGION: this.region,
         TTS_PROVIDER: "inworld",
@@ -291,6 +293,7 @@ export class ArenaStack extends cdk.Stack {
         PORT: "3000",
         PROCTOR_URL: "http://localhost:4001",
         VIDEOGRAPHER_URL: "http://localhost:3001",
+        CHANNEL_KEY: "poker-stream-1",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
         COGNITO_DOMAIN: cognitoDomainName,

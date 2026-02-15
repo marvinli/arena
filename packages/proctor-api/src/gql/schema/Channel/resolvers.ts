@@ -40,7 +40,7 @@ const startModuleMutation: MutationResolvers["startModule"] = async (
   _parent,
   { channelKey },
 ) => {
-  await setSetting("live", "true");
+  await setSetting(`live:${channelKey}`, "true");
 
   // Idempotent — runProgrammingLoop returns immediately if already active
   void runProgrammingLoop(channelKey).catch((err) => {
@@ -67,21 +67,27 @@ const stopSessionMutation: MutationResolvers["stopSession"] = (
   return true;
 };
 
-const liveQuery: QueryResolvers["live"] = async () => {
-  return (await getSetting("live")) === "true";
+const liveQuery: QueryResolvers["live"] = async (
+  _parent,
+  { channelKey },
+) => {
+  return (await getSetting(`live:${channelKey}`)) === "true";
 };
 
 const setLiveMutation: MutationResolvers["setLive"] = async (
   _parent,
-  { live },
+  { channelKey, live },
 ) => {
-  await setSetting("live", String(live));
+  await setSetting(`live:${channelKey}`, String(live));
   return live;
 };
 
-const resetDatabaseMutation: MutationResolvers["resetDatabase"] = async () => {
+const resetDatabaseMutation: MutationResolvers["resetDatabase"] = async (
+  _parent,
+  { channelKey },
+) => {
   // Stop any running sessions and mark stream as offline before wiping
-  await setSetting("live", "false");
+  await setSetting(`live:${channelKey}`, "false");
   _resetSessions();
   await resetDatabase();
   return true;

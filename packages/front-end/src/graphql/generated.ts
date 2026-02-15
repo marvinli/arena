@@ -206,7 +206,13 @@ export type MutationCreateGameArgs = {
 };
 
 
+export type MutationResetDatabaseArgs = {
+  channelKey: Scalars['String']['input'];
+};
+
+
 export type MutationSetLiveArgs = {
+  channelKey: Scalars['String']['input'];
   live: Scalars['Boolean']['input'];
 };
 
@@ -392,6 +398,11 @@ export type QueryGetMyTurnArgs = {
 
 
 export type QueryGetSessionArgs = {
+  channelKey: Scalars['String']['input'];
+};
+
+
+export type QueryLiveArgs = {
   channelKey: Scalars['String']['input'];
 };
 

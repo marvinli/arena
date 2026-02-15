@@ -5,6 +5,7 @@ import { verifyToken } from "./auth.js";
 const PROCTOR_URL = process.env.PROCTOR_URL ?? "http://localhost:4001";
 const VIDEOGRAPHER_URL =
   process.env.VIDEOGRAPHER_URL ?? "http://localhost:3001";
+const CHANNEL_KEY = process.env.CHANNEL_KEY ?? "poker-stream-1";
 
 // ── Schema ───────────────────────────────────────────────
 
@@ -42,7 +43,11 @@ const schema = createSchema({
         const res = await fetch(`${PROCTOR_URL}/graphql`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: "{ live }" }),
+          body: JSON.stringify({
+            query:
+              "query($channelKey: String!) { live(channelKey: $channelKey) }",
+            variables: { channelKey: CHANNEL_KEY },
+          }),
         });
         const json = (await res.json()) as { data?: { live: boolean } };
         return json.data?.live ?? false;
@@ -54,8 +59,9 @@ const schema = createSchema({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            query: "mutation($live: Boolean!) { setLive(live: $live) }",
-            variables: { live },
+            query:
+              "mutation($channelKey: String!, $live: Boolean!) { setLive(channelKey: $channelKey, live: $live) }",
+            variables: { channelKey: CHANNEL_KEY, live },
           }),
         });
         const json = (await res.json()) as {
@@ -68,7 +74,9 @@ const schema = createSchema({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            query: "mutation { resetDatabase }",
+            query:
+              "mutation($channelKey: String!) { resetDatabase(channelKey: $channelKey) }",
+            variables: { channelKey: CHANNEL_KEY },
           }),
         });
         const json = (await res.json()) as {

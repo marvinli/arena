@@ -31,6 +31,19 @@ Design docs live in `docs/`:
 - Biome for linting/formatting (`npm run check`, `npm run check:fix`), configured globally at root `biome.json`
 - `resolverTypes.ts` is generated but checked in (not gitignored) — excluded from Biome
 
+## Environment Variables
+
+All env vars live in a **single root `.env`** file (see `.env.example`). Do not create package-level `.env` files.
+
+- **proctor-api** loads it via `dotenv.config({ path: "../../../.env" })`
+- **front-end** (Vite) reads it via `envDir: "../../"` in `vite.config.ts` — only `VITE_`-prefixed vars are exposed to client code
+
+Key variables:
+- `CHANNEL_KEY` / `VITE_CHANNEL_KEY` — isolates game data and the live flag in DynamoDB. Use `local-dev` locally, `poker-stream-1` in production. The live flag is stored as `live:${channelKey}` in the settings table, so different channels never interfere.
+- `TABLE_PREFIX` — DynamoDB table name prefix (default `arena-`)
+
+When adding a new env var, update: root `.env.example`, and if it's needed in production, also `Dockerfile.app` / `Dockerfile.admin` (build args for Vite vars, runtime env for Node vars) and `deploy/lib/arena-stack.ts` (ECS container environment/secrets).
+
 ## Common Commands
 
 ```sh
