@@ -31,7 +31,11 @@ async function handleHandResult(
   const lastHand = history[0];
   const winners = lastHand?.winners ?? [];
 
-  emit(ctx.moduleId, ctx.session, buildHandResult(winners, advancedState));
+  await emit(
+    ctx.moduleId,
+    ctx.session,
+    buildHandResult(winners, advancedState),
+  );
 
   // Track hand wins and biggest pot
   for (const w of winners) {
@@ -87,7 +91,7 @@ async function handleHandResult(
       HAND_REACTION_PROMPT,
     );
     if (reaction) {
-      emit(
+      await emit(
         ctx.moduleId,
         ctx.session,
         buildPlayerAnalysis(reactor.id, reactor.name, reaction),
@@ -96,11 +100,11 @@ async function handleHandResult(
   }
 }
 
-function handlePhaseTransition(
+async function handlePhaseTransition(
   ctx: SessionContext,
   advancedState: GameState,
-): void {
-  emit(
+): Promise<void> {
+  await emit(
     ctx.moduleId,
     ctx.session,
     buildDealCommunity(advancedState.phase, advancedState),
@@ -141,7 +145,7 @@ export async function playHand(ctx: SessionContext): Promise<void> {
 
   session.currentHands = playerHands;
 
-  emit(
+  await emit(
     moduleId,
     session,
     buildDealHands(session.handNumber, handState, playerHands, {
@@ -198,7 +202,7 @@ export async function playHand(ctx: SessionContext): Promise<void> {
     }
 
     if (advancedState.phase !== previousPhase) {
-      handlePhaseTransition(ctx, advancedState);
+      await handlePhaseTransition(ctx, advancedState);
       previousPhase = advancedState.phase;
     }
 

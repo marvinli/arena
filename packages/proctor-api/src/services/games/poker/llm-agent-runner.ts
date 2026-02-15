@@ -1,4 +1,10 @@
-import { bedrock } from "@ai-sdk/amazon-bedrock";
+import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
+import { fromNodeProviderChain } from "@aws-sdk/credential-providers";
+
+const bedrock = createAmazonBedrock({
+  credentialProvider: fromNodeProviderChain(),
+});
+
 import { anthropic } from "@ai-sdk/anthropic";
 import { deepseek } from "@ai-sdk/deepseek";
 import { google } from "@ai-sdk/google";
@@ -181,7 +187,7 @@ export class LlmAgentRunner implements AgentRunner {
     );
   }
 
-  injectMessage(playerId: string, message: string): void {
+  async injectMessage(playerId: string, message: string): Promise<void> {
     const agent = this.agents.get(playerId);
     if (!agent) {
       logError(
@@ -191,7 +197,7 @@ export class LlmAgentRunner implements AgentRunner {
       return;
     }
     agent.messages.push({ role: "user", content: message });
-    appendAgentMessage(agent.moduleId, playerId, "user", message);
+    await appendAgentMessage(agent.moduleId, playerId, "user", message);
   }
 
   async runTurn(
@@ -206,7 +212,7 @@ export class LlmAgentRunner implements AgentRunner {
     // Build and inject YOUR_TURN message
     const turnMessage = formatYourTurn(playerId, context);
     agent.messages.push({ role: "user", content: turnMessage });
-    appendAgentMessage(agent.moduleId, playerId, "user", turnMessage);
+    await appendAgentMessage(agent.moduleId, playerId, "user", turnMessage);
 
     return this.promptAgent(agent, playerId);
   }
@@ -219,7 +225,7 @@ export class LlmAgentRunner implements AgentRunner {
     if (!agent) return undefined;
 
     agent.messages.push({ role: "user", content: message });
-    appendAgentMessage(agent.moduleId, playerId, "user", message);
+    await appendAgentMessage(agent.moduleId, playerId, "user", message);
 
     const model = resolveModel(agent.config.provider, agent.config.modelId);
 
@@ -243,7 +249,7 @@ export class LlmAgentRunner implements AgentRunner {
       );
       if (text) {
         agent.messages.push({ role: "assistant", content: text });
-        appendAgentMessage(agent.moduleId, playerId, "assistant", text);
+        await appendAgentMessage(agent.moduleId, playerId, "assistant", text);
         return text;
       }
     } catch (err) {
@@ -292,7 +298,7 @@ export class LlmAgentRunner implements AgentRunner {
       ],
     };
     agent.messages.push(toolMsg);
-    appendAgentMessage(
+    await appendAgentMessage(
       agent.moduleId,
       playerId,
       "tool",
@@ -342,7 +348,7 @@ export class LlmAgentRunner implements AgentRunner {
     // Append response messages to conversation history
     for (const msg of result.response.messages) {
       agent.messages.push(msg);
-      appendAgentMessage(
+      await appendAgentMessage(
         agent.moduleId,
         playerId,
         msg.role,
@@ -371,7 +377,7 @@ export class LlmAgentRunner implements AgentRunner {
         ],
       };
       agent.messages.push(toolResultMsg);
-      appendAgentMessage(
+      await appendAgentMessage(
         agent.moduleId,
         playerId,
         "tool",
@@ -385,7 +391,7 @@ export class LlmAgentRunner implements AgentRunner {
           role: "assistant",
           content: "Action submitted.",
         });
-        appendAgentMessage(
+        await appendAgentMessage(
           agent.moduleId,
           playerId,
           "assistant",
@@ -426,7 +432,7 @@ export class LlmAgentRunner implements AgentRunner {
         role: "assistant",
         content: fallbackContent,
       });
-      appendAgentMessage(
+      await appendAgentMessage(
         agent.moduleId,
         playerId,
         "assistant",

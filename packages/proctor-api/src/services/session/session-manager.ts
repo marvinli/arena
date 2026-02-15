@@ -116,8 +116,8 @@ export interface ConnectResult {
   gameState: ProctorGameState | null;
 }
 
-export function connect(channelKey: string): ConnectResult {
-  const state = getChannelStateFromDb(channelKey);
+export async function connect(channelKey: string): Promise<ConnectResult> {
+  const state = await getChannelStateFromDb(channelKey);
 
   if (!state) {
     return {
@@ -131,7 +131,7 @@ export function connect(channelKey: string): ConnectResult {
   // The SSE subscription replays unacked instructions after this point.
   let gameState: ProctorGameState | null = null;
   if (state.ackedInstructionTs != null) {
-    const snapshot = getInstructionSnapshot(
+    const snapshot = await getInstructionSnapshot(
       state.moduleId,
       state.ackedInstructionTs,
     );
@@ -153,12 +153,12 @@ export function connect(channelKey: string): ConnectResult {
   };
 }
 
-export function completeInstruction(
+export async function completeInstruction(
   channelKey: string,
   moduleId: string,
   instructionId: string,
-): boolean {
-  ackInstruction(channelKey, Number(instructionId));
+): Promise<boolean> {
+  await ackInstruction(channelKey, Number(instructionId));
   notifyAck(moduleId, instructionId);
   return true;
 }

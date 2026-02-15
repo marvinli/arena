@@ -173,7 +173,7 @@ export async function playTurn(
   const playerName =
     currentState.players.find((p) => p.id === playerId)?.name ?? playerId;
 
-  emit(ctx.moduleId, ctx.session, buildPlayerTurn(playerId, playerName));
+  await emit(ctx.moduleId, ctx.session, buildPlayerTurn(playerId, playerName));
 
   const { result, state } = await resolveAction(ctx, playerId);
   const isAllIn =
@@ -185,7 +185,7 @@ export async function playTurn(
   updateGameState(ctx.session, state);
 
   if (result.analysis) {
-    emit(
+    await emit(
       ctx.moduleId,
       ctx.session,
       buildPlayerAnalysis(
@@ -197,7 +197,7 @@ export async function playTurn(
     );
   }
 
-  emit(
+  await emit(
     ctx.moduleId,
     ctx.session,
     buildPlayerAction(

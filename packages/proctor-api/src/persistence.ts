@@ -1,99 +1,10 @@
-import db from "./db.js";
-
-// ── Schema initialization ──────────────────────────────────
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS modules (
-    module_id     TEXT PRIMARY KEY,
-    type          TEXT NOT NULL,
-    prog_index    INTEGER NOT NULL,
-    status        TEXT NOT NULL DEFAULT 'running',
-    created_at    INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS instructions (
-    module_id     TEXT NOT NULL REFERENCES modules(module_id),
-    timestamp_ms  INTEGER NOT NULL,
-    type          TEXT NOT NULL,
-    payload       TEXT NOT NULL,
-    PRIMARY KEY (module_id, timestamp_ms)
-  );
-
-  CREATE TABLE IF NOT EXISTS channel_state (
-    channel_key     TEXT PRIMARY KEY,
-    module_id       TEXT NOT NULL REFERENCES modules(module_id),
-    instruction_ts  INTEGER,
-    state_snapshot  TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS settings (
-    key    TEXT PRIMARY KEY,
-    value  TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS agent_messages (
-    module_id     TEXT NOT NULL REFERENCES modules(module_id),
-    player_id     TEXT NOT NULL,
-    role          TEXT NOT NULL,
-    content       TEXT NOT NULL,
-    seq           INTEGER NOT NULL,
-    PRIMARY KEY (module_id, player_id, seq)
-  );
-`);
-
-// ── Schema migrations (idempotent) ────────────────────────
-try {
-  db.exec("ALTER TABLE instructions ADD COLUMN state_snapshot TEXT");
-} catch {
-  /* column already exists */
-}
-try {
-  db.exec("ALTER TABLE channel_state ADD COLUMN acked_instruction_ts INTEGER");
-} catch {
-  /* column already exists */
-}
-
-// ── Row types (match SQLite column names) ─────────────────
-
-interface ModuleRow {
-  module_id: string;
-  type: string;
-  prog_index: number;
-  status: string;
-  created_at: number;
-}
-
-interface InstructionRow {
-  module_id: string;
-  timestamp_ms: number;
-  type: string;
-  payload: string;
-  state_snapshot: string | null;
-}
-
-interface ChannelStateRow {
-  channel_key: string;
-  module_id: string;
-  instruction_ts: number | null;
-  state_snapshot: string | null;
-  acked_instruction_ts: number | null;
-}
-
-interface AgentMessageRow {
-  module_id: string;
-  player_id: string;
-  role: string;
-  content: string;
-  seq: number;
-}
-
-interface MaxSeqRow {
-  max_seq: number | null;
-}
-
-interface SettingRow {
-  value: string;
-}
+import {
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
+import docClient, { tableNames } from "./db.js";
 
 // ── Modules ────────────────────────────────────────────────
 
@@ -105,45 +16,45 @@ export interface Module {
   createdAt: number;
 }
 
-const insertModuleStmt = db.prepare(
-  "INSERT INTO modules (module_id, type, prog_index, status, created_at) VALUES (?, ?, ?, 'running', ?)",
-);
-
-const selectModuleStmt = db.prepare<[string], ModuleRow>(
-  "SELECT module_id, type, prog_index, status, created_at FROM modules WHERE module_id = ?",
-);
-
-const completeModuleStmt = db.prepare(
-  "UPDATE modules SET status = 'completed' WHERE module_id = ?",
-);
-
-function rowToModule(row: ModuleRow): Module {
-  return {
-    moduleId: row.module_id,
-    type: row.type,
-    progIndex: row.prog_index,
-    status: row.status as "running" | "completed",
-    createdAt: row.created_at,
-  };
-}
-
-export function createModule(
+export async function createModule(
   moduleId: string,
   type: string,
   progIndex: number,
-): Module {
+): Promise<Module> {
   const createdAt = Date.now();
-  insertModuleStmt.run(moduleId, type, progIndex, createdAt);
-  return { moduleId, type, progIndex, status: "running", createdAt };
+  const item: Module = {
+    moduleId,
+    type,
+    progIndex,
+    status: "running",
+    createdAt,
+  };
+  await docClient.send(
+    new PutCommand({ TableName: tableNames.modules, Item: item }),
+  );
+  return item;
 }
 
-export function getModule(moduleId: string): Module | undefined {
-  const row = selectModuleStmt.get(moduleId);
-  return row ? rowToModule(row) : undefined;
+export async function getModule(moduleId: string): Promise<Module | undefined> {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: tableNames.modules,
+      Key: { moduleId },
+    }),
+  );
+  return result.Item as Module | undefined;
 }
 
-export function completeModule(moduleId: string): void {
-  completeModuleStmt.run(moduleId);
+export async function completeModule(moduleId: string): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: tableNames.modules,
+      Key: { moduleId },
+      UpdateExpression: "SET #s = :s",
+      ExpressionAttributeNames: { "#s": "status" },
+      ExpressionAttributeValues: { ":s": "completed" },
+    }),
+  );
 }
 
 // ── Instructions ───────────────────────────────────────────
@@ -155,66 +66,78 @@ export interface Instruction {
   payload: string;
 }
 
-const insertInstructionStmt = db.prepare(
-  "INSERT INTO instructions (module_id, timestamp_ms, type, payload, state_snapshot) VALUES (?, ?, ?, ?, ?)",
-);
-
-const selectInstructionsStmt = db.prepare<[string], InstructionRow>(
-  "SELECT module_id, timestamp_ms, type, payload FROM instructions WHERE module_id = ? ORDER BY timestamp_ms",
-);
-
-const selectInstructionsAfterStmt = db.prepare<
-  [string, number],
-  InstructionRow
->(
-  "SELECT module_id, timestamp_ms, type, payload FROM instructions WHERE module_id = ? AND timestamp_ms > ? ORDER BY timestamp_ms",
-);
-
-const selectLatestInstructionStmt = db.prepare<[string], InstructionRow>(
-  "SELECT module_id, timestamp_ms, type, payload FROM instructions WHERE module_id = ? ORDER BY timestamp_ms DESC LIMIT 1",
-);
-
-function rowToInstruction(row: InstructionRow): Instruction {
-  return {
-    moduleId: row.module_id,
-    timestampMs: row.timestamp_ms,
-    type: row.type,
-    payload: row.payload,
-  };
-}
-
-export function insertInstruction(
+export async function insertInstruction(
   moduleId: string,
   timestampMs: number,
   type: string,
   payload: object,
   stateSnapshot: string | null = null,
-): void {
-  insertInstructionStmt.run(
-    moduleId,
-    timestampMs,
-    type,
-    JSON.stringify(payload),
-    stateSnapshot,
+): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: tableNames.instructions,
+      Item: {
+        moduleId,
+        timestampMs,
+        type,
+        payload: JSON.stringify(payload),
+        stateSnapshot: stateSnapshot ?? undefined,
+      },
+    }),
   );
 }
 
-export function getInstructions(
+export async function getInstructions(
   moduleId: string,
   afterTimestampMs?: number,
-): Instruction[] {
-  const rows =
-    afterTimestampMs != null
-      ? selectInstructionsAfterStmt.all(moduleId, afterTimestampMs)
-      : selectInstructionsStmt.all(moduleId);
-  return rows.map(rowToInstruction);
+): Promise<Instruction[]> {
+  const params: {
+    TableName: string;
+    KeyConditionExpression: string;
+    ExpressionAttributeValues: Record<string, unknown>;
+    ScanIndexForward: boolean;
+    ProjectionExpression: string;
+  } = {
+    TableName: tableNames.instructions,
+    KeyConditionExpression:
+      afterTimestampMs != null
+        ? "moduleId = :mid AND timestampMs > :ts"
+        : "moduleId = :mid",
+    ExpressionAttributeValues:
+      afterTimestampMs != null
+        ? { ":mid": moduleId, ":ts": afterTimestampMs }
+        : { ":mid": moduleId },
+    ScanIndexForward: true,
+    ProjectionExpression: "moduleId, timestampMs, #t, payload",
+  };
+
+  const result = await docClient.send(
+    new QueryCommand({
+      ...params,
+      ExpressionAttributeNames: { "#t": "type" },
+    }),
+  );
+
+  return (result.Items ?? []) as Instruction[];
 }
 
-export function getLatestInstruction(
+export async function getLatestInstruction(
   moduleId: string,
-): Instruction | undefined {
-  const row = selectLatestInstructionStmt.get(moduleId);
-  return row ? rowToInstruction(row) : undefined;
+): Promise<Instruction | undefined> {
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: tableNames.instructions,
+      KeyConditionExpression: "moduleId = :mid",
+      ExpressionAttributeValues: { ":mid": moduleId },
+      ExpressionAttributeNames: { "#t": "type" },
+      ProjectionExpression: "moduleId, timestampMs, #t, payload",
+      ScanIndexForward: false,
+      Limit: 1,
+    }),
+  );
+
+  const items = result.Items ?? [];
+  return items.length > 0 ? (items[0] as Instruction) : undefined;
 }
 
 // ── Channel State ──────────────────────────────────────────
@@ -227,72 +150,74 @@ export interface ChannelState {
   ackedInstructionTs: number | null;
 }
 
-const selectChannelStateStmt = db.prepare<[string], ChannelStateRow>(
-  "SELECT channel_key, module_id, instruction_ts, state_snapshot, acked_instruction_ts FROM channel_state WHERE channel_key = ?",
-);
+export async function getChannelState(
+  channelKey: string,
+): Promise<ChannelState | undefined> {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: tableNames.channelState,
+      Key: { channelKey },
+    }),
+  );
 
-const upsertChannelStateStmt = db.prepare(`
-  INSERT INTO channel_state (channel_key, module_id, instruction_ts, state_snapshot)
-  VALUES (?, ?, ?, ?)
-  ON CONFLICT(channel_key) DO UPDATE SET
-    module_id = excluded.module_id,
-    instruction_ts = excluded.instruction_ts,
-    state_snapshot = excluded.state_snapshot
-`);
+  if (!result.Item) return undefined;
 
-function rowToChannelState(row: ChannelStateRow): ChannelState {
+  const item = result.Item;
   return {
-    channelKey: row.channel_key,
-    moduleId: row.module_id,
-    instructionTs: row.instruction_ts,
-    stateSnapshot: row.state_snapshot,
-    ackedInstructionTs: row.acked_instruction_ts,
+    channelKey: item.channelKey as string,
+    moduleId: item.moduleId as string,
+    instructionTs: (item.instructionTs as number) ?? null,
+    stateSnapshot: (item.stateSnapshot as string) ?? null,
+    ackedInstructionTs: (item.ackedInstructionTs as number) ?? null,
   };
 }
 
-export function getChannelState(channelKey: string): ChannelState | undefined {
-  const row = selectChannelStateStmt.get(channelKey);
-  return row ? rowToChannelState(row) : undefined;
-}
-
-export function upsertChannelState(
+export async function upsertChannelState(
   channelKey: string,
   moduleId: string,
   instructionTs: number | null = null,
   stateSnapshot: string | null = null,
-): void {
-  upsertChannelStateStmt.run(
-    channelKey,
-    moduleId,
-    instructionTs,
-    stateSnapshot,
+): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: tableNames.channelState,
+      Item: {
+        channelKey,
+        moduleId,
+        instructionTs,
+        stateSnapshot,
+      },
+    }),
   );
 }
 
-const ackInstructionStmt = db.prepare(
-  "UPDATE channel_state SET acked_instruction_ts = ? WHERE channel_key = ?",
-);
-
-export function ackInstruction(
+export async function ackInstruction(
   channelKey: string,
   instructionTs: number,
-): void {
-  ackInstructionStmt.run(instructionTs, channelKey);
+): Promise<void> {
+  await docClient.send(
+    new UpdateCommand({
+      TableName: tableNames.channelState,
+      Key: { channelKey },
+      UpdateExpression: "SET ackedInstructionTs = :ts",
+      ExpressionAttributeValues: { ":ts": instructionTs },
+    }),
+  );
 }
 
-const selectInstructionSnapshotStmt = db.prepare<
-  [string, number],
-  { state_snapshot: string | null }
->(
-  "SELECT state_snapshot FROM instructions WHERE module_id = ? AND timestamp_ms = ?",
-);
-
-export function getInstructionSnapshot(
+export async function getInstructionSnapshot(
   moduleId: string,
   timestampMs: number,
-): string | null {
-  const row = selectInstructionSnapshotStmt.get(moduleId, timestampMs);
-  return row?.state_snapshot ?? null;
+): Promise<string | null> {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: tableNames.instructions,
+      Key: { moduleId, timestampMs },
+      ProjectionExpression: "stateSnapshot",
+    }),
+  );
+
+  return (result.Item?.stateSnapshot as string) ?? null;
 }
 
 // ── Agent Messages ─────────────────────────────────────────
@@ -305,62 +230,87 @@ export interface AgentMessage {
   seq: number;
 }
 
-const selectMaxSeqStmt = db.prepare<[string, string], MaxSeqRow>(
-  "SELECT MAX(seq) AS max_seq FROM agent_messages WHERE module_id = ? AND player_id = ?",
-);
-
-const insertAgentMessageStmt = db.prepare(
-  "INSERT INTO agent_messages (module_id, player_id, role, content, seq) VALUES (?, ?, ?, ?, ?)",
-);
-
-const selectAgentMessagesStmt = db.prepare<[string, string], AgentMessageRow>(
-  "SELECT module_id, player_id, role, content, seq FROM agent_messages WHERE module_id = ? AND player_id = ? ORDER BY seq",
-);
-
-function rowToAgentMessage(row: AgentMessageRow): AgentMessage {
-  return {
-    moduleId: row.module_id,
-    playerId: row.player_id,
-    role: row.role,
-    content: row.content,
-    seq: row.seq,
-  };
-}
-
-export function appendAgentMessage(
+export async function appendAgentMessage(
   moduleId: string,
   playerId: string,
   role: string,
   content: string,
-): void {
-  const row = selectMaxSeqStmt.get(moduleId, playerId);
-  const nextSeq = row?.max_seq != null ? row.max_seq + 1 : 0;
-  insertAgentMessageStmt.run(moduleId, playerId, role, content, nextSeq);
+): Promise<void> {
+  const pk = `${moduleId}#${playerId}`;
+
+  // Find the current max seq
+  const queryResult = await docClient.send(
+    new QueryCommand({
+      TableName: tableNames.agentMessages,
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: { ":pk": pk },
+      ScanIndexForward: false,
+      Limit: 1,
+      ProjectionExpression: "seq",
+    }),
+  );
+
+  const maxSeq =
+    queryResult.Items && queryResult.Items.length > 0
+      ? (queryResult.Items[0].seq as number)
+      : -1;
+  const nextSeq = maxSeq + 1;
+
+  await docClient.send(
+    new PutCommand({
+      TableName: tableNames.agentMessages,
+      Item: {
+        pk,
+        seq: nextSeq,
+        moduleId,
+        playerId,
+        role,
+        content,
+      },
+    }),
+  );
 }
 
-export function getAgentMessages(
+export async function getAgentMessages(
   moduleId: string,
   playerId: string,
-): AgentMessage[] {
-  return selectAgentMessagesStmt.all(moduleId, playerId).map(rowToAgentMessage);
+): Promise<AgentMessage[]> {
+  const pk = `${moduleId}#${playerId}`;
+
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: tableNames.agentMessages,
+      KeyConditionExpression: "pk = :pk",
+      ExpressionAttributeValues: { ":pk": pk },
+      ScanIndexForward: true,
+      ProjectionExpression: "moduleId, playerId, #r, content, seq",
+      ExpressionAttributeNames: { "#r": "role" },
+    }),
+  );
+
+  return (result.Items ?? []) as AgentMessage[];
 }
 
 // ── Settings ──────────────────────────────────────────────
 
-const selectSettingStmt = db.prepare<[string], SettingRow>(
-  "SELECT value FROM settings WHERE key = ?",
-);
+export async function getSetting(key: string): Promise<string | undefined> {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: tableNames.settings,
+      Key: { key },
+      ProjectionExpression: "#v",
+      ExpressionAttributeNames: { "#v": "value" },
+    }),
+  );
 
-const upsertSettingStmt = db.prepare(`
-  INSERT INTO settings (key, value) VALUES (?, ?)
-  ON CONFLICT(key) DO UPDATE SET value = excluded.value
-`);
-
-export function getSetting(key: string): string | undefined {
-  const row = selectSettingStmt.get(key);
-  return row?.value;
+  return result.Item?.value as string | undefined;
 }
 
-export function setSetting(key: string, value: string): void {
-  upsertSettingStmt.run(key, value);
+export async function setSetting(key: string, value: string): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: tableNames.settings,
+      Item: { key, value },
+    }),
+  );
 }

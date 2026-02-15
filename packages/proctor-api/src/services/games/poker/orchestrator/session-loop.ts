@@ -293,7 +293,7 @@ async function runHandLoop(ctx: SessionContext): Promise<void> {
         session.handNumber,
         awards,
       );
-      emit(moduleId, session, gameOverInstruction);
+      await emit(moduleId, session, gameOverInstruction);
       await waitForAck(moduleId, gameOverInstruction.instructionId, signal);
 
       session.status = "FINISHED";
@@ -374,7 +374,7 @@ export async function runSession(
     },
     session.config.players,
   );
-  emit(moduleId, session, gameStartInstruction);
+  await emit(moduleId, session, gameStartInstruction);
   await waitForAck(moduleId, gameStartInstruction.instructionId, signal);
   if (signal.aborted) return;
 
@@ -456,7 +456,7 @@ export async function resumeSession(
       recoveryTournamentInfo,
     );
     if (agentRunner.restoreMessages) {
-      const messages = getAgentMessages(moduleId, p.playerId);
+      const messages = await getAgentMessages(moduleId, p.playerId);
       if (messages.length > 0) {
         agentRunner.restoreMessages(
           p.playerId,
@@ -480,7 +480,7 @@ export async function resumeSession(
     },
     session.config.players,
   );
-  emit(moduleId, session, gameStartInstruction);
+  await emit(moduleId, session, gameStartInstruction);
   await waitForAck(moduleId, gameStartInstruction.instructionId, signal);
   if (signal.aborted) return;
 

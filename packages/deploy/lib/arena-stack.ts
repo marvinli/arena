@@ -1,23 +1,28 @@
+import * as path from "node:path";
 import * as cdk from "aws-cdk-lib";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as cognito from "aws-cdk-lib/aws-cognito";
+import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
-import * as efs from "aws-cdk-lib/aws-efs";
 import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import type { Construct } from "constructs";
-import * as path from "node:path";
 
 /** Root of the monorepo (two levels up from this file). */
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 
+export interface ArenaStackProps extends cdk.StackProps {
+  tables: dynamodb.ITable[];
+  tablePrefix: string;
+}
+
 export class ArenaStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: ArenaStackProps) {
     super(scope, id, props);
 
     // ── Cognito ─────────────────────────────────────────────
@@ -86,19 +91,6 @@ export class ArenaStack extends cdk.Stack {
       ],
     });
 
-    // ── EFS for SQLite persistence ────────────────────────
-    const fileSystem = new efs.FileSystem(this, "Data", {
-      vpc,
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-      performanceMode: efs.PerformanceMode.GENERAL_PURPOSE,
-    });
-
-    const accessPoint = fileSystem.addAccessPoint("AppData", {
-      path: "/arena",
-      createAcl: { ownerGid: "1000", ownerUid: "1000", permissions: "755" },
-      posixUser: { gid: "1000", uid: "1000" },
-    });
-
     // ── Secrets ───────────────────────────────────────────
     // Pre-create this secret in the console / CLI with the JSON keys:
     //   ANTHROPIC_API_KEY,
@@ -129,20 +121,18 @@ export class ArenaStack extends cdk.Stack {
     // Grant Bedrock model invocation to the task role
     taskDef.taskRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+        actions: [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+        ],
         resources: ["*"],
       }),
     );
 
-    // Mount EFS
-    taskDef.addVolume({
-      name: "efs-data",
-      efsVolumeConfiguration: {
-        fileSystemId: fileSystem.fileSystemId,
-        transitEncryption: "ENABLED",
-        authorizationConfig: { accessPointId: accessPoint.accessPointId, iam: "ENABLED" },
-      },
-    });
+    // Grant DynamoDB read/write to the task role
+    for (const table of props.tables) {
+      table.grantReadWriteData(taskDef.taskRole);
+    }
 
     // ── arena-app container ───────────────────────────────
     const appContainer = taskDef.addContainer("arena-app", {
@@ -159,7 +149,10 @@ export class ArenaStack extends cdk.Stack {
         logRetention: logs.RetentionDays.TWO_WEEKS,
       }),
       healthCheck: {
-        command: ["CMD-SHELL", "curl -f http://localhost:4001/health || exit 1"],
+        command: [
+          "CMD-SHELL",
+          "curl -f http://localhost:4001/health || exit 1",
+        ],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
@@ -167,26 +160,32 @@ export class ArenaStack extends cdk.Stack {
       },
       environment: {
         PORT: "4001",
-        DB_PATH: "/data/arena.db",
+        TABLE_PREFIX: props.tablePrefix,
         NODE_ENV: "production",
         AWS_REGION: this.region,
       },
       secrets: {
-        ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(secret, "ANTHROPIC_API_KEY"),
+        ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(
+          secret,
+          "ANTHROPIC_API_KEY",
+        ),
         OPENAI_API_KEY: ecs.Secret.fromSecretsManager(secret, "OPENAI_API_KEY"),
-        GOOGLE_GENERATIVE_AI_API_KEY: ecs.Secret.fromSecretsManager(secret, "GOOGLE_GENERATIVE_AI_API_KEY"),
+        GOOGLE_GENERATIVE_AI_API_KEY: ecs.Secret.fromSecretsManager(
+          secret,
+          "GOOGLE_GENERATIVE_AI_API_KEY",
+        ),
         XAI_API_KEY: ecs.Secret.fromSecretsManager(secret, "XAI_API_KEY"),
-        DEEPSEEK_API_KEY: ecs.Secret.fromSecretsManager(secret, "DEEPSEEK_API_KEY"),
+        DEEPSEEK_API_KEY: ecs.Secret.fromSecretsManager(
+          secret,
+          "DEEPSEEK_API_KEY",
+        ),
       },
     });
 
-    appContainer.addPortMappings({ containerPort: 80 }, { containerPort: 4001 });
-
-    appContainer.addMountPoints({
-      sourceVolume: "efs-data",
-      containerPath: "/data",
-      readOnly: false,
-    });
+    appContainer.addPortMappings(
+      { containerPort: 80 },
+      { containerPort: 4001 },
+    );
 
     // ── videographer container ────────────────────────────
     const vidContainer = taskDef.addContainer("videographer", {
@@ -211,7 +210,10 @@ export class ArenaStack extends cdk.Stack {
         RTMP_URL: ecs.Secret.fromSecretsManager(secret, "RTMP_URL"),
       },
       healthCheck: {
-        command: ["CMD-SHELL", "curl -f http://localhost:3001/health || exit 1"],
+        command: [
+          "CMD-SHELL",
+          "curl -f http://localhost:3001/health || exit 1",
+        ],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
         retries: 3,
@@ -298,9 +300,6 @@ export class ArenaStack extends cdk.Stack {
       assignPublicIp: true,
       vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
     });
-
-    // Allow EFS access from Fargate tasks
-    fileSystem.connections.allowDefaultPortFrom(service);
 
     const listener = alb.addListener("Http", { port: 80 });
     listener.addTargets("Admin", {

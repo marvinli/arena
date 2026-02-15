@@ -1,12 +1,17 @@
-import { join } from "node:path";
-import Database from "better-sqlite3";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
-const DB_PATH =
-  process.env.DB_PATH ?? join(import.meta.dirname, "../data/arena.db");
+const client = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(client);
 
-const db: import("better-sqlite3").Database = new Database(DB_PATH);
+const TABLE_PREFIX = process.env.TABLE_PREFIX ?? "arena-";
 
-// WAL mode for better concurrent read performance
-db.pragma("journal_mode = WAL");
+export const tableNames = {
+  modules: `${TABLE_PREFIX}modules`,
+  instructions: `${TABLE_PREFIX}instructions`,
+  channelState: `${TABLE_PREFIX}channel-state`,
+  settings: `${TABLE_PREFIX}settings`,
+  agentMessages: `${TABLE_PREFIX}agent-messages`,
+} as const;
 
-export default db;
+export default docClient;

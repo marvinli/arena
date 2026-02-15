@@ -52,7 +52,7 @@ export interface AgentRunner {
   ): void;
 
   /** Append a game event message to an agent's conversation. */
-  injectMessage(playerId: string, message: string): void;
+  injectMessage(playerId: string, message: string): void | Promise<void>;
 
   /** Run the agent's turn. Returns the action and optional analysis. */
   runTurn(

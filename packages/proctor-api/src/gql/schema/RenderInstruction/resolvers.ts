@@ -7,7 +7,7 @@ const renderInstructions = {
     _parent: unknown,
     { channelKey }: { channelKey: string },
   ) {
-    const channelState = getChannelState(channelKey);
+    const channelState = await getChannelState(channelKey);
 
     // Subscribe to live pub-sub FIRST (sync — no instructions can be emitted
     // between this and the DB read below, so no deduplication needed).
@@ -15,7 +15,7 @@ const renderInstructions = {
 
     // Replay unacked instructions from DB before switching to live.
     if (channelState?.moduleId) {
-      const pending = getInstructions(
+      const pending = await getInstructions(
         channelState.moduleId,
         channelState.ackedInstructionTs ?? undefined,
       );

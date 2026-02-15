@@ -87,31 +87,31 @@ describe("session-manager", () => {
   });
 
   describe("connect", () => {
-    it("returns empty state for new channel", () => {
-      vi.mocked(mockGetChannelState).mockReturnValue(undefined);
-      const result = connect("new-channel");
+    it("returns empty state for new channel", async () => {
+      vi.mocked(mockGetChannelState).mockResolvedValue(undefined);
+      const result = await connect("new-channel");
       expect(result.moduleId).toBe("");
       expect(result.moduleType).toBe("poker");
       expect(result.gameState).toBeNull();
     });
 
-    it("returns null gameState for corrupted acked snapshot", () => {
-      vi.mocked(mockGetChannelState).mockReturnValue({
+    it("returns null gameState for corrupted acked snapshot", async () => {
+      vi.mocked(mockGetChannelState).mockResolvedValue({
         channelKey: "test-channel",
         moduleId: "mod-abc",
         instructionTs: 100,
         stateSnapshot: '{"valid":"json"}',
         ackedInstructionTs: 100,
       });
-      vi.mocked(mockGetInstructionSnapshot).mockReturnValue(
+      vi.mocked(mockGetInstructionSnapshot).mockResolvedValue(
         "NOT VALID JSON {{{",
       );
-      const result = connect("test-channel");
+      const result = await connect("test-channel");
       expect(result.moduleId).toBe("mod-abc");
       expect(result.gameState).toBeNull();
     });
 
-    it("returns acked snapshot for returning channel", () => {
+    it("returns acked snapshot for returning channel", async () => {
       const snapshot = JSON.stringify({
         channelKey: "test-channel",
         handNumber: 3,
@@ -119,38 +119,42 @@ describe("session-manager", () => {
         communityCards: [],
         pots: [],
       });
-      vi.mocked(mockGetChannelState).mockReturnValue({
+      vi.mocked(mockGetChannelState).mockResolvedValue({
         channelKey: "test-channel",
         moduleId: "mod-abc",
         instructionTs: 200,
         stateSnapshot: "latest-not-used",
         ackedInstructionTs: 100,
       });
-      vi.mocked(mockGetInstructionSnapshot).mockReturnValue(snapshot);
-      const result = connect("test-channel");
+      vi.mocked(mockGetInstructionSnapshot).mockResolvedValue(snapshot);
+      const result = await connect("test-channel");
       expect(result.moduleId).toBe("mod-abc");
       expect(result.moduleType).toBe("poker");
       expect(result.gameState).toEqual(JSON.parse(snapshot));
       expect(mockGetInstructionSnapshot).toHaveBeenCalledWith("mod-abc", 100);
     });
 
-    it("returns null gameState when no instructions acked", () => {
-      vi.mocked(mockGetChannelState).mockReturnValue({
+    it("returns null gameState when no instructions acked", async () => {
+      vi.mocked(mockGetChannelState).mockResolvedValue({
         channelKey: "test-channel",
         moduleId: "mod-abc",
         instructionTs: 100,
         stateSnapshot: '{"some":"data"}',
         ackedInstructionTs: null,
       });
-      const result = connect("test-channel");
+      const result = await connect("test-channel");
       expect(result.moduleId).toBe("mod-abc");
       expect(result.gameState).toBeNull();
     });
   });
 
   describe("completeInstruction", () => {
-    it("acks the instruction and returns true", () => {
-      const result = completeInstruction("test-channel", "mod-1", "12345");
+    it("acks the instruction and returns true", async () => {
+      const result = await completeInstruction(
+        "test-channel",
+        "mod-1",
+        "12345",
+      );
       expect(result).toBe(true);
       expect(mockAckInstruction).toHaveBeenCalledWith("test-channel", 12345);
     });

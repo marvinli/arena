@@ -24,7 +24,10 @@ export function createActionTracker(): ActionTracker {
   return new Map();
 }
 
-function getOrCreate(tracker: ActionTracker, playerId: string): PlayerActionStats {
+function getOrCreate(
+  tracker: ActionTracker,
+  playerId: string,
+): PlayerActionStats {
   let stats = tracker.get(playerId);
   if (!stats) {
     stats = {

@@ -31,20 +31,20 @@ export function buildSnapshot(session: Session): string {
   });
 }
 
-function persistInstruction(
+async function persistInstruction(
   moduleId: string,
   session: Session,
   instruction: RenderInstruction,
-): void {
+): Promise<void> {
   const snapshot = buildSnapshot(session);
-  insertInstruction(
+  await insertInstruction(
     moduleId,
     Number(instruction.instructionId),
     instruction.type,
     instruction,
     snapshot,
   );
-  upsertChannelState(
+  await upsertChannelState(
     session.channelKey,
     moduleId,
     Number(instruction.instructionId),
@@ -61,13 +61,13 @@ function publishInstruction(
   publish(session.channelKey, fullInstruction);
 }
 
-export function emit(
+export async function emit(
   moduleId: string,
   session: Session,
   instruction: RenderInstruction,
-): void {
+): Promise<void> {
   session.lastInstruction = instruction;
-  persistInstruction(moduleId, session, instruction);
+  await persistInstruction(moduleId, session, instruction);
   publishInstruction(moduleId, session, instruction);
 }
 

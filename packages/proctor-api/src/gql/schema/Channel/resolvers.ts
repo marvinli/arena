@@ -28,15 +28,18 @@ const getSessionQuery: QueryResolvers["getSession"] = (
   };
 };
 
-const connectQuery: QueryResolvers["connect"] = (_parent, { channelKey }) => {
-  return connect(channelKey);
-};
-
-const startModuleMutation: MutationResolvers["startModule"] = (
+const connectQuery: QueryResolvers["connect"] = async (
   _parent,
   { channelKey },
 ) => {
-  setSetting("live", "true");
+  return connect(channelKey);
+};
+
+const startModuleMutation: MutationResolvers["startModule"] = async (
+  _parent,
+  { channelKey },
+) => {
+  await setSetting("live", "true");
 
   // Idempotent — runProgrammingLoop returns immediately if already active
   void runProgrammingLoop(channelKey).catch((err) => {
@@ -50,12 +53,10 @@ const startModuleMutation: MutationResolvers["startModule"] = (
   return true;
 };
 
-const completeInstructionMutation: MutationResolvers["completeInstruction"] = (
-  _parent,
-  { channelKey, moduleId, instructionId },
-) => {
-  return completeInstruction(channelKey, moduleId, instructionId);
-};
+const completeInstructionMutation: MutationResolvers["completeInstruction"] =
+  async (_parent, { channelKey, moduleId, instructionId }) => {
+    return completeInstruction(channelKey, moduleId, instructionId);
+  };
 
 const stopSessionMutation: MutationResolvers["stopSession"] = (
   _parent,
@@ -65,12 +66,15 @@ const stopSessionMutation: MutationResolvers["stopSession"] = (
   return true;
 };
 
-const liveQuery: QueryResolvers["live"] = () => {
-  return getSetting("live") === "true";
+const liveQuery: QueryResolvers["live"] = async () => {
+  return (await getSetting("live")) === "true";
 };
 
-const setLiveMutation: MutationResolvers["setLive"] = (_parent, { live }) => {
-  setSetting("live", String(live));
+const setLiveMutation: MutationResolvers["setLive"] = async (
+  _parent,
+  { live },
+) => {
+  await setSetting("live", String(live));
   return live;
 };
 
