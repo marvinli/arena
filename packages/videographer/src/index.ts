@@ -3,6 +3,7 @@ import { join } from "node:path";
 import dotenv from "dotenv";
 
 dotenv.config({ path: join(import.meta.dirname, "../../../.env") });
+
 import { type BrowserCapture, startCapture } from "./browser.js";
 import { loadConfig } from "./config.js";
 import { type FfmpegProcess, startFfmpeg } from "./ffmpeg.js";
@@ -139,6 +140,20 @@ async function waitForFrontend(url: string): Promise<void> {
 
 // ── Main loop ────────────────────────────────────────────
 
+/** Clean up any partially-initialized capture/ffmpeg from a failed start. */
+async function cleanupPartial(): Promise<void> {
+  if (ffmpeg) {
+    try {
+      ffmpeg.process.kill("SIGKILL");
+    } catch {}
+    ffmpeg = null;
+  }
+  if (capture) {
+    await capture.cleanup().catch(() => {});
+    capture = null;
+  }
+}
+
 async function run(): Promise<void> {
   while (!shuttingDown) {
     const live = await isLive();
@@ -148,22 +163,23 @@ async function run(): Promise<void> {
         await startStreaming();
       } catch (err) {
         console.error("[videographer] failed to start:", err);
-        status = "error";
+        await cleanupPartial();
+        status = "idle";
         // Wait before retrying
         await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-        status = "idle";
         continue;
       }
-      // Monitor ffmpeg — if it exits unexpectedly, go back to idle
+      // Monitor ffmpeg — if it exits unexpectedly, clean up and go back to idle
       if (ffmpeg) {
-        ffmpeg.done.then(({ code, signal }) => {
-          if (!shuttingDown && status === "streaming") {
+        ffmpeg.done.then(async ({ code, signal }) => {
+          if (
+            !shuttingDown &&
+            (status === "streaming" || status === "starting")
+          ) {
             console.error(
               `[ffmpeg] exited unexpectedly (code=${code}, signal=${signal})`,
             );
-            capture?.cleanup().catch(() => {});
-            capture = null;
-            ffmpeg = null;
+            await cleanupPartial();
             status = "idle";
           }
         });

@@ -98,6 +98,7 @@ export class ArenaStack extends cdk.Stack {
     //   GOOGLE_GENERATIVE_AI_API_KEY,
     //   XAI_API_KEY,
     //   DEEPSEEK_API_KEY,
+    //   INWORLD_API_KEY,
     //   RTMP_URL
     const secret = secretsmanager.Secret.fromSecretNameV2(
       this,
@@ -141,6 +142,8 @@ export class ArenaStack extends cdk.Stack {
         exclude: ["**/cdk.out"],
         buildArgs: {
           OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
+          INWORLD_API_KEY: process.env.INWORLD_API_KEY ?? "",
+          TTS_PROVIDER: process.env.TTS_PROVIDER ?? "inworld",
         },
       }),
       memoryLimitMiB: 2048,
@@ -163,6 +166,7 @@ export class ArenaStack extends cdk.Stack {
         TABLE_PREFIX: props.tablePrefix,
         NODE_ENV: "production",
         AWS_REGION: this.region,
+        TTS_PROVIDER: "inworld",
       },
       secrets: {
         ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(
@@ -178,6 +182,10 @@ export class ArenaStack extends cdk.Stack {
         DEEPSEEK_API_KEY: ecs.Secret.fromSecretsManager(
           secret,
           "DEEPSEEK_API_KEY",
+        ),
+        INWORLD_API_KEY: ecs.Secret.fromSecretsManager(
+          secret,
+          "INWORLD_API_KEY",
         ),
       },
     });
