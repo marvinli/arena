@@ -45,7 +45,7 @@ export function buildSystemPrompt(
       : "";
 
   return SYSTEM_PROMPT_TEMPLATE.replace("{{name}}", config.name)
-    .replace("{{provider}}", config.provider)
+    .replace("{{bio}}", config.bio ?? "")
     .replace("{{persona}}", personaSection)
     .replace("{{tournamentSection}}", tournamentSection);
 }

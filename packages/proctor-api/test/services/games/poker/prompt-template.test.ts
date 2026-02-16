@@ -3,29 +3,28 @@ import type { PlayerConfig } from "../../../../src/services/games/poker/agent-ru
 import { buildSystemPrompt } from "../../../../src/services/games/poker/prompt-template.js";
 
 describe("buildSystemPrompt", () => {
-  it("substitutes name, modelName, and provider into the template", () => {
+  it("substitutes name and bio into the template", () => {
     const config: PlayerConfig = {
       id: "player-1",
       name: "Alice",
-      modelId: "claude-opus-4-6",
-      modelName: "Claude Opus 4.6",
-      provider: "Anthropic",
+      modelId: "deepseek-chat",
+      provider: "deepseek",
+      bio: "A cunning strategist with nerves of steel.",
     };
 
     const prompt = buildSystemPrompt(config);
 
-    expect(prompt).toContain(
-      "You are Alice, representing Anthropic in a winner-takes-all Texas Hold'em tournament",
-    );
+    expect(prompt).toContain("You are Alice.");
+    expect(prompt).toContain("A cunning strategist with nerves of steel.");
+    expect(prompt).toContain("winner-takes-all Texas Hold'em tournament");
   });
 
   it("contains key instruction phrases", () => {
     const config: PlayerConfig = {
       id: "player-1",
       name: "Bob",
-      modelId: "gpt-4",
-      modelName: "GPT-4",
-      provider: "OpenAI",
+      modelId: "deepseek-chat",
+      provider: "deepseek",
     };
 
     const prompt = buildSystemPrompt(config);
@@ -41,9 +40,9 @@ describe("buildSystemPrompt", () => {
     const config: PlayerConfig = {
       id: "player-2",
       name: "Charlie",
-      modelId: "gemini-pro",
-      modelName: "Gemini Pro",
-      provider: "Google",
+      modelId: "deepseek-chat",
+      provider: "deepseek",
+      bio: "A relentless grinder.",
     };
 
     const prompt = buildSystemPrompt(config);
@@ -56,32 +55,30 @@ describe("buildSystemPrompt", () => {
       {
         id: "1",
         name: "AggressiveBot",
-        modelId: "claude-sonnet-4-5",
-        modelName: "Claude Sonnet 4.5",
-        provider: "Anthropic",
+        modelId: "deepseek-chat",
+        provider: "deepseek",
+        bio: "Loves to raise.",
       },
       {
         id: "2",
         name: "ConservativeAI",
-        modelId: "gpt-3.5-turbo",
-        modelName: "GPT-3.5 Turbo",
-        provider: "OpenAI",
+        modelId: "deepseek-chat",
+        provider: "deepseek",
+        bio: "Plays it safe.",
       },
       {
         id: "3",
         name: "RandomPlayer",
-        modelId: "llama-2-70b",
-        modelName: "Llama 2 70B",
-        provider: "Meta",
+        modelId: "deepseek-chat",
+        provider: "deepseek",
+        bio: "Pure chaos.",
       },
     ];
 
     for (const config of configs) {
       const prompt = buildSystemPrompt(config);
 
-      expect(prompt).toContain(
-        `You are ${config.name}, representing ${config.provider}`,
-      );
+      expect(prompt).toContain(`You are ${config.name}.`);
       expect(prompt).not.toMatch(/\{\{.*?\}\}/);
     }
   });
@@ -90,9 +87,9 @@ describe("buildSystemPrompt", () => {
     const config: PlayerConfig = {
       id: "player-1",
       name: "TestPlayer",
-      modelId: "test-model",
-      modelName: "Test Model",
-      provider: "Test Provider",
+      modelId: "deepseek-chat",
+      provider: "deepseek",
+      bio: "A test character.",
     };
 
     const prompt = buildSystemPrompt(config);

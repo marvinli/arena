@@ -15,7 +15,6 @@ export interface SessionPlayer {
   name: string;
   chips: number;
   modelId: string;
-  modelName: string;
   provider: string;
 }
 
@@ -74,7 +73,6 @@ export function createSession(
     name: p.name,
     chips: chipOverrides?.get(p.playerId) ?? config.startingChips,
     modelId: p.modelId,
-    modelName: p.modelName,
     provider: p.provider,
   }));
 

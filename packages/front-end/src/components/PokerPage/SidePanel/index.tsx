@@ -1,6 +1,6 @@
 import { PERSONAS } from "../../../personas";
 import type { Player } from "../../../types";
-import { ProviderIcon } from "../ProviderIcon";
+import { CharacterAvatar } from "../ProviderIcon";
 import styles from "./SidePanel.module.css";
 
 export function SidePanel({
@@ -25,9 +25,8 @@ export function SidePanel({
               className={styles.sidePanelAvatar}
               style={{ "--seat-color": speakingColor } as React.CSSProperties}
             >
-              <ProviderIcon
-                avatar={speakingPlayer.avatar}
-                style={{ width: "60%", height: "60%" }}
+              <CharacterAvatar
+                name={speakingPlayer.avatar || speakingPlayer.name}
               />
             </div>
             <div className={styles.sidePanelName}>{speakingPlayer.name}</div>

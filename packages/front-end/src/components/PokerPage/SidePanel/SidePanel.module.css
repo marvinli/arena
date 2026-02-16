@@ -28,8 +28,8 @@
 }
 
 .sidePanelAvatar {
-  width: 3.5vw;
-  height: 3.5vw;
+  width: 7vw;
+  height: 7vw;
   border-radius: 50%;
   background: rgba(15, 20, 25, 0.9);
   border: 0.15vw solid var(--seat-color, #3b3f54);
@@ -38,6 +38,7 @@
   justify-content: center;
   flex-shrink: 0;
   color: #e0e4ef;
+  overflow: hidden;
 }
 
 .sidePanelName {

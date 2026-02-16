@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react";
 import { ENDCARD_DISPLAY_MS } from "../../session/timing";
 import type { GameAward, Player } from "../../types";
-import {
-  BRAND_COLORS,
-  KNOWN_PROVIDERS,
-  ProviderIcon,
-} from "../shared/ProviderIcon";
+import { PERSONAS } from "../../personas";
+import { CharacterAvatar } from "../shared/ProviderIcon";
 import styles from "./PokerLeaderboardPage.module.css";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
@@ -37,24 +34,10 @@ const AWARD_COLORS: Record<string, string> = {
 };
 
 function PlayerAvatar({ player }: { player: Player }) {
-  const brandColor = BRAND_COLORS[player.avatar] ?? "#3b3f54";
-  const ringStyle = { "--brand-color": brandColor } as React.CSSProperties;
-
   return (
-    <div className={styles.avatarRing} style={ringStyle}>
+    <div className={styles.avatarRing}>
       <div className={styles.avatar}>
-        {player.avatar && !KNOWN_PROVIDERS.has(player.avatar) ? (
-          <img
-            src={player.avatar}
-            alt={player.name}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        ) : (
-          <ProviderIcon
-            avatar={player.avatar}
-            style={{ width: "60%", height: "60%" }}
-          />
-        )}
+        <CharacterAvatar name={player.avatar || player.name} />
       </div>
     </div>
   );
@@ -103,7 +86,18 @@ export function PokerLeaderboardPage({
                     {i < 3 ? MEDALS[i] : null}
                   </span>
                   <PlayerAvatar player={player} />
-                  <span className={styles.playerName}>{player.name}</span>
+                  <div className={styles.playerInfo}>
+                    <span className={styles.playerName}>{player.name}</span>
+                    {player.persona && PERSONAS[player.persona] && (
+                      <span
+                        className={styles.playerPersona}
+                        style={{ color: PERSONAS[player.persona].color }}
+                      >
+                        {PERSONAS[player.persona].emoji}{" "}
+                        {PERSONAS[player.persona].name}
+                      </span>
+                    )}
+                  </div>
                 </li>
               ))}
             </ol>

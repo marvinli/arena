@@ -444,7 +444,6 @@ export type SessionPlayer = {
   chips: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
   modelId: Scalars['String']['output'];
-  modelName: Scalars['String']['output'];
   name: Scalars['String']['output'];
   provider: Scalars['String']['output'];
 };
@@ -947,7 +946,6 @@ export type SessionPlayerResolvers<ContextType = Context, ParentType extends Res
   chips?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   modelId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  modelName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   provider?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;

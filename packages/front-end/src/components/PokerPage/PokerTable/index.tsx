@@ -1,7 +1,6 @@
 import { useCommunityDealAnimation } from "../../../hooks/useCommunityDealAnimation";
 import { useDealAnimation } from "../../../hooks/useDealAnimation";
 import type { Card, Player, Pot } from "../../../types";
-import { BRAND_COLORS } from "../ProviderIcon";
 import { BetIndicator } from "./BetIndicator";
 import { CommunityArea } from "./CommunityArea";
 import { SEAT_COLORS, SEAT_POSITIONS } from "./layout";
@@ -59,8 +58,7 @@ export function PokerTable({
       {players.map((player) => {
         const seat = SEAT_POSITIONS[player.seatIndex];
         if (!seat) return null;
-        const seatColor =
-          BRAND_COLORS[player.avatar] ?? SEAT_COLORS[player.seatIndex];
+        const seatColor = SEAT_COLORS[player.seatIndex];
 
         return (
           <div key={player.id}>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatChips } from "../../../../chips";
 import { PERSONAS } from "../../../../personas";
 import type { Player } from "../../../../types";
-import { KNOWN_PROVIDERS, ProviderIcon } from "../../ProviderIcon";
+import { CharacterAvatar } from "../../ProviderIcon";
 import { ChipStackDisplay } from "../ChipStack";
 import { PlayingCard } from "../PlayingCard";
 import styles from "./PlayerSeat.module.css";
@@ -101,22 +101,7 @@ export function PlayerSeat({
               style={{ "--seat-color": seatColor } as React.CSSProperties}
             >
               <div className={styles.avatar}>
-                {player.avatar && !KNOWN_PROVIDERS.has(player.avatar) ? (
-                  <img
-                    src={player.avatar}
-                    alt={player.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                ) : (
-                  <ProviderIcon
-                    avatar={player.avatar}
-                    style={{ width: "60%", height: "60%" }}
-                  />
-                )}
+                <CharacterAvatar name={player.avatar || player.name} />
               </div>
             </div>
             {player.isDealer && <div className={styles.dealerButton}>D</div>}

@@ -1,11 +1,14 @@
 // ── Game configuration ──────────────────────────────────
 
+import { CHARACTERS } from "./characters.js";
+
 export interface AgentConfig {
   playerId: string;
   name: string;
   modelId: string;
-  modelName: string;
   provider: string;
+  persona: string;
+  bio: string;
   avatarUrl?: string;
   ttsVoices?: { openai?: string; inworld?: string };
   temperature?: number;
@@ -25,71 +28,30 @@ export interface GameConfig {
   handsPerLevel?: number;
 }
 
+function player(id: number, name: string): AgentConfig {
+  const c = CHARACTERS[name];
+  if (!c) throw new Error(`Unknown character: ${name}`);
+  return {
+    playerId: `agent-${id}`,
+    name,
+    modelId: "deepseek-chat",
+    provider: "deepseek",
+    persona: c.persona,
+    bio: c.bio,
+    avatarUrl: name,
+    ttsVoices: c.ttsVoices,
+  };
+}
+
 export const GAME_CONFIG: GameConfig = {
   players: [
-    {
-      playerId: "agent-1",
-      name: "Claude",
-      modelId: "claude-opus-4-6",
-      modelName: "Opus 4.6",
-      provider: "anthropic",
-      avatarUrl: "anthropic",
-      ttsVoices: { openai: "ash", inworld: "Dennis" },
-    },
-    {
-      playerId: "agent-2",
-      name: "ChatGPT",
-      modelId: "gpt-5.2",
-      modelName: "5.2",
-      provider: "openai",
-      avatarUrl: "openai",
-      ttsVoices: { openai: "fable", inworld: "Ashley" },
-    },
-    {
-      playerId: "agent-3",
-      name: "Gemini",
-      modelId: "gemini-2.5-pro",
-      modelName: "2.5 Pro",
-      provider: "google",
-      avatarUrl: "google",
-      ttsVoices: { openai: "nova", inworld: "Timothy" },
-    },
-    {
-      playerId: "agent-4",
-      name: "Grok",
-      modelId: "grok-4-1-fast-non-reasoning",
-      modelName: "4.1",
-      provider: "xai",
-      avatarUrl: "xai",
-      ttsVoices: { openai: "shimmer", inworld: "Elizabeth" },
-    },
-    {
-      playerId: "agent-5",
-      name: "DeepSeek",
-      modelId: "deepseek-chat",
-      modelName: "V3",
-      provider: "deepseek",
-      avatarUrl: "deepseek",
-      ttsVoices: { openai: "echo", inworld: "Mark" },
-    },
-    {
-      playerId: "agent-7",
-      name: "Mistral",
-      modelId: "mistral.mistral-large-3-675b-instruct",
-      modelName: "Large 3",
-      provider: "bedrock",
-      avatarUrl: "mistral",
-      ttsVoices: { openai: "coral", inworld: "Ronald" },
-    },
-    {
-      playerId: "agent-8",
-      name: "Nova",
-      modelId: "us.amazon.nova-pro-v1:0",
-      modelName: "Pro",
-      provider: "bedrock",
-      avatarUrl: "nova",
-      ttsVoices: { openai: "onyx", inworld: "Edward" },
-    },
+    player(1, "Aaron"),
+    player(2, "Cleo"),
+    player(3, "Barnum"),
+    player(4, "Chad"),
+    player(5, "Angela"),
+    player(6, "Dan"),
+    player(7, "Katy"),
   ],
   startingChips: 1000,
   smallBlind: 10,

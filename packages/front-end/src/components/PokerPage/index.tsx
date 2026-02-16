@@ -2,7 +2,6 @@ import type { Card, Player, Pot } from "../../types";
 import styles from "./PokerPage.module.css";
 import { PokerTable } from "./PokerTable";
 import { SEAT_COLORS } from "./PokerTable/layout";
-import { BRAND_COLORS } from "./ProviderIcon";
 import { SidePanel } from "./SidePanel";
 
 export function PokerPage({
@@ -33,7 +32,7 @@ export function PokerPage({
     : -1;
   const speakingPlayer = speakingIdx >= 0 ? players[speakingIdx] : null;
   const speakingColor = speakingPlayer
-    ? (BRAND_COLORS[speakingPlayer.avatar] ?? SEAT_COLORS[speakingIdx])
+    ? SEAT_COLORS[speakingPlayer.seatIndex]
     : undefined;
 
   return (

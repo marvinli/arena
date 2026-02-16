@@ -437,7 +437,6 @@ export type SessionPlayer = {
   chips: Scalars['Int']['output'];
   id: Scalars['ID']['output'];
   modelId: Scalars['String']['output'];
-  modelName: Scalars['String']['output'];
   name: Scalars['String']['output'];
   provider: Scalars['String']['output'];
 };

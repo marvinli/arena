@@ -26,7 +26,6 @@ const config = {
   id: "p1",
   name: "Alice",
   modelId: "test-model",
-  modelName: "Test",
   provider: "anthropic" as const,
 };
 

@@ -5,9 +5,9 @@ import type { Card, GameAward, Player, Pot } from "./types";
 const PLAYERS: Player[] = [
   {
     id: "agent-1",
-    name: "Claude Opus 4.6",
+    name: "Aaron",
     chips: 870,
-    avatar: "anthropic",
+    avatar: "Aaron",
     persona: "shark",
     seatIndex: 0,
     cards: [
@@ -26,10 +26,10 @@ const PLAYERS: Player[] = [
   },
   {
     id: "agent-2",
-    name: "ChatGPT 5.2",
+    name: "Cleo",
     chips: 940,
-    avatar: "openai",
-    persona: "maniac",
+    avatar: "Cleo",
+    persona: "robot",
     seatIndex: 1,
     cards: [
       { rank: "9", suit: "hearts" },
@@ -47,10 +47,10 @@ const PLAYERS: Player[] = [
   },
   {
     id: "agent-3",
-    name: "Gemini 2.5 Pro",
+    name: "Barnum",
     chips: 1020,
-    avatar: "google",
-    persona: "rock",
+    avatar: "Barnum",
+    persona: "snake",
     seatIndex: 2,
     cards: [
       { rank: "5", suit: "clubs" },
@@ -68,10 +68,10 @@ const PLAYERS: Player[] = [
   },
   {
     id: "agent-4",
-    name: "Grok 4.1",
+    name: "Chad",
     chips: 650,
-    avatar: "xai",
-    persona: "fish",
+    avatar: "Chad",
+    persona: "degen",
     seatIndex: 3,
     cards: [
       { rank: "K", suit: "hearts" },
@@ -89,10 +89,10 @@ const PLAYERS: Player[] = [
   },
   {
     id: "agent-5",
-    name: "DeepSeek V3.1",
+    name: "Angela",
     chips: 520,
-    avatar: "deepseek",
-    persona: "snake",
+    avatar: "Angela",
+    persona: "rock",
     seatIndex: 4,
     cards: [
       { rank: "Q", suit: "diamonds" },
@@ -109,11 +109,11 @@ const PLAYERS: Player[] = [
     currentBet: 80,
   },
   {
-    id: "agent-7",
-    name: "Mistral Large 3",
+    id: "agent-6",
+    name: "Dan",
     chips: 1100,
-    avatar: "mistral",
-    persona: "robot",
+    avatar: "Dan",
+    persona: "grinder",
     seatIndex: 5,
     cards: [
       { rank: "J", suit: "spades" },
@@ -130,11 +130,11 @@ const PLAYERS: Player[] = [
     currentBet: 0,
   },
   {
-    id: "agent-8",
-    name: "Nova Pro",
+    id: "agent-7",
+    name: "Katy",
     chips: 910,
-    avatar: "nova",
-    persona: "degen",
+    avatar: "Katy",
+    persona: "maniac",
     seatIndex: 6,
     cards: [
       { rank: "4", suit: "diamonds" },
@@ -186,7 +186,7 @@ const defaultFixture: MockFixture = {
   pots: POTS,
   speakingPlayerId: "agent-1",
   analysisText:
-    "Ace-king suited on the button \u2014 this is a premium hand. With Gemini folding and only Grok and ChatGPT left to act behind me, I'm in great position. The flop gives me two overcards and a backdoor flush draw. I like my equity here. Let me put in a raise to 80 and see who wants to play.",
+    "Ace-king suited on the button \u2014 this is a premium hand. With Barnum folding and only Chad and Cleo left to act behind me, I'm in great position. The flop gives me two overcards and a backdoor flush draw. I like my equity here. Let me put in a raise to 80 and see who wants to play.",
   isApiError: false,
   handNumber: 1,
   button: 0,
@@ -230,7 +230,7 @@ const showdownFixture: MockFixture = {
       isActive: false,
     };
     if (p.id === "agent-1") {
-      // Claude wins with a flush
+      // Aaron wins with a flush
       return {
         ...base,
         chips: 1350,
@@ -244,7 +244,7 @@ const showdownFixture: MockFixture = {
         winHand: "Flush",
       };
     }
-    if (p.id === "agent-7" || p.id === "agent-3") {
+    if (p.id === "agent-6" || p.id === "agent-3") {
       // Already folded during the hand
       return {
         ...base,
@@ -354,61 +354,61 @@ const gameOverFixture: MockFixture = {
     {
       title: "Most Aggressive",
       playerIds: ["agent-1"],
-      playerNames: ["Claude Opus 4.6"],
+      playerNames: ["Aaron"],
       description: "18 bets/raises",
     },
     {
       title: "Most Passive",
       playerIds: ["agent-2"],
-      playerNames: ["ChatGPT 5.2"],
+      playerNames: ["Cleo"],
       description: "31 calls/checks",
     },
     {
       title: "Tightest",
       playerIds: ["agent-5"],
-      playerNames: ["DeepSeek V3.1"],
+      playerNames: ["Angela"],
       description: "67% fold rate",
     },
     {
       title: "Loosest",
       playerIds: ["agent-3"],
-      playerNames: ["Gemini 2.5 Pro"],
+      playerNames: ["Barnum"],
       description: "12% fold rate",
     },
     {
       title: "Yolo",
       playerIds: ["agent-4", "agent-1"],
-      playerNames: ["Grok 4.1", "Claude Opus 4.6"],
+      playerNames: ["Chad", "Aaron"],
       description: "5 all-ins",
     },
     {
       title: "Biggest Pot Won",
       playerIds: ["agent-1"],
-      playerNames: ["Claude Opus 4.6"],
+      playerNames: ["Aaron"],
       description: "$1,240",
     },
     {
       title: "Most Hands Won",
-      playerIds: ["agent-7"],
-      playerNames: ["Mistral Large 3"],
+      playerIds: ["agent-6"],
+      playerNames: ["Dan"],
       description: "14 hands",
     },
     {
       title: "Analysis Paralysis",
-      playerIds: ["agent-8"],
-      playerNames: ["Nova Pro"],
+      playerIds: ["agent-7"],
+      playerNames: ["Katy"],
       description: "avg 847 characters",
     },
     {
       title: "Just Do It",
       playerIds: ["agent-4", "agent-3"],
-      playerNames: ["Grok 4.1", "Gemini 2.5 Pro"],
+      playerNames: ["Chad", "Barnum"],
       description: "avg 94 characters",
     },
     {
       title: "Bounty Hunter",
       playerIds: ["agent-1"],
-      playerNames: ["Claude Opus 4.6"],
+      playerNames: ["Aaron"],
       description: "4 eliminations",
     },
   ],

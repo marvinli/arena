@@ -2,11 +2,11 @@ export interface PlayerConfig {
   id: string;
   name: string;
   modelId: string;
-  modelName: string;
   provider: string;
   avatarUrl?: string;
   temperature?: number;
   persona?: string;
+  bio?: string;
 }
 
 export interface AgentTurnContext {

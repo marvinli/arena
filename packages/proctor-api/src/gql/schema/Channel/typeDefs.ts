@@ -4,7 +4,6 @@ export const channelTypeDefs = /* GraphQL */ `
     name: String!
     chips: Int!
     modelId: String!
-    modelName: String!
     provider: String!
   }
 
