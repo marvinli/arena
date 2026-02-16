@@ -1,7 +1,18 @@
 const OPENAI_API_KEY = import.meta.env.OPENAI_API_KEY as string | undefined;
 const INWORLD_API_KEY = import.meta.env.INWORLD_API_KEY as string | undefined;
-const TTS_PROVIDER = (import.meta.env.TTS_PROVIDER as string | undefined) ?? "openai";
+const TTS_PROVIDER =
+  (import.meta.env.TTS_PROVIDER as string | undefined) ?? "openai";
 const DISABLE_TTS = import.meta.env.VITE_DISABLE_TTS === "true";
+
+console.log(
+  "[TTS] config:",
+  "provider=" + TTS_PROVIDER,
+  "inworldKey=" +
+    (INWORLD_API_KEY ? `set(${INWORLD_API_KEY.length}chars)` : "MISSING"),
+  "openaiKey=" +
+    (OPENAI_API_KEY ? `set(${OPENAI_API_KEY.length}chars)` : "MISSING"),
+  "disabled=" + DISABLE_TTS,
+);
 
 const PCM_SAMPLE_RATE = 24000;
 
@@ -45,7 +56,10 @@ function alignPcm(
   }
 
   if (data.length % 2 !== 0) {
-    return [new Uint8Array(data.buffer.slice(0, data.length - 1)), new Uint8Array(data.buffer.slice(data.length - 1))];
+    return [
+      new Uint8Array(data.buffer.slice(0, data.length - 1)),
+      new Uint8Array(data.buffer.slice(data.length - 1)),
+    ];
   }
   return [data, new Uint8Array(0)];
 }
@@ -175,7 +189,11 @@ async function speakInworld(text: string, voice: string): Promise<void> {
 
       // Strip RIFF/WAV header if present (can appear on every chunk)
       const pcm =
-        raw.length > RIFF_HEADER_SIZE && raw[0] === 0x52 && raw[1] === 0x49 && raw[2] === 0x46 && raw[3] === 0x46
+        raw.length > RIFF_HEADER_SIZE &&
+        raw[0] === 0x52 &&
+        raw[1] === 0x49 &&
+        raw[2] === 0x46 &&
+        raw[3] === 0x46
           ? raw.slice(RIFF_HEADER_SIZE)
           : raw;
 
@@ -199,14 +217,22 @@ export async function speakAnalysis(
   voice: string,
 ): Promise<void> {
   if (DISABLE_TTS) {
+    console.log("[TTS] disabled, skipping");
     await new Promise((r) => setTimeout(r, 200));
     return;
   }
   if (TTS_PROVIDER === "inworld" && INWORLD_API_KEY) {
+    console.log("[TTS] using inworld, voice=" + voice);
     return speakInworld(text, voice);
   }
   if (OPENAI_API_KEY) {
+    console.log("[TTS] using openai, voice=" + voice);
     return speakOpenAI(text, voice);
   }
+  console.warn(
+    "[TTS] no provider available, skipping. provider=" + TTS_PROVIDER,
+    "inworldKey=" + !!INWORLD_API_KEY,
+    "openaiKey=" + !!OPENAI_API_KEY,
+  );
   await new Promise((r) => setTimeout(r, 200));
 }

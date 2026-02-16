@@ -37,6 +37,16 @@ export async function startCapture(config: Config): Promise<BrowserCapture> {
 
   // --app already navigated, wait for the page to be ready
   await page.waitForSelector("body", { timeout: 30_000 });
+
+  // Forward browser console to Node stdout so logs appear in CloudWatch
+  page.on("console", (msg) => {
+    const type = msg.type();
+    const text = msg.text();
+    if (type === "error") console.error("[browser]", text);
+    else if (type === "warn") console.warn("[browser]", text);
+    else console.log("[browser]", text);
+  });
+
   await new Promise((r) => setTimeout(r, 1000));
 
   const stream = await getStream(page, {
