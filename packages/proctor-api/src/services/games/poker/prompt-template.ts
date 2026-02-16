@@ -39,13 +39,16 @@ export function buildSystemPrompt(
     ? buildTournamentSection(tournamentInfo)
     : "";
 
-  const personaSection =
-    personaKey && PERSONA_PROMPTS[personaKey]
-      ? `${PERSONA_PROMPTS[personaKey]}\n\n`
-      : "";
+  const persona = personaKey ? PERSONA_PROMPTS[personaKey] : undefined;
+  const personaStrategy = persona ? persona.strategy : "";
+  const personaCommentary = persona ? persona.commentary : "";
 
-  return SYSTEM_PROMPT_TEMPLATE.replace("{{name}}", config.name)
+  const voiceDirective = config.voiceDirective ?? "";
+
+  return SYSTEM_PROMPT_TEMPLATE.replaceAll("{{name}}", config.name)
     .replace("{{bio}}", config.bio ?? "")
-    .replace("{{persona}}", personaSection)
+    .replace("{{voiceDirective}}", voiceDirective)
+    .replace("{{personaStrategy}}", personaStrategy)
+    .replace("{{personaCommentary}}", personaCommentary)
     .replace("{{tournamentSection}}", tournamentSection);
 }

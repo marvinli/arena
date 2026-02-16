@@ -7,6 +7,7 @@ export interface PlayerConfig {
   temperature?: number;
   persona?: string;
   bio?: string;
+  voiceDirective?: string;
 }
 
 export interface AgentTurnContext {

@@ -7,7 +7,12 @@ import { ROCK_PERSONA } from "./rock.js";
 import { SHARK_PERSONA } from "./shark.js";
 import { SNAKE_PERSONA } from "./snake.js";
 
-export const PERSONA_PROMPTS: Record<string, string> = {
+export interface PersonaPrompt {
+  strategy: string;
+  commentary: string;
+}
+
+export const PERSONA_PROMPTS: Record<string, PersonaPrompt> = {
   shark: SHARK_PERSONA,
   maniac: MANIAC_PERSONA,
   rock: ROCK_PERSONA,

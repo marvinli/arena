@@ -46,6 +46,7 @@ function randomPlayers(count: number): AgentConfig[] {
       provider: "deepseek",
       persona: c.persona,
       bio: c.bio,
+      voiceDirective: c.voiceDirective,
       avatarUrl: name,
       ttsVoices: c.ttsVoices,
     };
