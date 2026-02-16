@@ -24,10 +24,13 @@ export function createGame(opts: CreateGameOptions): string {
   }
 
   const gameId = randomUUID();
-  const table = new Poker.Table({
-    smallBlind: opts.smallBlind,
-    bigBlind: opts.bigBlind,
-  });
+  const table = new Poker.Table(
+    {
+      smallBlind: opts.smallBlind,
+      bigBlind: opts.bigBlind,
+    },
+    opts.players.length,
+  );
 
   const players: PlayerMapping[] = opts.players.map((p, i) => {
     table.sitDown(i, p.chips);

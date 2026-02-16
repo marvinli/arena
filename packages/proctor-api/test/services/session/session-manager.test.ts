@@ -12,7 +12,7 @@ vi.mock("../../../src/persistence.js", () => ({
   getInstructionSnapshot: vi.fn(),
 }));
 
-import { GAME_CONFIG } from "../../../src/game-config.js";
+import { createGameConfig } from "../../../src/game-config.js";
 import {
   ackInstruction as mockAckInstruction,
   getChannelState as mockGetChannelState,
@@ -40,9 +40,8 @@ describe("session-manager", () => {
       expect(session.status).toBe("RUNNING");
       expect(session.handNumber).toBe(0);
       expect(session.gameId).toBeNull();
-      expect(session.players).toHaveLength(GAME_CONFIG.players.length);
-      expect(session.players[0].id).toBe(GAME_CONFIG.players[0].playerId);
-      expect(session.players[0].chips).toBe(GAME_CONFIG.startingChips);
+      expect(session.players).toHaveLength(9);
+      expect(session.players[0].chips).toBe(1000);
     });
 
     it("throws on duplicate running session", () => {

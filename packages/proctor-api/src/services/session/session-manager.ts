@@ -1,4 +1,4 @@
-import { GAME_CONFIG, type GameConfig } from "../../game-config.js";
+import { createGameConfig, type GameConfig } from "../../game-config.js";
 import type {
   ProctorGameState,
   RenderInstruction,
@@ -58,7 +58,8 @@ export function createSession(
   configOverride?: GameConfig,
   chipOverrides?: Map<string, number>,
 ): Session {
-  const config = configOverride ?? GAME_CONFIG;
+  const config = configOverride ?? createGameConfig();
+
   const existing = sessions.get(channelKey);
   if (existing) {
     if (existing.status === "RUNNING") {
