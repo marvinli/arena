@@ -21,7 +21,7 @@ Design docs live in `docs/`:
 - `videographer` — headless browser capture → Twitch RTMP (Puppeteer + ffmpeg)
 - `admin-api` — admin GraphQL API (health monitoring, start/stop control, Cognito JWT auth)
 - `admin-fe` — admin dashboard SPA (Vite React, Cognito login)
-- `deploy` — AWS CDK infrastructure (single ArenaStack: VPC, ECS Fargate, EFS, ALB, CloudFront, Cognito)
+- `deploy` — AWS CDK infrastructure (DatabaseStack for DynamoDB tables + ArenaStack for VPC, ECS Fargate, ALB, CloudFront, Cognito)
 
 ## Monorepo Setup
 
@@ -81,7 +81,7 @@ Each agent is configured with: `playerId`, `name`, `modelId`, `modelName`, `prov
 - `poker-ts` — poker rules engine (wraps `Poker.Table`)
 - `ai` (Vercel AI SDK) — multi-provider LLM calls for agents (Anthropic, OpenAI, Google, xAI, DeepSeek, Amazon Bedrock)
 - `graphql-yoga` — GraphQL server with SSE subscriptions
-- `better-sqlite3` — local SQLite database
+- `@aws-sdk/lib-dynamodb` — DynamoDB persistence (tables: modules, instructions, channel-state, settings, agent-messages)
 - `@lobehub/icons` — AI provider brand icons for the front-end
 
 ## Conventions

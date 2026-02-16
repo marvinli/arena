@@ -16,7 +16,8 @@ packages/
   proctor-api/   # Orchestrator + game engines — manages agents, game lifecycle, front-end instructions
     src/
       game-config.ts  # Server-side game configuration (players, blinds, chips)
-      db.ts           # SQLite database connection (better-sqlite3)
+      characters.ts   # Character roster (persona, bio, voice directive, TTS voices)
+      db.ts           # DynamoDB document client + table name constants
       services/
         session/
           session-manager.ts  # Session CRUD, client tracking, completeInstruction acks
@@ -32,6 +33,7 @@ packages/
             instruction-builder.ts # Builds poker-specific RenderInstruction payloads
             message-formatter.ts   # Human-readable game event strings for agent conversations
             prompt-template.ts     # Shared system prompt template for agents
+            prompts/               # Prompt templates (system prompt, hand reactions, personas)
             fallback-lines.ts      # Fallback commentary when agent analysis fails
       gql/schema/
         Game/        # Poker game state queries/mutations
@@ -100,12 +102,13 @@ Analysis (audience-facing commentary) is extracted from the agent's natural lang
 
 **Agent definitions**
 
-Each agent is configured server-side in `game-config.ts`:
+Each agent is configured server-side in `game-config.ts`, which imports character definitions from `characters.ts`. Characters are randomly selected from a roster for each session. Each agent is configured with:
 - **Model** — which LLM to use (provider + modelId)
-- **System prompt** — shared template with player metadata interpolated (name, provider)
+- **System prompt** — shared template with character-specific interpolation (name, bio, voice directive, persona strategy/commentary)
+- **Persona** — poker archetype (shark, fish, maniac, rock, grinder, etc.) that shapes strategy and commentary style
 - **Temperature** — optional creativity setting
-- **Avatar URL** — front-end display image
-- **TTS Voice** — OpenAI TTS voice name for spoken analysis
+- **Avatar URL** — front-end display key
+- **TTS Voices** — per-provider voice names (OpenAI, Inworld) for spoken analysis
 
 On their turn:
 

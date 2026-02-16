@@ -9,23 +9,38 @@ Each player is an AI agent with metadata that controls its identity, model, and 
 ```typescript
 interface PlayerConfig {
   id: string;              // Unique identifier (e.g., "agent-1")
-  name: string;            // Display name (e.g., "Alice")
-  modelId: string;         // LLM model identifier (e.g., "claude-haiku-4-5-20251001")
-  modelName: string;       // Friendly model name for display (e.g., "Claude Haiku")
-  provider: string;        // Model provider ("anthropic", "openai", "google")
-  avatarUrl?: string;      // Avatar image URL for front-end rendering
-  ttsVoice?: string;       // OpenAI TTS voice name (e.g., "alloy", "echo", "nova")
+  name: string;            // Display name (e.g., "Aaron")
+  modelId: string;         // LLM model identifier (e.g., "deepseek-chat")
+  provider: string;        // Model provider ("anthropic", "openai", "google", "deepseek", "xai")
+  avatarUrl?: string;      // Avatar key for front-end rendering
   temperature?: number;    // Optional creativity setting (default: provider default)
+  persona?: string;        // Poker persona key (e.g., "shark", "fish", "maniac")
+  bio?: string;            // Character bio for the system prompt
+  voiceDirective?: string; // How the character should speak (tone, metaphors, attitude)
 }
 ```
 
-The front-end uses `name`, `avatarUrl`, and `ttsVoice` for rendering. The agent runner uses `modelId`, `provider`, and `temperature` for LLM calls. The prompt template uses `name`, `modelName`, and `provider` to give the agent its identity.
+The front-end uses `name` and `avatarUrl` for rendering. The agent runner uses `modelId`, `provider`, and `temperature` for LLM calls. The prompt template uses `name`, `bio`, `voiceDirective`, and the persona's strategy/commentary sections to give the agent a distinct character.
 
 ### Game config
 
+Game config lives in `game-config.ts`, which imports from `characters.ts`. Each character has a `persona`, `bio`, `voiceDirective`, and `ttsVoices`. The `randomPlayers()` function picks a subset from the full character roster for each session.
+
 ```typescript
+interface AgentConfig {
+  playerId: string;
+  name: string;
+  modelId: string;
+  provider: string;
+  persona: string;
+  bio: string;
+  avatarUrl?: string;
+  ttsVoices?: { openai?: string; inworld?: string };
+  temperature?: number;
+}
+
 interface GameConfig {
-  players: PlayerConfig[];
+  players: AgentConfig[];
   startingChips: number;
   smallBlind: number;
   bigBlind: number;
@@ -34,60 +49,28 @@ interface GameConfig {
 }
 ```
 
-## Shared Prompt Template
+## Prompt Template & Persona System
 
-All agents use the same system prompt template. The template inserts player metadata to give each agent its identity. The model itself — not the prompt — provides behavioral differences.
+Each agent gets a system prompt built from a shared template plus per-character customization. The template is in `prompts/system.ts` and the build logic is in `prompt-template.ts`.
 
-```
-You are {{name}} from {{provider}}, a professional poker player in a Texas Hold'em tournament.
+### Persona system
 
-You are playing against other AI models. Each opponent is a different model
-with its own strategy. Play to win. This is a winner-takes-all tournament —
-the game continues until one player has all the chips.
+Each character has a `persona` key (e.g., "shark", "fish", "maniac", "rock", "grinder", "degen", "snake", "robot") that maps to strategy and commentary instructions in `prompts/personas/`. These inject poker-style-specific guidance into the system prompt.
 
-{{tournamentSection}}You are an expert poker player. Play solid, fundamentally sound poker:
-- CAREFULLY read your hole cards and the board. Identify your ACTUAL hand
-  rank (pair, two pair, straight, flush, etc.) before deciding. Do not
-  misread your hand.
-- Understand position, pot odds, and implied odds.
-- Don't fold strong hands. Don't call with garbage. Protect your big blind
-  when getting good odds — never fold the big blind to a limp.
-- Bet for value with strong hands. Bluff selectively and with purpose.
-- Pay attention to opponent betting patterns and adjust accordingly.
+### Template variables
 
-You will receive game updates as the hand progresses — community cards,
-other players' actions, hand results. When it is your turn, you will be
-given your hole cards, the current game state, and your valid actions.
+| Variable | Source | Description |
+|---|---|---|
+| `{{name}}` | `PlayerConfig.name` | Character name |
+| `{{bio}}` | `PlayerConfig.bio` | Character background/identity |
+| `{{voiceDirective}}` | `PlayerConfig.voiceDirective` | How the character speaks (tone, metaphors) |
+| `{{personaStrategy}}` | `prompts/personas/` | Poker strategy for this persona type |
+| `{{personaCommentary}}` | `prompts/personas/` | Commentary style for this persona type |
+| `{{tournamentSection}}` | `TournamentInfo` | Starting chips, blind schedule |
 
-When it is your turn, first speak your thoughts aloud as plain text, then
-call the submit_action tool.
+The prompt emphasizes staying in character, keeping TTS output to 2 sentences / 20 words max, using plain English (no emoji/markup), and spelling out card ranks and suits in full words.
 
-IMPORTANT — your spoken text is read aloud via TTS. You MUST keep it
-to 2 sentences, 30 words MAXIMUM. No exceptions. Shorter is better.
-Think "sound bite", not "monologue". Do your strategic thinking silently
-— only speak a brief, punchy comment for the audience.
-
-Be natural and conversational — talk like a poker pro at the table.
-Trash talk opponents, brag, needle their plays — keep it playful, not
-mean-spirited. End by announcing your action naturally, e.g. "I'll
-call.", "Time to fold.", "All-in.", "Raise to 200."
-
-Do NOT use labels like "Analysis:" or "Action:" — just speak naturally.
-Do NOT wrap your text in XML tags, markdown, or any special formatting.
-Plain conversational English only — no emoji, no symbols, no markup.
-
-When referring to cards, always spell out the rank and suit in full words.
-Say "queen of hearts", NOT "Q♥" or "Qh" or "Q of hearts". Say "ace of
-spades", NOT "A♠". Ranks: two, three, four, five, six, seven, eight, nine,
-ten, jack, queen, king, ace. Suits: clubs, diamonds, hearts, spades.
-
-Then call submit_action with your action and amount.
-
-Other players cannot hear your commentary. They only see the action you
-take (fold/check/call/bet/raise and the amount).
-```
-
-The template is stored in `prompt-template.ts`. The agent runner interpolates `{{name}}` and `{{provider}}` at session start when constructing each agent's system prompt. The `{{tournamentSection}}` is generated from `TournamentInfo` (starting chips, blind schedule) if provided. No other customization per agent.
+There is also a `hand-reaction.ts` prompt used by `promptReaction()` to get a short post-hand comment from agents.
 
 ## Agent Tools
 
@@ -349,7 +332,7 @@ interface AgentRunner {
   initAgent(playerId: string, config: PlayerConfig, moduleId: string, tournamentInfo?: TournamentInfo): void;
 
   /** Append a game event message to an agent's conversation. */
-  injectMessage(playerId: string, message: string): void;
+  injectMessage(playerId: string, message: string): void | Promise<void>;
 
   /**
    * Run the agent's turn. Appends YOUR_TURN to the conversation,
@@ -432,7 +415,7 @@ For each player turn, the proctor emits three instructions:
 2. **PLAYER_ANALYSIS** (optional) — front-end renders analysis text, plays TTS with the player's voice
 3. **PLAYER_ACTION** — front-end shows the action animation (chips moving, cards folding, etc.)
 
-The `ttsVoice` on `PlayerConfig` maps to an OpenAI TTS voice name. Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice names are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
+Each character's `ttsVoices` config maps to voice names for different TTS providers (OpenAI, Inworld). Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice names are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
 
 ## Error Handling
 

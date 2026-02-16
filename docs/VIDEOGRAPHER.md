@@ -66,6 +66,7 @@ All configuration via environment variables:
 | `CAPTURE_FPS` | `30` | Target framerate |
 | `CHROME_PATH` | auto-detect | Custom Chrome/Chromium path |
 | `HEALTH_PORT` | `3001` | Port for the `/health` endpoint |
+| `CHANNEL_KEY` | `local-dev` | Channel key for live flag polling |
 | `PROCTOR_URL` | `http://localhost:4001` | proctor-api URL (polled for `{ live }` flag) |
 
 At least one of `RTMP_URL` or `OUTPUT_FILE` must be set. If both are set, `RTMP_URL` takes precedence.

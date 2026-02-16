@@ -60,7 +60,7 @@ subscription RenderInstructions($channelKey: String!) {
     gameStart {
       gameId
       players { id name chips bet status seatIndex }
-      playerMeta { id ttsVoice avatarUrl }
+      playerMeta { id ttsVoice avatarUrl persona }
       smallBlind
       bigBlind
     }
@@ -170,7 +170,7 @@ query GetSession($channelKey: String!) {
     gameId
     status
     handNumber
-    players { id name chips modelId modelName provider }
+    players { id name chips modelId provider }
   }
 }
 ```
@@ -191,11 +191,11 @@ Emitted once when the session begins.
 |---|---|---|
 | `gameId` | `ID!` | Unique game identifier |
 | `players` | `[PlayerInfo!]!` | All players with starting chips |
-| `playerMeta` | `[PlayerMeta!]!` | Per-player metadata (ttsVoice, avatarUrl) |
+| `playerMeta` | `[PlayerMeta!]!` | Per-player metadata (ttsVoice, avatarUrl, persona) |
 | `smallBlind` | `Int!` | Small blind amount |
 | `bigBlind` | `Int!` | Big blind amount |
 
-`playerMeta` contains `{ id, ttsVoice, avatarUrl }` for each player. Store the voice IDs and avatar URLs on connect — they're used for TTS during `PLAYER_ANALYSIS` and for rendering player avatars.
+`playerMeta` contains `{ id, ttsVoice, avatarUrl, persona }` for each player. Store the voice IDs, avatar URLs, and persona keys on connect — they're used for TTS during `PLAYER_ANALYSIS`, for rendering player avatars, and for persona-based styling.
 
 **Render:** Display the table, seat all players with their avatars, show starting chip counts and blind structure.
 
@@ -350,6 +350,7 @@ Per-player metadata, included in `GAME_START`. Store these for the duration of t
   id: string            // Player ID
   ttsVoice: string      // OpenAI TTS voice name (nullable)
   avatarUrl: string     // Avatar key or image URL (nullable)
+  persona: string       // Poker persona key, e.g., "shark", "fish" (nullable)
 }
 ```
 
@@ -549,6 +550,7 @@ If the front-end disconnects and reconnects:
 ```graphql
 query GetChannelState($channelKey: String!) {
   getChannelState(channelKey: $channelKey) {
+    channelKey
     status
     gameId
     handNumber
@@ -560,12 +562,13 @@ query GetChannelState($channelKey: String!) {
     communityCards { rank suit }
     pots { size eligiblePlayerIds }
     hands { playerId cards { rank suit } }
-    playerMeta { id ttsVoice avatarUrl }
+    playerMeta { id ttsVoice avatarUrl persona }
+    lastInstruction { instructionId moduleId type timestamp }
   }
 }
 ```
 
-The `hands` and `playerMeta` fields allow the front-end to reconstruct hole cards and voice/avatar maps on reconnect without needing a separate `GAME_START` instruction.
+The `hands` and `playerMeta` fields allow the front-end to reconstruct hole cards and voice/avatar/persona maps on reconnect without needing a separate `GAME_START` instruction. The `lastInstruction` field provides the most recent instruction for resuming the render queue.
 
 ---
 

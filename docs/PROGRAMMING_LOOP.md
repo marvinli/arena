@@ -52,43 +52,19 @@ This is a bookmark — a pointer into the instruction stream. The proctor does n
 
 The snapshot is updated alongside the bookmark on each `completeInstruction` call. This avoids the need to replay instructions to reconstruct state on reconnect — the snapshot is always the front-end's visual state at its last completed instruction.
 
-## Database Schema
+## Database
 
-```sql
-CREATE TABLE modules (
-  module_id     TEXT PRIMARY KEY,
-  type          TEXT NOT NULL,
-  prog_index    INTEGER NOT NULL,
-  status        TEXT NOT NULL DEFAULT 'running',  -- running | completed
-  created_at    INTEGER NOT NULL                  -- epoch ms
-);
+All persistence uses **DynamoDB** (via `@aws-sdk/lib-dynamodb`). Table names are prefixed with `TABLE_PREFIX` (default `arena-`). The tables are:
 
-CREATE TABLE instructions (
-  module_id     TEXT NOT NULL REFERENCES modules(module_id),
-  timestamp_ms  INTEGER NOT NULL,
-  type          TEXT NOT NULL,                    -- instruction type enum
-  payload       TEXT NOT NULL,                    -- JSON
-  PRIMARY KEY (module_id, timestamp_ms)
-);
+| Table | Key | Description |
+|---|---|---|
+| `modules` | `moduleId` (PK) | Module instances (type, progIndex, status, createdAt) |
+| `instructions` | `moduleId` (PK) + `timestampMs` (SK) | Render instructions with type and JSON payload |
+| `channel-state` | `channelKey` (PK) | Client bookmark (moduleId, instructionTs, stateSnapshot) |
+| `agent-messages` | `pk` (PK, format: `moduleId#playerId`) + `seq` (SK) | Per-agent conversation history |
+| `settings` | `key` (PK) | Key-value settings (e.g., live flag as `live:${channelKey}`) |
 
-CREATE TABLE channel_state (
-  channel_key     TEXT PRIMARY KEY,
-  module_id       TEXT NOT NULL REFERENCES modules(module_id),
-  instruction_ts  INTEGER,                        -- null = module just started
-  state_snapshot  TEXT                             -- JSON, null until first completeInstruction
-);
-
-CREATE TABLE agent_messages (
-  module_id     TEXT NOT NULL REFERENCES modules(module_id),
-  player_id     TEXT NOT NULL,
-  role          TEXT NOT NULL,                    -- 'system' | 'user' | 'assistant' | 'tool'
-  content       TEXT NOT NULL,                    -- JSON (message content)
-  seq           INTEGER NOT NULL,                 -- ordering within this agent's conversation
-  PRIMARY KEY (module_id, player_id, seq)
-);
-```
-
-SQLite with WAL mode (already initialized in `db.ts`).
+The `db.ts` module initializes the DynamoDB document client and exports table name constants. `persistence.ts` provides typed CRUD functions for all tables.
 
 ### Agent Conversation Persistence
 
@@ -119,8 +95,8 @@ Front-end opens
             │
             ▼
   Programming loop creates module from PROGRAMMING[0]:
-    INSERT INTO modules ...
-    INSERT INTO channel_state ...
+    persist module to DB
+    persist channel state to DB
             │
             ▼
   Begin emitting instructions
@@ -165,8 +141,8 @@ Module engine produces an event (deal, action, etc.)
                 │
                 ├──────────────────────────────────┐
                 ▼                                  ▼
-  INSERT INTO instructions                Push to connected
-  (module_id, timestamp_ms,               clients via SSE
+  Persist instruction to DB               Push to connected
+  (moduleId, timestampMs,                 clients via SSE
    type, payload)                         (if any)
                                                    │
                                                    ▼
@@ -178,9 +154,8 @@ Module engine produces an event (deal, action, etc.)
                                             moduleId, instructionId)
                                                    │
                                                    ▼
-                                          UPDATE channel_state
-                                            SET instruction_ts = ?,
-                                                state_snapshot = ?
+                                          Update channel state in DB
+                                            (instructionTs, stateSnapshot)
 ```
 
 The proctor does **not** wait for `completeInstruction` for most instructions. It writes the instruction to the DB and immediately continues the game loop. The front-end queues instructions and renders them in order at its own pace. `completeInstruction` updates the client's bookmark and notifies the ack gate. The proctor gates on ACKs for `GAME_START` and `GAME_OVER` to synchronize session boundaries.
@@ -189,9 +164,9 @@ The proctor does **not** wait for `completeInstruction` for most instructions. I
 
 When a module completes (e.g., poker game ends with `GAME_OVER`):
 
-1. Mark module completed: `UPDATE modules SET status = 'completed' WHERE module_id = ?`
+1. Mark module completed in DB
 2. Advance: `nextIndex = (currentIndex + 1) % PROGRAMMING.length`
-3. Create next module JIT: `INSERT INTO modules ...`
+3. Create next module in DB
 4. Initialize the new module and begin emitting instructions
 
 There is a brief natural pause between modules (a few seconds while the new module initializes — creating the game, setting up agents). The front-end stays on its current state (e.g., `GAME_OVER` screen) until the first instruction from the new module arrives. No special handling is needed on the front-end — a `GAME_START` following a `GAME_OVER` is just the next instruction in the stream.
@@ -211,7 +186,7 @@ The client may have missed many instructions while disconnected. It does not rep
 ### Proctor was restarted (cold start)
 
 1. Look up channel state → `(module_id, instruction_ts, state_snapshot)`
-2. Load module from DB: `SELECT FROM modules WHERE module_id = ?`
+2. Load module from DB by `moduleId`
 3. If module was `running`:
    - Reconstruct game engine state from stored instructions
    - Load agent conversation histories from `agent_messages`

@@ -34,8 +34,8 @@ No auth is required to load the SPA itself — only API calls are protected.
 | Endpoint | Description |
 |----------|-------------|
 | `GET /health` | `{ status: "ok", session: { channelKey, status, handNumber } \| null }` |
-| `query { live }` | Returns `Boolean!` — current live flag value |
-| `mutation { setLive(live: Boolean!) }` | Persists to SQLite settings table, returns new value |
+| `query { live(channelKey: String!) }` | Returns `Boolean!` — current live flag value |
+| `mutation { setLive(channelKey: String!, live: Boolean!) }` | Persists to DynamoDB settings table, returns new value |
 
 ### videographer (port 3001)
 
@@ -80,18 +80,20 @@ type Query {
 
 type Mutation {
   setLive(live: Boolean!): Boolean!
+  resetDatabase: Boolean!
 }
 ```
 
 ### Resolvers
 
 - `health` — fetches `GET localhost:4001/health` and `GET localhost:3001/health`, returns aggregate
-- `live` — queries `localhost:4001/graphql` for `{ live }`, returns the boolean
-- `setLive(live)` — calls `mutation { setLive(live) }` on `localhost:4001/graphql`, returns new value
+- `live` — queries `localhost:4001/graphql` for `{ live(channelKey) }` using `CHANNEL_KEY` from env, returns the boolean
+- `setLive(live)` — calls `mutation { setLive(channelKey, live) }` on `localhost:4001/graphql` using `CHANNEL_KEY` from env, returns new value
+- `resetDatabase` — calls `mutation { resetDatabase(channelKey) }` on `localhost:4001/graphql` using `CHANNEL_KEY` from env
 
 ## Live Flag Behavior
 
-The `live` flag is persisted in proctor-api's SQLite `settings` table. Defaults to `false` on first boot.
+The `live` flag is persisted in proctor-api's DynamoDB `settings` table (as `live:${channelKey}`). Defaults to `false` on first boot.
 
 ### When `live` is set to `false` (stop)
 
@@ -152,6 +154,7 @@ Open `http://localhost:5174`. With no `VITE_COGNITO_DOMAIN` set, the login page 
 | `PORT` | Server port (default: 3000) |
 | `PROCTOR_URL` | proctor-api base URL (default: `http://localhost:4001`) |
 | `VIDEOGRAPHER_URL` | videographer base URL (default: `http://localhost:3001`) |
+| `CHANNEL_KEY` | Channel key for proctor-api queries (default: `poker-stream-1`) |
 | `COGNITO_USER_POOL_ID` | Cognito User Pool ID for JWT verification |
 | `COGNITO_CLIENT_ID` | Cognito App Client ID |
 | `COGNITO_DOMAIN` | Cognito Hosted UI domain (injected into admin-fe at runtime via entrypoint) |
