@@ -35,7 +35,8 @@ healthServer.listen(HEALTH_PORT, () => {
 // ── Live flag polling ────────────────────────────────────
 
 const PROCTOR_URL = process.env.PROCTOR_URL ?? "http://localhost:4001";
-const CHANNEL_KEY = process.env.CHANNEL_KEY ?? "local-dev";
+const CHANNEL_KEY = process.env.CHANNEL_KEY;
+if (!CHANNEL_KEY) throw new Error("CHANNEL_KEY env var is required");
 const POLL_INTERVAL_MS = 5000;
 
 async function isLive(): Promise<boolean> {
