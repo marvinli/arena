@@ -21,12 +21,12 @@ npm workspaces monorepo — TypeScript, ESM, strict mode throughout.
 
 | Package | What it does |
 |---|---|
-| `proctor-api` | Game orchestrator + poker engine. GraphQL API with SSE subscriptions. SQLite for persistence. |
+| `proctor-api` | Game orchestrator + poker engine. GraphQL API with SSE subscriptions. DynamoDB for persistence. |
 | `front-end` | Pure renderer — subscribes to SSE instructions, animates the table, plays TTS via OpenAI. No game logic. |
 | `videographer` | Puppeteer captures the front-end, pipes through ffmpeg to Twitch RTMP (or local file). |
 | `admin-api` | Admin control plane. GraphQL API (graphql-yoga) that proxies to proctor-api and videographer. Cognito JWT auth. |
 | `admin-fe` | Admin dashboard. React SPA — Cognito login, health indicators, start/stop toggle. |
-| `deploy` | AWS CDK infrastructure (ECS Fargate, ALB, CloudFront). |
+| `deploy` | AWS CDK infrastructure (DynamoDB, ECS Fargate, ALB, CloudFront, Cognito). |
 
 ## Commands
 

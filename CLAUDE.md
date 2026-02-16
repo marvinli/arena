@@ -110,6 +110,7 @@ src/services/games/poker/
   instruction-builder.ts # Builds poker-specific RenderInstruction payloads
   message-formatter.ts   # Human-readable game event strings for agent conversations
   prompt-template.ts     # System prompt template for agents (interpolates name + provider)
+  prompts/               # System prompts, hand-reaction prompts, persona definitions
   fallback-lines.ts      # Fallback commentary when agent analysis fails
 ```
 
@@ -140,8 +141,6 @@ src/components/
     SidePanel/                       # Speaking player + analysis text
   PokerLeaderboardPage/              # Between-hands leaderboard and endcard
     index.tsx
-  shared/                            # Cross-page components
-    ProviderIcon.tsx                 # AI provider brand icons
 ```
 
 ### Other Source
