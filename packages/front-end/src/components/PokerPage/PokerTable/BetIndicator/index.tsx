@@ -1,5 +1,13 @@
 import { formatChips } from "../../../../chips";
 import { ChipIcon } from "../ChipStack";
+import {
+  BET_MAX_STEP,
+  BET_PULL_DISTANCE,
+  SIDE_ROW_Y_NUDGE,
+  SIDE_SEATS,
+  TOP_ROW_SEATS,
+  TOP_ROW_Y_NUDGE,
+} from "../layout";
 import styles from "../PokerTable.module.css";
 
 export function BetIndicator({
@@ -23,13 +31,13 @@ export function BetIndicator({
   const dx = cx - seatX;
   const dy = cy - seatY;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const step = Math.min(0.42, 16 / dist);
+  const step = Math.min(BET_MAX_STEP, BET_PULL_DISTANCE / dist);
   const betX = seatX + dx * step;
 
   // Nudge bets away from player info to avoid overlap
-  const isTopRow = seatIndex >= 3 && seatIndex <= 6;
-  const isSideRow = seatIndex === 2 || seatIndex === 7;
-  const yNudge = isTopRow ? 6 : isSideRow ? -3 : 0;
+  const isTopRow = TOP_ROW_SEATS.includes(seatIndex);
+  const isSideRow = SIDE_SEATS.includes(seatIndex);
+  const yNudge = isTopRow ? TOP_ROW_Y_NUDGE : isSideRow ? SIDE_ROW_Y_NUDGE : 0;
   const betY = seatY + dy * step + yNudge;
 
   return (

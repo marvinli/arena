@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPlayerMetaMaps,
   mapCard,
   mapPlayer,
   mapPlayers,
@@ -90,6 +91,29 @@ describe("mapPlayer", () => {
 
     const player = mapPlayer(baseInfo, null, existing as Player);
     expect(player.avatar).toBe("http://example.com/avatar.png");
+  });
+});
+
+describe("buildPlayerMetaMaps", () => {
+  it("builds avatar, persona, and voice maps", () => {
+    const meta = [
+      { id: "p1", avatarUrl: "openai", persona: "shark", ttsVoice: "alloy" },
+      { id: "p2", avatarUrl: null, persona: null, ttsVoice: null },
+    ];
+    const { avatars, personas, voices } = buildPlayerMetaMaps(meta);
+    expect(avatars.get("p1")).toBe("openai");
+    expect(avatars.get("p2")).toBe("");
+    expect(personas.get("p1")).toBe("shark");
+    expect(personas.get("p2")).toBeNull();
+    expect(voices.get("p1")).toBe("alloy");
+    expect(voices.has("p2")).toBe(false);
+  });
+
+  it("returns empty maps for empty input", () => {
+    const { avatars, personas, voices } = buildPlayerMetaMaps([]);
+    expect(avatars.size).toBe(0);
+    expect(personas.size).toBe(0);
+    expect(voices.size).toBe(0);
   });
 });
 

@@ -1,6 +1,7 @@
-import type { Card, GamePhase, GameState, PlayerAction } from "../../types";
+import type { GamePhase, GameState } from "../../types";
 import { mapPlayers } from "../mappers";
 import type { GqlInstruction } from "../types";
+import { resetForEndcard } from "./shared";
 
 export function handleLeaderboard(
   state: GameState,
@@ -10,14 +11,8 @@ export function handleLeaderboard(
   if (!lb) return state;
 
   // Include ALL players (including busted) for the leaderboard
-  const players = mapPlayers(lb.players, null, state.players).map((p) => ({
-    ...p,
-    cards: null as [Card, Card] | null,
-    lastAction: null as PlayerAction,
-    isActive: false,
-    isDealer: false,
-    avatar: state.playerAvatars.get(p.id) ?? p.avatar,
-  }));
+  const mapped = mapPlayers(lb.players, null, state.players);
+  const players = resetForEndcard(mapped, state.playerAvatars);
 
   return {
     ...state,

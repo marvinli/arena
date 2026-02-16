@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef } from "react";
 import { gqlFetch } from "../graphql/client";
 import { CONNECT_QUERY, START_MODULE_MUT } from "../graphql/operations";
 import { CHANNEL_KEY } from "../session/config";
+import { buildPlayerMetaMaps } from "../session/mappers";
 import { INITIAL_STATE, reducer } from "../session/reducer";
 import type { GqlChannelState } from "../session/types";
 import { useSSELoop } from "./useSSELoop";
@@ -34,11 +35,10 @@ export function useGameSession() {
         });
         const conn = (result as { connect: ConnectResult }).connect;
 
-        const voiceMap = new Map<string, string>();
+        const voiceMap = conn.gameState
+          ? buildPlayerMetaMaps(conn.gameState.playerMeta ?? []).voices
+          : new Map<string, string>();
         if (conn.gameState) {
-          for (const meta of conn.gameState.playerMeta ?? []) {
-            if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
-          }
           dispatch({ type: "RECONNECT", channelState: conn.gameState });
         }
 

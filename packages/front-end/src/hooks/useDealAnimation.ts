@@ -1,10 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  DEAL_INTERVAL_MS,
-  FLIP_DURATION_MS,
-  FLIP_PAUSE_MS,
-} from "../session/timing";
+import { useCallback, useMemo, useState } from "react";
 import type { Player } from "../types";
+import { useAnimationStepper } from "./useAnimationStepper";
 
 export interface DealAnimationState {
   /** Number of cards visible for this player: 0, 1, or 2 */
@@ -71,32 +67,11 @@ export function useDealAnimation(
   }
 
   // Timer progression
-  useEffect(() => {
-    if (step < 0) return;
-
-    let delayMs: number;
-    if (step < totalDealSteps) {
-      // Dealing phase: one card per interval
-      delayMs = DEAL_INTERVAL_MS;
-    } else if (step === totalDealSteps) {
-      // Pause before flip
-      delayMs = FLIP_PAUSE_MS;
-    } else {
-      // Flip phase: wait for CSS transition, then done
-      delayMs = FLIP_DURATION_MS;
-    }
-
-    const timer = setTimeout(() => {
-      if (step <= totalDealSteps) {
-        setStep((s) => s + 1);
-      } else {
-        // Animation complete
-        setStep(-1);
-      }
-    }, delayMs);
-
-    return () => clearTimeout(timer);
-  }, [step, totalDealSteps]);
+  const stableSetStep = useCallback(
+    (updater: (s: number) => number) => setStep(updater),
+    [],
+  );
+  useAnimationStepper(step, totalDealSteps, stableSetStep);
 
   // Build the visibility map
   return useMemo(() => {

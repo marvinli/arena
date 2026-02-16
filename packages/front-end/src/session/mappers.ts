@@ -1,3 +1,4 @@
+import type { PlayerMeta, PlayerMetaInfo } from "../graphql/generated";
 import type { Card, Player, Pot } from "../types";
 import type { GqlCardInfo, GqlPlayerInfo, GqlPotInfo } from "./types";
 
@@ -47,4 +48,26 @@ export function mapPlayers(
   return sorted.map((info) =>
     mapPlayer(info, button, existingMap.get(info.id)),
   );
+}
+
+/** Build avatar, persona, and voice maps from player metadata. */
+export function buildPlayerMetaMaps(
+  playerMeta: Pick<
+    PlayerMeta | PlayerMetaInfo,
+    "id" | "avatarUrl" | "persona" | "ttsVoice"
+  >[],
+): {
+  avatars: Map<string, string>;
+  personas: Map<string, string | null>;
+  voices: Map<string, string>;
+} {
+  const avatars = new Map<string, string>();
+  const personas = new Map<string, string | null>();
+  const voices = new Map<string, string>();
+  for (const m of playerMeta) {
+    avatars.set(m.id, m.avatarUrl ?? "");
+    personas.set(m.id, m.persona ?? null);
+    if (m.ttsVoice) voices.set(m.id, m.ttsVoice);
+  }
+  return { avatars, personas, voices };
 }

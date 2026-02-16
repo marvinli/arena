@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatChips } from "../../../../chips";
 import { PERSONAS } from "../../../../personas";
+import { FOLD_ANIMATION_MS } from "../../../../session/timing";
 import type { Player } from "../../../../types";
 import { CharacterAvatar } from "../../ProviderIcon";
 import { ChipStackDisplay } from "../ChipStack";
@@ -32,7 +33,7 @@ export function PlayerSeat({
   useEffect(() => {
     if (player.isFolded && !prevFoldedRef.current) {
       setFolding(true);
-      const timer = setTimeout(() => setFolding(false), 1000);
+      const timer = setTimeout(() => setFolding(false), FOLD_ANIMATION_MS);
       return () => clearTimeout(timer);
     }
     prevFoldedRef.current = player.isFolded;

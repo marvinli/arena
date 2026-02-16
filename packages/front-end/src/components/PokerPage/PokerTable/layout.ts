@@ -1,3 +1,11 @@
+// ── Bet indicator positioning constants ──────────────────
+export const BET_MAX_STEP = 0.42;
+export const BET_PULL_DISTANCE = 16;
+export const TOP_ROW_SEATS: readonly number[] = [3, 4, 5, 6];
+export const SIDE_SEATS: readonly number[] = [2, 7];
+export const TOP_ROW_Y_NUDGE = 6;
+export const SIDE_ROW_Y_NUDGE = -3;
+
 /** Fallback seat colors when the player avatar isn't a known brand. */
 export const SEAT_COLORS = [
   "#5eead4",

@@ -77,8 +77,8 @@
 
 .playerInfo {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  align-items: baseline;
+  gap: 0.4rem;
 }
 
 .playerName {
@@ -88,7 +88,7 @@
 }
 
 .playerPersona {
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -97,34 +97,34 @@
 .rightColumn {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  align-content: start;
+  gap: 1rem;
+  align-content: center;
 }
 
 .awardCard {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.7rem 1rem;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 0.75rem;
 }
 
 .awardIcon {
-  font-size: 2rem;
+  font-size: 2.6rem;
   flex-shrink: 0;
-  width: 2.4rem;
+  width: 3rem;
   text-align: center;
 }
 
 .awardInfo {
   display: flex;
   flex-direction: column;
-  gap: 0.05rem;
+  gap: 0.1rem;
 }
 
 .awardTitle {
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #a0a4b8;
   text-transform: uppercase;
@@ -132,13 +132,13 @@
 }
 
 .awardPlayerName {
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #e0e4ef;
 }
 
 .awardDescription {
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-weight: 400;
   color: #d0d4e0;
 }

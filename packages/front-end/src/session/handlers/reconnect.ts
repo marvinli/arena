@@ -1,16 +1,11 @@
 import type { GamePhase, GameState, GameView } from "../../types";
 import { CHANNEL_KEY } from "../config";
-import { mapCard, mapPlayers, mapPots } from "../mappers";
+import { buildPlayerMetaMaps, mapCard, mapPlayers, mapPots } from "../mappers";
 import type { GqlChannelState } from "../types";
 import { buildHoleCards } from "./shared";
 
 export function handleReconnect(cs: GqlChannelState): GameState {
-  const playerAvatars = new Map(
-    cs.playerMeta.map((m) => [m.id, m.avatarUrl ?? ""]),
-  );
-  const playerPersonas = new Map(
-    cs.playerMeta.map((m) => [m.id, m.persona ?? null]),
-  );
+  const { avatars, personas } = buildPlayerMetaMaps(cs.playerMeta);
 
   const holeCards = buildHoleCards(cs.hands);
 
@@ -25,8 +20,8 @@ export function handleReconnect(cs: GqlChannelState): GameState {
       : cs.players.filter((p) => p.status !== "BUSTED");
   const players = mapPlayers(rawPlayers, cs.button, []).map((p) => ({
     ...p,
-    avatar: playerAvatars.get(p.id) ?? "",
-    persona: playerPersonas.get(p.id) ?? null,
+    avatar: avatars.get(p.id) ?? "",
+    persona: personas.get(p.id) ?? null,
     cards: holeCards.get(p.id) ?? null,
   }));
 
@@ -49,6 +44,6 @@ export function handleReconnect(cs: GqlChannelState): GameState {
     isApiError: false,
     error: null,
     awards: [],
-    playerAvatars,
+    playerAvatars: avatars,
   };
 }

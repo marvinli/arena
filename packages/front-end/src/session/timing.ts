@@ -20,6 +20,9 @@ export const POST_ACTION_PAUSE_MS = 1500;
 // Pause before showing hand result so viewers can see the final board
 export const PRE_SHOWDOWN_PAUSE_MS = 2000;
 
+// Duration of the fold card-flip animation in PlayerSeat
+export const FOLD_ANIMATION_MS = 1000;
+
 export function dealAnimDuration(playerCount: number): number {
   if (playerCount <= 0) return 0;
   return (

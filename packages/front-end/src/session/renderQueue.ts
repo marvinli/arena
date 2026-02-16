@@ -156,12 +156,6 @@ const dealCommunityHandler: InstructionHandler = {
   },
 };
 
-const playerTurnHandler: InstructionHandler = {
-  execute(inst, ctx) {
-    ctx.dispatch({ type: "INSTRUCTION", instruction: inst });
-  },
-};
-
 const playerAnalysisHandler: InstructionHandler = {
   async preWait(_inst, ctx) {
     await ctx.awaitTts();
@@ -238,7 +232,6 @@ const handlers = {
   GAME_START: gameStartHandler,
   DEAL_HANDS: dealHandsHandler,
   DEAL_COMMUNITY: dealCommunityHandler,
-  PLAYER_TURN: playerTurnHandler,
   PLAYER_ANALYSIS: playerAnalysisHandler,
   PLAYER_ACTION: playerActionHandler,
   HAND_RESULT: handResultHandler,

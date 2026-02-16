@@ -1,4 +1,4 @@
-import type { Card, Player } from "../../types";
+import type { Card, Player, PlayerAction } from "../../types";
 import { mapCard, mapPlayers } from "../mappers";
 import type { GqlPlayerInfo } from "../types";
 
@@ -13,6 +13,21 @@ export function buildPlayers(
   return mapPlayers(active, button, prevPlayers).map((p) => ({
     ...p,
     ...(overrides ? overrides(p) : {}),
+  }));
+}
+
+/** Reset players for endcard display: null cards/lastAction, inactive, avatar from persisted map. */
+export function resetForEndcard(
+  players: Player[],
+  playerAvatars: Map<string, string>,
+): Player[] {
+  return players.map((p) => ({
+    ...p,
+    cards: null as [Card, Card] | null,
+    lastAction: null as PlayerAction,
+    isActive: false,
+    isDealer: false,
+    avatar: playerAvatars.get(p.id) ?? p.avatar,
   }));
 }
 

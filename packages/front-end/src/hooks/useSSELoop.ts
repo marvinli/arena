@@ -6,6 +6,7 @@ import {
   RENDER_INSTRUCTIONS_SUB,
 } from "../graphql/operations";
 import { CHANNEL_KEY, delay } from "../session/config";
+import { buildPlayerMetaMaps } from "../session/mappers";
 import type { Action } from "../session/reducer";
 import { createRenderQueue } from "../session/renderQueue";
 import { sseSubscribe } from "../session/sseClient";
@@ -64,8 +65,9 @@ export function useSSELoop(dispatch: (action: Action) => void) {
             const conn = (result as { connect: ConnectResult }).connect;
             const gs = conn.gameState;
             if (gs) {
-              for (const meta of gs.playerMeta ?? []) {
-                if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+              for (const [id, v] of buildPlayerMetaMaps(gs.playerMeta ?? [])
+                .voices) {
+                voiceMap.set(id, v);
               }
               dispatch({ type: "RECONNECT", channelState: gs });
             }
@@ -87,8 +89,9 @@ export function useSSELoop(dispatch: (action: Action) => void) {
             const conn = (result as { connect: ConnectResult }).connect;
             const gs = conn.gameState;
             if (gs) {
-              for (const meta of gs.playerMeta ?? []) {
-                if (meta.ttsVoice) voiceMap.set(meta.id, meta.ttsVoice);
+              for (const [id, v] of buildPlayerMetaMaps(gs.playerMeta ?? [])
+                .voices) {
+                voiceMap.set(id, v);
               }
               dispatch({ type: "RECONNECT", channelState: gs });
               if (gs.status === "FINISHED") return;
