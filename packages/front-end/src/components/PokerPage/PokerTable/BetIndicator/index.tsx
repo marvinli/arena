@@ -27,8 +27,8 @@ export function BetIndicator({
   const betX = seatX + dx * step;
 
   // Nudge bets away from player info to avoid overlap
-  const isTopRow = seatIndex >= 4 && seatIndex <= 6;
-  const isSideRow = seatIndex === 3 || seatIndex === 7;
+  const isTopRow = seatIndex >= 3 && seatIndex <= 6;
+  const isSideRow = seatIndex === 2 || seatIndex === 7;
   const yNudge = isTopRow ? 4 : isSideRow ? -3 : 0;
   const betY = seatY + dy * step + yNudge;
 

@@ -9,22 +9,20 @@ export const SEAT_COLORS = [
   "#34d399",
   "#f87171",
   "#818cf8",
-  "#e879f9",
 ];
 
 /**
  * Seat positions as percentage coordinates on a 16 : 9 ellipse.
- * Index 0 = bottom-center, ascending clockwise.
+ * Index 0 = bottom-center, ascending clockwise (9 seats, 40° apart).
  */
 export const SEAT_POSITIONS: { x: number; y: number }[] = [
   { x: 50, y: 92 },
   { x: 22, y: 82 },
-  { x: 6, y: 60 },
-  { x: 6, y: 33 },
-  { x: 22, y: 14 },
-  { x: 50, y: 6 },
-  { x: 78, y: 14 },
-  { x: 94, y: 33 },
-  { x: 94, y: 60 },
+  { x: 7, y: 56 },
+  { x: 12, y: 28 },
+  { x: 35, y: 9 },
+  { x: 65, y: 9 },
+  { x: 88, y: 28 },
+  { x: 93, y: 56 },
   { x: 78, y: 82 },
 ];
