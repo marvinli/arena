@@ -214,6 +214,7 @@ export class ArenaStack extends cdk.Stack {
         CAPTURE_HEIGHT: "1080",
         CAPTURE_FPS: "30",
         PROCTOR_URL: "http://localhost:4001",
+        CHANNEL_KEY: "poker-stream-1",
         HEALTH_PORT: "3001",
       },
       secrets: {

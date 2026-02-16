@@ -35,6 +35,7 @@ healthServer.listen(HEALTH_PORT, () => {
 // ── Live flag polling ────────────────────────────────────
 
 const PROCTOR_URL = process.env.PROCTOR_URL ?? "http://localhost:4001";
+const CHANNEL_KEY = process.env.CHANNEL_KEY ?? "local-dev";
 const POLL_INTERVAL_MS = 5000;
 
 async function isLive(): Promise<boolean> {
@@ -42,7 +43,10 @@ async function isLive(): Promise<boolean> {
     const res = await fetch(`${PROCTOR_URL}/graphql`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: "{ live }" }),
+      body: JSON.stringify({
+        query: "query($ck:String!){ live(channelKey:$ck) }",
+        variables: { ck: CHANNEL_KEY },
+      }),
     });
     const json = (await res.json()) as { data?: { live: boolean } };
     return json.data?.live ?? false;
