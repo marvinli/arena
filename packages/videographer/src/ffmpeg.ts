@@ -64,6 +64,9 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
     "-af",
     "aresample=async=1000:min_hard_comp=0.1:first_pts=0",
 
+    // Tee muxer requires explicit stream mapping
+    ...(config.rtmpUrls.length > 1 ? ["-map", "0:v", "-map", "0:a"] : []),
+
     // Output
     ...outputArgs,
   ];

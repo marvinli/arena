@@ -113,6 +113,14 @@ describe("startFfmpeg", () => {
     expect(args).toContain("tee");
     expect(args).toContain("-tune");
     expect(args).toContain("zerolatency");
+    // Tee muxer requires explicit stream mapping
+    const mapIndices = args.reduce<number[]>(
+      (acc, v, i) => (v === "-map" ? [...acc, i] : acc),
+      [],
+    );
+    expect(mapIndices).toHaveLength(2);
+    expect(args[mapIndices[0] + 1]).toBe("0:v");
+    expect(args[mapIndices[1] + 1]).toBe("0:a");
     expect(args[args.length - 1]).toBe(
       "[f=flv:onfail=ignore]rtmp://live.twitch.tv/app/key|[f=flv:onfail=ignore]rtmp://a.rtmp.youtube.com/live2/key",
     );
