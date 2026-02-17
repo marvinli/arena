@@ -61,7 +61,7 @@ export async function startCapture(config: Config): Promise<BrowserCapture> {
         audio: true,
         video: true,
         mimeType: "video/webm;codecs=vp8,opus",
-        videoBitsPerSecond: 6_000_000,
+        videoBitsPerSecond: 8_000_000,
         audioBitsPerSecond: 128_000,
         frameSize: 1000,
       }),
