@@ -26,6 +26,8 @@ function extractTokenFromHash(): string | null {
   return params.get("id_token");
 }
 
+const TOKEN_KEY = "arena_admin_token";
+
 // ── GraphQL client ──────────────────────────────────────
 
 async function gql<T>(
@@ -44,6 +46,10 @@ async function gql<T>(
     headers,
     body: JSON.stringify({ query, variables }),
   });
+  if (res.status === 401) {
+    sessionStorage.removeItem(TOKEN_KEY);
+    window.location.reload();
+  }
   const json = await res.json();
   if (json.errors) throw new Error(json.errors[0].message);
   return json.data;
@@ -198,12 +204,15 @@ function Dashboard({ token }: { token: string }) {
 // ── App ─────────────────────────────────────────────────
 
 export function App() {
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(
+    () => sessionStorage.getItem(TOKEN_KEY),
+  );
   const authDisabled = !COGNITO_DOMAIN;
 
   useEffect(() => {
     const t = extractTokenFromHash();
     if (t) {
+      sessionStorage.setItem(TOKEN_KEY, t);
       setToken(t);
       // Clean up the hash
       window.history.replaceState(null, "", window.location.pathname);
