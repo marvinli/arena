@@ -27,7 +27,7 @@ export function buildSnapshot(session: Session): string {
     communityCards: gs?.communityCards ?? [],
     pots: gs?.pots ?? [],
     hands: session.currentHands,
-    playerMeta: toPlayerMeta(session.config.players),
+    playerMeta: toPlayerMeta(session.config.players, session.personaAssignments),
   });
 }
 
