@@ -62,7 +62,8 @@ async function isLive(): Promise<boolean> {
 
 async function startStreaming(): Promise<void> {
   status = "starting";
-  const output = config.rtmpUrl ?? config.outputFile;
+  const output =
+    config.rtmpUrls.length > 0 ? config.rtmpUrls.join(", ") : config.outputFile;
   console.log("[videographer] starting...");
   console.log(`[videographer] frontend: ${config.frontendUrl}`);
   console.log(`[videographer] output: ${output}`);
@@ -77,7 +78,7 @@ async function startStreaming(): Promise<void> {
 
   ffmpeg = startFfmpeg(capture.stream, config);
   console.log(
-    config.rtmpUrl
+    config.rtmpUrls.length > 0
       ? "[videographer] ffmpeg started, streaming to RTMP"
       : `[videographer] ffmpeg started, recording to ${config.outputFile}`,
   );

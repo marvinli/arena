@@ -38,7 +38,7 @@ function createFakeProcess() {
 function makeConfig(overrides: Partial<Config> = {}): Config {
   return {
     frontendUrl: "http://localhost:5173/",
-    rtmpUrl: undefined,
+    rtmpUrls: [],
     outputFile: "test.mp4",
     width: 1920,
     height: 1080,
@@ -76,13 +76,13 @@ describe("startFfmpeg", () => {
     expect(args).not.toContain("zerolatency");
   });
 
-  it("spawns ffmpeg with RTMP args when rtmpUrl is set", () => {
+  it("spawns ffmpeg with RTMP args when a single rtmpUrl is set", () => {
     const fakeProc = createFakeProcess();
     mockSpawn.mockReturnValue(fakeProc);
 
     const stream = new PassThrough();
     const config = makeConfig({
-      rtmpUrl: "rtmp://live.twitch.tv/app/key",
+      rtmpUrls: ["rtmp://live.twitch.tv/app/key"],
       outputFile: undefined,
     });
     startFfmpeg(stream, config);
@@ -94,11 +94,35 @@ describe("startFfmpeg", () => {
     expect(args[args.length - 1]).toBe("rtmp://live.twitch.tv/app/key");
   });
 
+  it("uses tee muxer with onfail=ignore for multiple RTMP URLs", () => {
+    const fakeProc = createFakeProcess();
+    mockSpawn.mockReturnValue(fakeProc);
+
+    const stream = new PassThrough();
+    const config = makeConfig({
+      rtmpUrls: [
+        "rtmp://live.twitch.tv/app/key",
+        "rtmp://a.rtmp.youtube.com/live2/key",
+      ],
+      outputFile: undefined,
+    });
+    startFfmpeg(stream, config);
+
+    const args = mockSpawn.mock.calls[0][1] as string[];
+    expect(args).toContain("-f");
+    expect(args).toContain("tee");
+    expect(args).toContain("-tune");
+    expect(args).toContain("zerolatency");
+    expect(args[args.length - 1]).toBe(
+      "[f=flv:onfail=ignore]rtmp://live.twitch.tv/app/key|[f=flv:onfail=ignore]rtmp://a.rtmp.youtube.com/live2/key",
+    );
+  });
+
   it("throws if no output configured", () => {
     const stream = new PassThrough();
-    const config = makeConfig({ rtmpUrl: undefined, outputFile: undefined });
+    const config = makeConfig({ rtmpUrls: [], outputFile: undefined });
     expect(() => startFfmpeg(stream, config)).toThrow(
-      "No RTMP_URL or OUTPUT_FILE configured",
+      "No RTMP URL or OUTPUT_FILE configured",
     );
   });
 

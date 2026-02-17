@@ -7,7 +7,8 @@ describe("loadConfig", () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     // Clear all config env vars
-    delete process.env.RTMP_URL;
+    delete process.env.TWITCH_RTMP_URL;
+    delete process.env.YOUTUBE_RTMP_URL;
     delete process.env.OUTPUT_FILE;
     delete process.env.FRONTEND_URL;
     delete process.env.CAPTURE_WIDTH;
@@ -20,28 +21,45 @@ describe("loadConfig", () => {
     process.env = originalEnv;
   });
 
-  it("throws if neither RTMP_URL nor OUTPUT_FILE is set", () => {
+  it("throws if no RTMP URLs and no OUTPUT_FILE is set", () => {
     expect(() => loadConfig()).toThrow(
-      "Set RTMP_URL (for streaming) or OUTPUT_FILE (for local recording)",
+      "Set TWITCH_RTMP_URL / YOUTUBE_RTMP_URL (for streaming) or OUTPUT_FILE (for local recording)",
     );
   });
 
-  it("loads config with RTMP_URL", () => {
-    process.env.RTMP_URL = "rtmp://live.twitch.tv/app/key123";
+  it("loads config with TWITCH_RTMP_URL", () => {
+    process.env.TWITCH_RTMP_URL = "rtmp://live.twitch.tv/app/key123";
     const config = loadConfig();
-    expect(config.rtmpUrl).toBe("rtmp://live.twitch.tv/app/key123");
+    expect(config.rtmpUrls).toEqual(["rtmp://live.twitch.tv/app/key123"]);
     expect(config.outputFile).toBeUndefined();
+  });
+
+  it("loads config with YOUTUBE_RTMP_URL", () => {
+    process.env.YOUTUBE_RTMP_URL = "rtmp://a.rtmp.youtube.com/live2/key456";
+    const config = loadConfig();
+    expect(config.rtmpUrls).toEqual(["rtmp://a.rtmp.youtube.com/live2/key456"]);
+    expect(config.outputFile).toBeUndefined();
+  });
+
+  it("loads config with both RTMP URLs", () => {
+    process.env.TWITCH_RTMP_URL = "rtmp://live.twitch.tv/app/key123";
+    process.env.YOUTUBE_RTMP_URL = "rtmp://a.rtmp.youtube.com/live2/key456";
+    const config = loadConfig();
+    expect(config.rtmpUrls).toEqual([
+      "rtmp://live.twitch.tv/app/key123",
+      "rtmp://a.rtmp.youtube.com/live2/key456",
+    ]);
   });
 
   it("loads config with OUTPUT_FILE", () => {
     process.env.OUTPUT_FILE = "recording.mp4";
     const config = loadConfig();
     expect(config.outputFile).toBe("recording.mp4");
-    expect(config.rtmpUrl).toBeUndefined();
+    expect(config.rtmpUrls).toEqual([]);
   });
 
   it("uses default values for width, height, fps", () => {
-    process.env.RTMP_URL = "rtmp://example.com/live";
+    process.env.TWITCH_RTMP_URL = "rtmp://example.com/live";
     const config = loadConfig();
     expect(config.width).toBe(1920);
     expect(config.height).toBe(1080);
@@ -49,7 +67,7 @@ describe("loadConfig", () => {
   });
 
   it("parses custom width, height, fps from env", () => {
-    process.env.RTMP_URL = "rtmp://example.com/live";
+    process.env.TWITCH_RTMP_URL = "rtmp://example.com/live";
     process.env.CAPTURE_WIDTH = "1280";
     process.env.CAPTURE_HEIGHT = "720";
     process.env.CAPTURE_FPS = "60";
@@ -60,20 +78,20 @@ describe("loadConfig", () => {
   });
 
   it("uses default frontend URL", () => {
-    process.env.RTMP_URL = "rtmp://example.com/live";
+    process.env.TWITCH_RTMP_URL = "rtmp://example.com/live";
     const config = loadConfig();
     expect(config.frontendUrl).toBe("http://localhost:5173/");
   });
 
   it("reads custom frontend URL from env", () => {
-    process.env.RTMP_URL = "rtmp://example.com/live";
+    process.env.TWITCH_RTMP_URL = "rtmp://example.com/live";
     process.env.FRONTEND_URL = "http://localhost:3000/";
     const config = loadConfig();
     expect(config.frontendUrl).toBe("http://localhost:3000/");
   });
 
   it("reads CHROME_PATH from env", () => {
-    process.env.RTMP_URL = "rtmp://example.com/live";
+    process.env.TWITCH_RTMP_URL = "rtmp://example.com/live";
     process.env.CHROME_PATH = "/custom/chrome";
     const config = loadConfig();
     expect(config.chromePath).toBe("/custom/chrome");

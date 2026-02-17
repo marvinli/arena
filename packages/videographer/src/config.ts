@@ -1,9 +1,9 @@
 export interface Config {
   /** URL of the front-end to capture */
   frontendUrl: string;
-  /** RTMP ingest URL (e.g. rtmp://live.twitch.tv/app/KEY) — mutually exclusive with outputFile */
-  rtmpUrl: string | undefined;
-  /** Local file path to record to (e.g. recording.mp4) — mutually exclusive with rtmpUrl */
+  /** RTMP ingest URLs (Twitch, YouTube, etc.) */
+  rtmpUrls: string[];
+  /** Local file path to record to (e.g. recording.mp4) — used when no RTMP URLs are set */
   outputFile: string | undefined;
   /** Viewport width in pixels */
   width: number;
@@ -22,18 +22,21 @@ const DEFAULT_CHROME_PATHS: Record<string, string> = {
 };
 
 export function loadConfig(): Config {
-  const rtmpUrl = process.env.RTMP_URL || undefined;
+  const rtmpUrls = [
+    process.env.TWITCH_RTMP_URL,
+    process.env.YOUTUBE_RTMP_URL,
+  ].filter((u): u is string => !!u);
   const outputFile = process.env.OUTPUT_FILE || undefined;
 
-  if (!rtmpUrl && !outputFile) {
+  if (rtmpUrls.length === 0 && !outputFile) {
     throw new Error(
-      "Set RTMP_URL (for streaming) or OUTPUT_FILE (for local recording)",
+      "Set TWITCH_RTMP_URL / YOUTUBE_RTMP_URL (for streaming) or OUTPUT_FILE (for local recording)",
     );
   }
 
   return {
     frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173/",
-    rtmpUrl,
+    rtmpUrls,
     outputFile,
     width: parseInt(process.env.CAPTURE_WIDTH ?? "1920", 10),
     height: parseInt(process.env.CAPTURE_HEIGHT ?? "1080", 10),

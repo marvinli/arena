@@ -18,7 +18,7 @@ The videographer is a headless camera. It opens the front-end in Chrome via `pup
 │     └→ output: RTMP (flv) or local MP4 file          │
 │                                                      │
 │   Config (via .env)                                  │
-│     └→ RTMP_URL or OUTPUT_FILE, resolution, fps      │
+│     └→ TWITCH_RTMP_URL, YOUTUBE_RTMP_URL, OUTPUT_FILE │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -59,7 +59,8 @@ All configuration via environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FRONTEND_URL` | `http://localhost:5173/` | URL to open in Chrome |
-| `RTMP_URL` | — | RTMP ingest endpoint (e.g., `rtmp://live.twitch.tv/app/KEY`) |
+| `TWITCH_RTMP_URL` | — | Twitch RTMP ingest (e.g., `rtmp://live.twitch.tv/app/KEY`) |
+| `YOUTUBE_RTMP_URL` | — | YouTube RTMP ingest (e.g., `rtmp://a.rtmp.youtube.com/live2/KEY`) |
 | `OUTPUT_FILE` | — | Local file path instead of RTMP (e.g., `recording.mp4`) |
 | `CAPTURE_WIDTH` | `1920` | Viewport width |
 | `CAPTURE_HEIGHT` | `1080` | Viewport height |
@@ -69,7 +70,7 @@ All configuration via environment variables:
 | `CHANNEL_KEY` | `local-dev` | Channel key for live flag polling |
 | `PROCTOR_URL` | `http://localhost:4001` | proctor-api URL (polled for `{ live }` flag) |
 
-At least one of `RTMP_URL` or `OUTPUT_FILE` must be set. If both are set, `RTMP_URL` takes precedence.
+At least one of `TWITCH_RTMP_URL`, `YOUTUBE_RTMP_URL`, or `OUTPUT_FILE` must be set. When multiple RTMP URLs are set, ffmpeg uses the `tee` muxer to simulcast to all destinations with a single encode pass (`onfail=ignore` so one failing doesn't kill the others). RTMP URLs take precedence over `OUTPUT_FILE`.
 
 Chrome is auto-detected on macOS (`/Applications/Google Chrome.app/...`), Linux (`/usr/bin/google-chrome`), and Windows.
 

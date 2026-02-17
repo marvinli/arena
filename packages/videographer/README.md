@@ -22,8 +22,9 @@ All env vars are read from the root `.env` file. Required variables:
 
 | Variable | Description |
 |---|---|
-| `RTMP_URL` | RTMP ingest URL (e.g. `rtmp://live.twitch.tv/app/KEY`). Mutually exclusive with `OUTPUT_FILE`. |
-| `OUTPUT_FILE` | Local file path for recording (e.g. `recording.mp4`). Mutually exclusive with `RTMP_URL`. |
+| `TWITCH_RTMP_URL` | Twitch RTMP ingest URL (e.g. `rtmp://live.twitch.tv/app/KEY`). |
+| `YOUTUBE_RTMP_URL` | YouTube RTMP ingest URL (e.g. `rtmp://a.rtmp.youtube.com/live2/KEY`). |
+| `OUTPUT_FILE` | Local file path for recording (e.g. `recording.mp4`). Used when no RTMP URLs are set. |
 
 Optional variables:
 

@@ -99,7 +99,8 @@ export class ArenaStack extends cdk.Stack {
     //   XAI_API_KEY,
     //   DEEPSEEK_API_KEY,
     //   INWORLD_API_KEY,
-    //   RTMP_URL
+    //   TWITCH_RTMP_URL,
+    //   YOUTUBE_RTMP_URL
     const secret = secretsmanager.Secret.fromSecretNameV2(
       this,
       "ApiKeys",
@@ -218,7 +219,14 @@ export class ArenaStack extends cdk.Stack {
         HEALTH_PORT: "3001",
       },
       secrets: {
-        RTMP_URL: ecs.Secret.fromSecretsManager(secret, "RTMP_URL"),
+        TWITCH_RTMP_URL: ecs.Secret.fromSecretsManager(
+          secret,
+          "TWITCH_RTMP_URL",
+        ),
+        YOUTUBE_RTMP_URL: ecs.Secret.fromSecretsManager(
+          secret,
+          "YOUTUBE_RTMP_URL",
+        ),
       },
       healthCheck: {
         command: [

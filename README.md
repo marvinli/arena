@@ -13,7 +13,7 @@ npm run front-end              # Vite dev server on :5173
 
 Open `http://localhost:5173` and click Start. Agents will begin playing.
 
-To stream to Twitch, set `RTMP_URL` in `.env` and run `npm run videographer` with both servers already running.
+To stream to Twitch/YouTube, set `TWITCH_RTMP_URL` and/or `YOUTUBE_RTMP_URL` in `.env` and run `npm run videographer` with both servers already running.
 
 ## Project Structure
 
@@ -56,7 +56,8 @@ Copy `.env.example` to `.env` at the repo root. You need at least one LLM provid
 | `DEEPSEEK_API_KEY` | For DeepSeek agents | DeepSeek agents |
 | `AWS_REGION` | For Bedrock agents | AWS region (credentials via standard chain) |
 
-| `RTMP_URL` | For Twitch streaming | Videographer RTMP ingest URL |
+| `TWITCH_RTMP_URL` | For Twitch streaming | Twitch RTMP ingest URL |
+| `YOUTUBE_RTMP_URL` | For YouTube streaming | YouTube RTMP ingest URL |
 
 ## How It Works
 

@@ -8,10 +8,25 @@ export interface FfmpegProcess {
 }
 
 export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
-  const output = config.rtmpUrl ?? config.outputFile;
-  if (!output) throw new Error("No RTMP_URL or OUTPUT_FILE configured");
+  const hasRtmp = config.rtmpUrls.length > 0;
+  const output = hasRtmp ? config.rtmpUrls : config.outputFile;
+  if (!output || (Array.isArray(output) && output.length === 0))
+    throw new Error("No RTMP URL or OUTPUT_FILE configured");
 
-  const isRtmp = output.startsWith("rtmp");
+  const isRtmp = hasRtmp;
+
+  // Build output args: single RTMP uses -f flv, multiple uses tee muxer
+  let outputArgs: string[];
+  if (isRtmp && config.rtmpUrls.length > 1) {
+    const teeTargets = config.rtmpUrls
+      .map((url) => `[f=flv:onfail=ignore]${url}`)
+      .join("|");
+    outputArgs = ["-f", "tee", teeTargets];
+  } else if (isRtmp) {
+    outputArgs = ["-f", "flv", config.rtmpUrls[0]];
+  } else {
+    outputArgs = [config.outputFile as string];
+  }
 
   const args = [
     // Input: WebM from stdin
@@ -50,8 +65,7 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
     "aresample=async=1000:min_hard_comp=0.1:first_pts=0",
 
     // Output
-    ...(isRtmp ? ["-f", "flv"] : []),
-    output,
+    ...outputArgs,
   ];
 
   const ffmpeg = spawn("ffmpeg", args, {
