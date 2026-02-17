@@ -43,11 +43,11 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
     "-b:a",
     "160k",
     "-ar",
-    "44100",
+    "48000",
     // Fill small audio gaps with silence to prevent choppiness from
     // timestamp discontinuities in the tab-capture WebM stream
     "-af",
-    "aresample=async=1",
+    "aresample=async=1000:min_hard_comp=0.1:first_pts=0",
 
     // Output
     ...(isRtmp ? ["-f", "flv"] : []),
@@ -65,6 +65,25 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
   stream.on("end", () => {
     console.log("[ffmpeg] input stream ended");
   });
+
+  // Track input data rate for debugging capture issues
+  let bytesReceived = 0;
+  let chunkCount = 0;
+  const rateInterval = setInterval(() => {
+    if (bytesReceived > 0) {
+      console.log(
+        `[ffmpeg] input: ${(bytesReceived / 1024).toFixed(0)} KB in ${chunkCount} chunks (last 10s)`,
+      );
+      bytesReceived = 0;
+      chunkCount = 0;
+    }
+  }, 10_000);
+  stream.on("data", (chunk: Buffer) => {
+    bytesReceived += chunk.length;
+    chunkCount++;
+  });
+  stream.on("end", () => clearInterval(rateInterval));
+  stream.on("error", () => clearInterval(rateInterval));
 
   if (ffmpeg.stdin) {
     stream.pipe(ffmpeg.stdin);

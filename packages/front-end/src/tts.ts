@@ -14,7 +14,8 @@ console.log(
   "disabled=" + DISABLE_TTS,
 );
 
-const PCM_SAMPLE_RATE = 24000;
+const OPENAI_PCM_SAMPLE_RATE = 24000;
+const INWORLD_PCM_SAMPLE_RATE = 48000;
 
 // ── Shared PCM playback ─────────────────────────────────
 
@@ -22,6 +23,7 @@ function schedulePcmChunk(
   ctx: AudioContext,
   data: Uint8Array,
   nextStartTime: number,
+  sampleRate: number,
 ): number {
   const int16 = new Int16Array(data.buffer, data.byteOffset, data.length / 2);
   const float32 = new Float32Array(int16.length);
@@ -29,7 +31,7 @@ function schedulePcmChunk(
     float32[i] = int16[i] / 32768;
   }
 
-  const buffer = ctx.createBuffer(1, float32.length, PCM_SAMPLE_RATE);
+  const buffer = ctx.createBuffer(1, float32.length, sampleRate);
   buffer.copyToChannel(float32, 0);
 
   const source = ctx.createBufferSource();
@@ -101,7 +103,7 @@ async function speakOpenAI(text: string, voice: string): Promise<void> {
 
   if (!res.body) return;
 
-  const ctx = new AudioContext({ sampleRate: PCM_SAMPLE_RATE });
+  const ctx = new AudioContext({ sampleRate: OPENAI_PCM_SAMPLE_RATE });
   const reader = res.body.getReader();
 
   let nextStartTime = ctx.currentTime;
@@ -115,7 +117,12 @@ async function speakOpenAI(text: string, voice: string): Promise<void> {
     [data, leftover] = alignPcm(leftover, value);
     if (data.length === 0) continue;
 
-    nextStartTime = schedulePcmChunk(ctx, data, nextStartTime);
+    nextStartTime = schedulePcmChunk(
+      ctx,
+      data,
+      nextStartTime,
+      OPENAI_PCM_SAMPLE_RATE,
+    );
   }
 
   await waitForPlayback(ctx, nextStartTime);
@@ -138,11 +145,11 @@ async function speakInworld(text: string, voice: string): Promise<void> {
     },
     body: JSON.stringify({
       text,
-      voiceId: voice,
-      modelId: "inworld-tts-1.5-mini",
-      audioConfig: {
-        audioEncoding: "LINEAR16",
-        sampleRateHertz: PCM_SAMPLE_RATE,
+      voice_id: voice,
+      model_id: "inworld-tts-1.5-mini",
+      audio_config: {
+        audio_encoding: "LINEAR16",
+        sample_rate_hertz: INWORLD_PCM_SAMPLE_RATE,
       },
     }),
   });
@@ -155,7 +162,7 @@ async function speakInworld(text: string, voice: string): Promise<void> {
 
   if (!res.body) return;
 
-  const ctx = new AudioContext({ sampleRate: PCM_SAMPLE_RATE });
+  const ctx = new AudioContext({ sampleRate: INWORLD_PCM_SAMPLE_RATE });
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
 
@@ -203,7 +210,12 @@ async function speakInworld(text: string, voice: string): Promise<void> {
       [data, leftover] = alignPcm(leftover, pcm);
       if (data.length === 0) continue;
 
-      nextStartTime = schedulePcmChunk(ctx, data, nextStartTime);
+      nextStartTime = schedulePcmChunk(
+        ctx,
+        data,
+        nextStartTime,
+        INWORLD_PCM_SAMPLE_RATE,
+      );
     }
   }
 
