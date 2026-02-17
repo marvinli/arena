@@ -70,11 +70,10 @@ describe("startFfmpeg", () => {
       expect.arrayContaining(["-i", "pipe:0", "output.mp4"]),
       expect.any(Object),
     );
-    // File output should NOT include -f flv
+    // File output should NOT include -f flv or -tune zerolatency
     const args = mockSpawn.mock.calls[0][1] as string[];
     expect(args).not.toContain("flv");
-    expect(args).toContain("-tune");
-    expect(args).toContain("animation");
+    expect(args).not.toContain("zerolatency");
   });
 
   it("spawns ffmpeg with RTMP args when rtmpUrl is set", () => {
@@ -91,7 +90,7 @@ describe("startFfmpeg", () => {
     const args = mockSpawn.mock.calls[0][1] as string[];
     expect(args).toContain("flv");
     expect(args).toContain("-tune");
-    expect(args).toContain("animation");
+    expect(args).toContain("zerolatency");
     expect(args[args.length - 1]).toBe("rtmp://live.twitch.tv/app/key");
   });
 
