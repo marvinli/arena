@@ -12,6 +12,7 @@ const config = loadConfig();
 let capture: BrowserCapture | null = null;
 let ffmpeg: FfmpegProcess | null = null;
 let shuttingDown = false;
+let cleaning = false;
 let status: "idle" | "starting" | "streaming" | "error" = "idle";
 
 // ── Health server ────────────────────────────────────────
@@ -48,6 +49,7 @@ async function isLive(): Promise<boolean> {
         query: "query($ck:String!){ live(channelKey:$ck) }",
         variables: { ck: CHANNEL_KEY },
       }),
+      signal: AbortSignal.timeout(5000),
     });
     const json = (await res.json()) as { data?: { live: boolean } };
     return json.data?.live ?? false;
@@ -88,14 +90,19 @@ async function stopStreaming(): Promise<void> {
 
   if (ffmpeg) {
     ffmpeg.process.kill("SIGTERM");
-    const timeout = setTimeout(() => ffmpeg?.process.kill("SIGKILL"), 5000);
-    await ffmpeg.done;
-    clearTimeout(timeout);
+    const killTimer = setTimeout(() => ffmpeg?.process.kill("SIGKILL"), 5000);
+    const timeout = new Promise<{ code: null; signal: null }>((r) =>
+      setTimeout(() => r({ code: null, signal: null }), 10_000),
+    );
+    await Promise.race([ffmpeg.done.catch(() => {}), timeout]);
+    clearTimeout(killTimer);
     ffmpeg = null;
   }
 
   if (capture) {
-    await capture.cleanup();
+    const cleanupPromise = capture.cleanup().catch(() => {});
+    const timeout = new Promise<void>((r) => setTimeout(r, 10_000));
+    await Promise.race([cleanupPromise, timeout]);
     capture = null;
   }
 
@@ -109,6 +116,12 @@ async function shutdown(reason: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[videographer] shutting down: ${reason}`);
+  // Hard exit if graceful shutdown takes too long
+  const hardExit = setTimeout(() => {
+    console.error("[videographer] graceful shutdown timed out, forcing exit");
+    process.exit(1);
+  }, 15_000);
+  hardExit.unref();
   await stopStreaming();
   healthServer.close();
   process.exit(0);
@@ -147,15 +160,23 @@ async function waitForFrontend(url: string): Promise<void> {
 
 /** Clean up any partially-initialized capture/ffmpeg from a failed start. */
 async function cleanupPartial(): Promise<void> {
-  if (ffmpeg) {
-    try {
-      ffmpeg.process.kill("SIGKILL");
-    } catch {}
-    ffmpeg = null;
-  }
-  if (capture) {
-    await capture.cleanup().catch(() => {});
-    capture = null;
+  if (cleaning) return;
+  cleaning = true;
+  try {
+    if (ffmpeg) {
+      try {
+        ffmpeg.process.kill("SIGKILL");
+      } catch {}
+      ffmpeg = null;
+    }
+    if (capture) {
+      const cleanupPromise = capture.cleanup().catch(() => {});
+      const timeout = new Promise<void>((r) => setTimeout(r, 10_000));
+      await Promise.race([cleanupPromise, timeout]);
+      capture = null;
+    }
+  } finally {
+    cleaning = false;
   }
 }
 
@@ -176,18 +197,26 @@ async function run(): Promise<void> {
       }
       // Monitor ffmpeg — if it exits unexpectedly, clean up and go back to idle
       if (ffmpeg) {
-        ffmpeg.done.then(async ({ code, signal }) => {
-          if (
-            !shuttingDown &&
-            (status === "streaming" || status === "starting")
-          ) {
-            console.error(
-              `[ffmpeg] exited unexpectedly (code=${code}, signal=${signal})`,
-            );
-            await cleanupPartial();
-            status = "idle";
-          }
-        });
+        ffmpeg.done
+          .then(async ({ code, signal }) => {
+            if (
+              !shuttingDown &&
+              (status === "streaming" || status === "starting")
+            ) {
+              console.error(
+                `[ffmpeg] exited unexpectedly (code=${code}, signal=${signal})`,
+              );
+              await cleanupPartial();
+              status = "idle";
+            }
+          })
+          .catch(async (err) => {
+            if (!shuttingDown) {
+              console.error("[ffmpeg] process error:", err.message);
+              await cleanupPartial();
+              status = "idle";
+            }
+          });
       }
     } else if (!live && status === "streaming") {
       await stopStreaming();

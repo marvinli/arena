@@ -44,6 +44,10 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
     "160k",
     "-ar",
     "44100",
+    // Fill small audio gaps with silence to prevent choppiness from
+    // timestamp discontinuities in the tab-capture WebM stream
+    "-af",
+    "aresample=async=1",
 
     // Output
     ...(isRtmp ? ["-f", "flv"] : []),
@@ -52,6 +56,14 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
 
   const ffmpeg = spawn("ffmpeg", args, {
     stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  // Log stream errors to prevent unhandled exceptions
+  stream.on("error", (err) => {
+    console.error("[ffmpeg] input stream error:", err.message);
+  });
+  stream.on("end", () => {
+    console.log("[ffmpeg] input stream ended");
   });
 
   if (ffmpeg.stdin) {
@@ -74,9 +86,12 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
   const done = new Promise<{
     code: number | null;
     signal: NodeJS.Signals | null;
-  }>((resolve) => {
+  }>((resolve, reject) => {
     ffmpeg.on("close", (code, signal) => {
       resolve({ code, signal });
+    });
+    ffmpeg.on("error", (err) => {
+      reject(err);
     });
   });
 
