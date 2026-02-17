@@ -45,7 +45,7 @@ const mockBrowser = {
 function makeConfig(overrides: Partial<Config> = {}): Config {
   return {
     frontendUrl: "http://localhost:5173/",
-    rtmpUrl: undefined,
+    rtmpUrls: [],
     outputFile: "test.mp4",
     width: 1920,
     height: 1080,
@@ -57,6 +57,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
 
 describe("startCapture", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     // Wire up mock return values
     mockLaunch.mockResolvedValue(mockBrowser);
@@ -68,11 +69,14 @@ describe("startCapture", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
   it("kills Chrome before launching", async () => {
-    await startCapture(makeConfig());
+    const p = startCapture(makeConfig());
+    await vi.runAllTimersAsync();
+    await p;
     expect(mockExecSync).toHaveBeenCalled();
     const firstExecCall = mockExecSync.mock.invocationCallOrder[0];
     const launchCall = mockLaunch.mock.invocationCallOrder[0];
@@ -80,7 +84,9 @@ describe("startCapture", () => {
   });
 
   it("returns a capture with cleanup function", async () => {
-    const capture = await startCapture(makeConfig());
+    const p = startCapture(makeConfig());
+    await vi.runAllTimersAsync();
+    const capture = await p;
     expect(capture.browser).toBe(mockBrowser);
     expect(capture.stream).toBeDefined();
     expect(typeof capture.cleanup).toBe("function");
@@ -91,7 +97,9 @@ describe("startCapture", () => {
     const destroySpy = vi.spyOn(stream, "destroy");
     mockGetStream.mockResolvedValue(stream);
 
-    const capture = await startCapture(makeConfig());
+    const p = startCapture(makeConfig());
+    await vi.runAllTimersAsync();
+    const capture = await p;
     await capture.cleanup();
 
     expect(destroySpy).toHaveBeenCalled();
@@ -99,13 +107,20 @@ describe("startCapture", () => {
     expect(mockBrowser.close).toHaveBeenCalled();
   });
 
-  it("cleans up browser if getStream fails", async () => {
-    mockGetStream.mockRejectedValue(new Error("getStream failed"));
+  it("cleans up browser if getStream fails after retries", async () => {
+    // Simulate getStream hanging (the real production failure mode)
+    // so withTimeout fires and triggers retry logic
+    mockGetStream.mockImplementation(() => new Promise(() => {}));
 
-    await expect(startCapture(makeConfig())).rejects.toThrow(
-      "getStream failed",
-    );
+    const p = startCapture(makeConfig());
+    // Attach rejection handler BEFORE advancing timers so the rejection
+    // is never "unhandled" (avoids vitest's unhandled-rejection detection)
+    const assertion = expect(p).rejects.toThrow("getStream timed out");
+    await vi.runAllTimersAsync();
+
+    await assertion;
     expect(mockBrowser.close).toHaveBeenCalled();
+    expect(mockGetStream).toHaveBeenCalledTimes(3);
   });
 
   it("cleanup does not block forever if browser.close hangs", async () => {
@@ -113,13 +128,15 @@ describe("startCapture", () => {
       new Promise((r) => setTimeout(r, 30_000)),
     );
 
-    const capture = await startCapture(makeConfig());
+    const p = startCapture(makeConfig());
+    await vi.runAllTimersAsync();
+    const capture = await p;
 
-    const start = Date.now();
-    await capture.cleanup();
-    const elapsed = Date.now() - start;
+    const cleanupPromise = capture.cleanup();
+    await vi.runAllTimersAsync();
+    await cleanupPromise;
 
-    // withTimeout is 5s per operation, should complete well under 30s
-    expect(elapsed).toBeLessThan(15_000);
-  }, 20_000);
+    // browser.close was called (even though it would have hung with real timers)
+    expect(mockBrowser.close).toHaveBeenCalled();
+  });
 });

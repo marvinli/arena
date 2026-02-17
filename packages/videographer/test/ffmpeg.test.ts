@@ -113,7 +113,9 @@ describe("startFfmpeg", () => {
     expect(args).toContain("tee");
     expect(args).toContain("-tune");
     expect(args).toContain("zerolatency");
-    // Tee muxer requires explicit stream mapping
+    // Tee muxer requires global_header and explicit stream mapping
+    expect(args).toContain("-flags");
+    expect(args).toContain("+global_header");
     const mapIndices = args.reduce<number[]>(
       (acc, v, i) => (v === "-map" ? [...acc, i] : acc),
       [],

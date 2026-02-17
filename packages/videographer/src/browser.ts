@@ -12,6 +12,8 @@ export interface BrowserCapture {
 }
 
 const CAPTURE_TIMEOUT_MS = 30_000;
+const GET_STREAM_MAX_RETRIES = 3;
+const GET_STREAM_RETRY_DELAY_MS = 5_000;
 
 export async function startCapture(config: Config): Promise<BrowserCapture> {
   // Kill any lingering Chrome processes from a previous run
@@ -58,18 +60,9 @@ export async function startCapture(config: Config): Promise<BrowserCapture> {
     // on ARM64 Fargate the extension can take several seconds to load
     await new Promise((r) => setTimeout(r, 3000));
 
-    const stream = await withTimeout(
-      getStream(page, {
-        audio: true,
-        video: true,
-        mimeType: "video/webm;codecs=vp8,opus",
-        videoBitsPerSecond: 8_000_000,
-        audioBitsPerSecond: 128_000,
-        frameSize: 1000,
-      }),
-      CAPTURE_TIMEOUT_MS,
-      "getStream timed out",
-    );
+    // Retry getStream within the same browser session — the browser and page
+    // are fine, but the tab-capture extension handshake can intermittently hang
+    const stream = await retryGetStream(page);
 
     const cleanup = createCleanup(stream, page, browser);
     return { browser, page, stream, cleanup };
@@ -78,6 +71,47 @@ export async function startCapture(config: Config): Promise<BrowserCapture> {
     await createCleanup(null, null, browser)();
     throw err;
   }
+}
+
+async function retryGetStream(page: Page): Promise<Readable> {
+  for (let attempt = 1; attempt <= GET_STREAM_MAX_RETRIES; attempt++) {
+    try {
+      console.log(
+        `[browser] getStream attempt ${attempt}/${GET_STREAM_MAX_RETRIES}`,
+      );
+      const stream = await withTimeout(
+        getStream(page, {
+          audio: true,
+          video: true,
+          mimeType: "video/webm;codecs=vp8,opus",
+          videoBitsPerSecond: 8_000_000,
+          audioBitsPerSecond: 128_000,
+          frameSize: 1000,
+        }),
+        CAPTURE_TIMEOUT_MS,
+        "getStream timed out",
+      );
+      if (attempt > 1) {
+        console.log(`[browser] getStream succeeded on attempt ${attempt}`);
+      }
+      return stream;
+    } catch (err) {
+      console.error(
+        `[browser] getStream attempt ${attempt} failed:`,
+        err instanceof Error ? err.message : err,
+      );
+      if (attempt === GET_STREAM_MAX_RETRIES) {
+        throw err;
+      }
+      // Brief pause before retrying — give the extension time to recover
+      console.log(
+        `[browser] retrying getStream in ${GET_STREAM_RETRY_DELAY_MS / 1000}s...`,
+      );
+      await new Promise((r) => setTimeout(r, GET_STREAM_RETRY_DELAY_MS));
+    }
+  }
+  // Unreachable, but satisfies TypeScript
+  throw new Error("getStream retries exhausted");
 }
 
 function createCleanup(

@@ -47,6 +47,8 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
     String(config.fps * 2),
     "-b:v",
     "6000k",
+    "-minrate",
+    "4500k",
     "-maxrate",
     "6000k",
     "-bufsize",
@@ -64,8 +66,11 @@ export function startFfmpeg(stream: Readable, config: Config): FfmpegProcess {
     "-af",
     "aresample=async=1000:min_hard_comp=0.1:first_pts=0",
 
-    // Tee muxer requires explicit stream mapping
-    ...(config.rtmpUrls.length > 1 ? ["-map", "0:v", "-map", "0:a"] : []),
+    // Tee muxer requires explicit stream mapping and global_header
+    // so each slave gets codec extradata (H.264 SPS/PPS) in the stream headers
+    ...(config.rtmpUrls.length > 1
+      ? ["-flags", "+global_header", "-map", "0:v", "-map", "0:a"]
+      : []),
 
     // Output
     ...outputArgs,
