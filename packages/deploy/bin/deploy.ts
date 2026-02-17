@@ -1,14 +1,32 @@
 #!/usr/bin/env node
+import {
+  GetSecretValueCommand,
+  SecretsManagerClient,
+} from "@aws-sdk/client-secrets-manager";
 import * as cdk from "aws-cdk-lib";
 import { ArenaStack } from "../lib/arena-stack.js";
 import { DatabaseStack } from "../lib/database-stack.js";
 
-const app = new cdk.App();
+const region = process.env.CDK_DEFAULT_REGION ?? "us-east-1";
 
 const env = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
-  region: process.env.CDK_DEFAULT_REGION ?? "us-east-1",
+  region,
 };
+
+// Fetch build-time secrets from Secrets Manager so deploys don't
+// depend on local env vars for keys that Vite bakes into the front-end.
+async function fetchBuildSecrets(): Promise<Record<string, string>> {
+  const client = new SecretsManagerClient({ region });
+  const res = await client.send(
+    new GetSecretValueCommand({ SecretId: "arena/api-keys" }),
+  );
+  return JSON.parse(res.SecretString ?? "{}");
+}
+
+const secrets = await fetchBuildSecrets();
+
+const app = new cdk.App();
 
 const db = new DatabaseStack(app, "ArenaDatabaseStack", { env });
 
@@ -16,4 +34,5 @@ new ArenaStack(app, "ArenaStack", {
   env,
   tables: db.tables,
   tablePrefix: db.tablePrefix,
+  buildSecrets: secrets,
 });

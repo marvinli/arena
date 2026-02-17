@@ -19,6 +19,8 @@ const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 export interface ArenaStackProps extends cdk.StackProps {
   tables: dynamodb.ITable[];
   tablePrefix: string;
+  /** Secret values fetched from Secrets Manager at deploy time (for Docker build args). */
+  buildSecrets: Record<string, string>;
 }
 
 export class ArenaStack extends cdk.Stack {
@@ -142,9 +144,9 @@ export class ArenaStack extends cdk.Stack {
         file: "Dockerfile.app",
         exclude: ["**/cdk.out"],
         buildArgs: {
-          OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "",
-          INWORLD_API_KEY: process.env.INWORLD_API_KEY ?? "",
-          TTS_PROVIDER: process.env.TTS_PROVIDER ?? "inworld",
+          OPENAI_API_KEY: requireSecret(props.buildSecrets, "OPENAI_API_KEY"),
+          INWORLD_API_KEY: requireSecret(props.buildSecrets, "INWORLD_API_KEY"),
+          TTS_PROVIDER: props.buildSecrets.TTS_PROVIDER ?? "inworld",
           VITE_CHANNEL_KEY: "poker-stream-1",
         },
       }),
@@ -356,4 +358,17 @@ export class ArenaStack extends cdk.Stack {
       value: cognitoDomainName,
     });
   }
+}
+
+function requireSecret(
+  secrets: Record<string, string>,
+  key: string,
+): string {
+  const value = secrets[key];
+  if (!value) {
+    throw new Error(
+      `Missing required secret "${key}" in arena/api-keys (Secrets Manager)`,
+    );
+  }
+  return value;
 }
