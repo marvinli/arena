@@ -54,7 +54,9 @@ export async function startCapture(config: Config): Promise<BrowserCapture> {
       else console.log("[browser]", text);
     });
 
-    await new Promise((r) => setTimeout(r, 1000));
+    // Give Chrome's tab-capture extension time to initialize —
+    // on ARM64 Fargate the extension can take several seconds to load
+    await new Promise((r) => setTimeout(r, 3000));
 
     const stream = await withTimeout(
       getStream(page, {
