@@ -181,6 +181,11 @@ async function cleanupPartial(): Promise<void> {
   }
 }
 
+const INITIAL_RETRY_DELAY_MS = 2_000;
+const MAX_RETRY_DELAY_MS = 60_000;
+let consecutiveFailures = 0;
+let retryDelay = INITIAL_RETRY_DELAY_MS;
+
 async function run(): Promise<void> {
   while (!shuttingDown) {
     const live = await isLive();
@@ -188,12 +193,21 @@ async function run(): Promise<void> {
     if (live && status === "idle") {
       try {
         await startStreaming();
+        consecutiveFailures = 0;
+        retryDelay = INITIAL_RETRY_DELAY_MS;
       } catch (err) {
-        console.error("[videographer] failed to start:", err);
+        consecutiveFailures++;
+        console.error(
+          `[videographer] failed to start (attempt #${consecutiveFailures}):`,
+          err,
+        );
         await cleanupPartial();
         status = "idle";
-        // Wait before retrying
-        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        console.log(
+          `[videographer] retrying in ${(retryDelay / 1000).toFixed(0)}s...`,
+        );
+        await new Promise((r) => setTimeout(r, retryDelay));
+        retryDelay = Math.min(retryDelay * 2, MAX_RETRY_DELAY_MS);
         continue;
       }
       // Monitor ffmpeg — if it exits unexpectedly, clean up and go back to idle
