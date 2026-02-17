@@ -170,6 +170,46 @@ async function speakInworld(text: string, voice: string): Promise<void> {
   let leftover: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
   let lineBuf = "";
 
+  const processLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    let parsed: { result?: { audioContent?: string } };
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      return;
+    }
+
+    const b64 = parsed.result?.audioContent;
+    if (!b64) return;
+
+    const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+    // Strip RIFF/WAV header if present (can appear on every chunk)
+    const pcm =
+      raw.length > RIFF_HEADER_SIZE &&
+      raw[0] === 0x52 &&
+      raw[1] === 0x49 &&
+      raw[2] === 0x46 &&
+      raw[3] === 0x46
+        ? raw.slice(RIFF_HEADER_SIZE)
+        : raw;
+
+    if (pcm.length === 0) return;
+
+    let data: Uint8Array<ArrayBufferLike>;
+    [data, leftover] = alignPcm(leftover, pcm);
+    if (data.length === 0) return;
+
+    nextStartTime = schedulePcmChunk(
+      ctx,
+      data,
+      nextStartTime,
+      INWORLD_PCM_SAMPLE_RATE,
+    );
+  };
+
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -179,44 +219,13 @@ async function speakInworld(text: string, voice: string): Promise<void> {
     lineBuf = lines.pop() ?? "";
 
     for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-
-      let parsed: { result?: { audioContent?: string } };
-      try {
-        parsed = JSON.parse(trimmed);
-      } catch {
-        continue;
-      }
-
-      const b64 = parsed.result?.audioContent;
-      if (!b64) continue;
-
-      const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-
-      // Strip RIFF/WAV header if present (can appear on every chunk)
-      const pcm =
-        raw.length > RIFF_HEADER_SIZE &&
-        raw[0] === 0x52 &&
-        raw[1] === 0x49 &&
-        raw[2] === 0x46 &&
-        raw[3] === 0x46
-          ? raw.slice(RIFF_HEADER_SIZE)
-          : raw;
-
-      if (pcm.length === 0) continue;
-
-      let data: Uint8Array<ArrayBufferLike>;
-      [data, leftover] = alignPcm(leftover, pcm);
-      if (data.length === 0) continue;
-
-      nextStartTime = schedulePcmChunk(
-        ctx,
-        data,
-        nextStartTime,
-        INWORLD_PCM_SAMPLE_RATE,
-      );
+      processLine(line);
     }
+  }
+
+  // Process any remaining data that wasn't terminated with a newline
+  if (lineBuf.trim()) {
+    processLine(lineBuf);
   }
 
   await waitForPlayback(ctx, nextStartTime);
