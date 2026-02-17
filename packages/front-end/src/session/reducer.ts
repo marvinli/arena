@@ -48,6 +48,7 @@ export const INITIAL_STATE: GameState = {
   error: null,
   awards: [],
   playerAvatars: new Map(),
+  playerPersonas: new Map(),
 };
 
 // ── Reducer ─────────────────────────────────────────────

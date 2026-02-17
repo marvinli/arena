@@ -12,7 +12,7 @@ export function handleLeaderboard(
 
   // Include ALL players (including busted) for the leaderboard
   const mapped = mapPlayers(lb.players, null, state.players);
-  const players = resetForEndcard(mapped, state.playerAvatars);
+  const players = resetForEndcard(mapped, state.playerAvatars, state.playerPersonas);
 
   return {
     ...state,

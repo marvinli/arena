@@ -12,7 +12,7 @@ export function handleGameOver(
 
   // Include ALL players (including busted) for the endcard
   const mapped = mapPlayers(go.players, null, state.players);
-  const players = resetForEndcard(mapped, state.playerAvatars);
+  const players = resetForEndcard(mapped, state.playerAvatars, state.playerPersonas);
 
   return {
     ...state,

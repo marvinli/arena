@@ -45,5 +45,8 @@ export function handleReconnect(cs: GqlChannelState): GameState {
     error: null,
     awards: [],
     playerAvatars: avatars,
+    playerPersonas: new Map(
+      [...personas].filter((e): e is [string, string] => e[1] != null),
+    ),
   };
 }

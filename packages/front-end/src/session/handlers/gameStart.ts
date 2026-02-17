@@ -25,5 +25,8 @@ export function handleGameStart(
     bigBlind: gs.bigBlind,
     players,
     playerAvatars: avatars,
+    playerPersonas: new Map(
+      [...personas].filter((e): e is [string, string] => e[1] != null),
+    ),
   };
 }

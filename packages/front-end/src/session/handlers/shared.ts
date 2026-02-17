@@ -16,10 +16,11 @@ export function buildPlayers(
   }));
 }
 
-/** Reset players for endcard display: null cards/lastAction, inactive, avatar from persisted map. */
+/** Reset players for endcard display: null cards/lastAction, inactive, avatar + persona from persisted maps. */
 export function resetForEndcard(
   players: Player[],
   playerAvatars: Map<string, string>,
+  playerPersonas: Map<string, string>,
 ): Player[] {
   return players.map((p) => ({
     ...p,
@@ -28,6 +29,7 @@ export function resetForEndcard(
     isActive: false,
     isDealer: false,
     avatar: playerAvatars.get(p.id) ?? p.avatar,
+    persona: playerPersonas.get(p.id) ?? p.persona,
   }));
 }
 
