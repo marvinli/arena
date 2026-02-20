@@ -8,6 +8,7 @@ dotenv.config({ path: join(import.meta.dirname, "../../../.env") });
 
 import { mergedResolvers } from "./gql/schema/mergedResolvers.js";
 import { mergedTypeDefs } from "./gql/schema/mergedTypeDefs.js";
+import { startScheduler } from "./services/session/scheduler.js";
 import { getSession } from "./services/session/session-manager.js";
 
 const yoga = createYoga({
@@ -48,4 +49,5 @@ const server = createServer((req, res) => {
 const PORT = process.env.PORT ?? 4001;
 server.listen(PORT, () => {
   console.log(`proctor-api running at http://localhost:${PORT}/graphql`);
+  startScheduler(CHANNEL_KEY);
 });

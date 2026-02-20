@@ -172,6 +172,9 @@ export class ArenaStack extends cdk.Stack {
         NODE_ENV: "production",
         AWS_REGION: this.region,
         TTS_PROVIDER: "inworld",
+        SCHEDULE_START: "18:00",
+        SCHEDULE_STOP: "19:00",
+        SCHEDULE_TIMEZONE: "America/New_York",
       },
       secrets: {
         ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(
