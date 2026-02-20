@@ -96,9 +96,17 @@ async function drain(
     const handler =
       handlers[inst.type as keyof typeof handlers] ?? defaultHandler;
 
-    if (handler.preWait) await handler.preWait(inst, ctx);
-    handler.execute(inst, ctx);
-    if (handler.postWait) await handler.postWait(inst, ctx);
+    try {
+      if (handler.preWait) await handler.preWait(inst, ctx);
+      handler.execute(inst, ctx);
+      if (handler.postWait) await handler.postWait(inst, ctx);
+    } catch (err) {
+      console.warn(
+        "[renderQueue] handler error, skipping instruction:",
+        inst.type,
+        err,
+      );
+    }
     deps.onProcessed?.(inst);
   }
 }
