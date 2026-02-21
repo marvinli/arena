@@ -13,6 +13,7 @@ import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as cr from "aws-cdk-lib/custom-resources";
 import type { Construct } from "constructs";
 
 /** Root of the monorepo (two levels up from this file). */
@@ -85,6 +86,20 @@ export class ArenaStack extends cdk.Stack {
     });
 
     const cognitoDomainName = `${userPoolDomain.domainName}.auth.${this.region}.amazoncognito.com`;
+
+    // Create client early (without CloudFront URL) to break circular dependency.
+    // Callback URLs are updated via AwsCustomResource after CloudFront is created.
+    const userPoolClient = userPool.addClient("AdminApp", {
+      supportedIdentityProviders: [
+        cognito.UserPoolClientIdentityProvider.GOOGLE,
+      ],
+      oAuth: {
+        flows: { implicitCodeGrant: true },
+        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
+        callbackUrls: ["http://localhost:5174", "http://localhost:8081"],
+      },
+    });
+    userPoolClient.node.addDependency(googleProvider);
 
     // ── VPC ────────────────────────────────────────────────
     const vpc = new ec2.Vpc(this, "Vpc", {
@@ -248,7 +263,9 @@ export class ArenaStack extends cdk.Stack {
     });
 
     // ── Fargate service (no load balancer) ───────────────
-    const service = new ecs.FargateService(this, "Service", {
+    // Construct ID changed from "Service" to force CloudFormation replacement
+    // (the old service had an ALB load balancer that references the removed admin container)
+    const service = new ecs.FargateService(this, "Svc", {
       cluster,
       taskDefinition: taskDef,
       desiredCount: 1,
@@ -281,8 +298,8 @@ export class ArenaStack extends cdk.Stack {
       environment: {
         TABLE_PREFIX: props.tablePrefix,
         CHANNEL_KEY: "poker-stream-1",
-        COGNITO_USER_POOL_ID: "", // placeholder — set below after userPoolClient
-        COGNITO_CLIENT_ID: "", // placeholder — set below after userPoolClient
+        COGNITO_USER_POOL_ID: userPool.userPoolId,
+        COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
         ECS_CLUSTER_NAME: cluster.clusterName,
         ECS_SERVICE_NAME: service.serviceName,
       },
@@ -359,25 +376,36 @@ export class ArenaStack extends cdk.Stack {
 
     const cfUrl = `https://${distribution.distributionDomainName}`;
 
-    // ── Cognito client (needs CloudFront URL for callback) ──
-    const userPoolClient = userPool.addClient("AdminApp", {
-      supportedIdentityProviders: [
-        cognito.UserPoolClientIdentityProvider.GOOGLE,
-      ],
-      oAuth: {
-        flows: { implicitCodeGrant: true },
-        scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
-        callbackUrls: [cfUrl, "http://localhost:5174", "http://localhost:8081"],
+    // Update Cognito client callback URLs to include the CloudFront URL.
+    // This is done via a custom resource to avoid a circular dependency
+    // (Lambda → client ID → CloudFront URL → Lambda Function URL → Lambda).
+    new cr.AwsCustomResource(this, "UpdateCallbackUrls", {
+      installLatestAwsSdk: false,
+      onUpdate: {
+        service: "CognitoIdentityServiceProvider",
+        action: "updateUserPoolClient",
+        parameters: {
+          UserPoolId: userPool.userPoolId,
+          ClientId: userPoolClient.userPoolClientId,
+          CallbackURLs: [
+            cfUrl,
+            "http://localhost:5174",
+            "http://localhost:8081",
+          ],
+          AllowedOAuthFlows: ["implicit"],
+          AllowedOAuthScopes: ["openid", "email"],
+          SupportedIdentityProviders: ["Google"],
+          AllowedOAuthFlowsUserPoolClient: true,
+        },
+        physicalResourceId: cr.PhysicalResourceId.of("CallbackUrlUpdate"),
       },
+      policy: cr.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          actions: ["cognito-idp:UpdateUserPoolClient"],
+          resources: [userPool.userPoolArn],
+        }),
+      ]),
     });
-    userPoolClient.node.addDependency(googleProvider);
-
-    // Set Cognito env vars on the Lambda (now that userPoolClient exists)
-    adminFn.addEnvironment("COGNITO_USER_POOL_ID", userPool.userPoolId);
-    adminFn.addEnvironment(
-      "COGNITO_CLIENT_ID",
-      userPoolClient.userPoolClientId,
-    );
 
     // ── Deploy admin-fe to S3 ───────────────────────────────
     new s3deploy.BucketDeployment(this, "AdminFeAssets", {
