@@ -57,9 +57,11 @@ async function gql<T>(
 
 // ── Components ──────────────────────────────────────────
 
-interface HealthData {
-  proctor: { status: string };
-  videographer: { status: string };
+interface ServiceStatus {
+  status: string;
+  runningCount: number | null;
+  desiredCount: number | null;
+  lastEvent: string | null;
 }
 
 function StatusDot({ ok }: { ok: boolean }) {
@@ -77,22 +79,33 @@ function StatusDot({ ok }: { ok: boolean }) {
   );
 }
 
+const btnStyle = (bg: string, disabled: boolean): React.CSSProperties => ({
+  padding: "8px 20px",
+  fontSize: 14,
+  cursor: disabled ? "wait" : "pointer",
+  background: bg,
+  color: "white",
+  border: "none",
+  borderRadius: 6,
+});
+
 function Dashboard({ token }: { token: string }) {
-  const [health, setHealth] = useState<HealthData | null>(null);
+  const [service, setService] = useState<ServiceStatus | null>(null);
   const [live, setLive] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [serviceLoading, setServiceLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
-      const [h, l] = await Promise.all([
-        gql<{ health: HealthData }>(
+      const [s, l] = await Promise.all([
+        gql<{ serviceStatus: ServiceStatus }>(
           token,
-          "{ health { proctor { status } videographer { status } } }",
+          "{ serviceStatus { status runningCount desiredCount lastEvent } }",
         ),
         gql<{ live: boolean }>(token, "{ live }"),
       ]);
-      setHealth(h.health);
+      setService(s.serviceStatus);
       setLive(l.live);
     } catch (err) {
       console.error("Failed to fetch status:", err);
@@ -120,6 +133,19 @@ function Dashboard({ token }: { token: string }) {
     setToggling(false);
   };
 
+  const setServiceState = async (start: boolean) => {
+    const mutation = start ? "startService" : "stopService";
+    if (!start && !confirm("Stop the Fargate service?")) return;
+    setServiceLoading(true);
+    try {
+      await gql<Record<string, boolean>>(token, `mutation { ${mutation} }`);
+      await refresh();
+    } catch (err) {
+      console.error(`Failed to ${mutation}:`, err);
+    }
+    setServiceLoading(false);
+  };
+
   const resetDb = async () => {
     if (!confirm("Reset the database? This will delete all game data.")) return;
     setResetting(true);
@@ -134,21 +160,32 @@ function Dashboard({ token }: { token: string }) {
     setResetting(false);
   };
 
+  const running = (service?.runningCount ?? 0) > 0;
+
   return (
     <div style={{ fontFamily: "system-ui", padding: 32, maxWidth: 480 }}>
       <h1 style={{ fontSize: 24, marginBottom: 24 }}>Arena Admin</h1>
 
-      <h2 style={{ fontSize: 16, marginBottom: 12 }}>Health</h2>
-      {health ? (
+      <h2 style={{ fontSize: 16, marginBottom: 12 }}>Service</h2>
+      {service ? (
         <div style={{ marginBottom: 24 }}>
-          <div>
-            <StatusDot ok={health.proctor.status === "ok"} />
-            Proctor: {health.proctor.status}
+          <div style={{ marginBottom: 8 }}>
+            <StatusDot ok={running} />
+            {service.status} — {service.runningCount ?? 0}/
+            {service.desiredCount ?? 0} tasks
           </div>
-          <div>
-            <StatusDot ok={health.videographer.status !== "unreachable"} />
-            Videographer: {health.videographer.status}
-          </div>
+          <button
+            type="button"
+            onClick={() => setServiceState(!running)}
+            disabled={serviceLoading}
+            style={btnStyle(running ? "#ef4444" : "#22c55e", serviceLoading)}
+          >
+            {serviceLoading
+              ? "Updating..."
+              : running
+                ? "Stop Service"
+                : "Start Service"}
+          </button>
         </div>
       ) : (
         <p>Loading...</p>
@@ -160,17 +197,10 @@ function Dashboard({ token }: { token: string }) {
           Status: <strong>{live ? "LIVE" : "STOPPED"}</strong>
         </span>
         <button
+          type="button"
           onClick={toggle}
           disabled={toggling}
-          style={{
-            padding: "8px 20px",
-            fontSize: 14,
-            cursor: toggling ? "wait" : "pointer",
-            background: live ? "#ef4444" : "#22c55e",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-          }}
+          style={btnStyle(live ? "#ef4444" : "#22c55e", toggling)}
         >
           {live ? "Stop" : "Start"}
         </button>
@@ -184,15 +214,7 @@ function Dashboard({ token }: { token: string }) {
           type="button"
           onClick={resetDb}
           disabled={resetting}
-          style={{
-            padding: "8px 20px",
-            fontSize: 14,
-            cursor: resetting ? "wait" : "pointer",
-            background: "#ef4444",
-            color: "white",
-            border: "none",
-            borderRadius: 6,
-          }}
+          style={btnStyle("#ef4444", resetting)}
         >
           {resetting ? "Resetting..." : "Reset Database"}
         </button>
