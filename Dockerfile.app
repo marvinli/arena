@@ -20,11 +20,18 @@ WORKDIR /workspace
 COPY packages/front-end/ packages/front-end/
 COPY tsconfig.json ./
 
-# Vite reads env from envDir (repo root) — write .env for Vite to pick up
+# Vite build-time env — passed as Docker build args from CDK (sourced from
+# AWS Secrets Manager, never from a local .env file).
 ARG INWORLD_API_KEY=""
 ARG VITE_CHANNEL_KEY="poker-stream-1"
-RUN echo "INWORLD_API_KEY=$INWORLD_API_KEY" > .env \
-    && echo "VITE_CHANNEL_KEY=$VITE_CHANNEL_KEY" >> .env
+
+# Fail fast if the key is missing (CDK also validates via requireSecret)
+RUN test -n "$INWORLD_API_KEY" \
+    || { echo "ERROR: INWORLD_API_KEY build arg is empty"; exit 1; }
+
+# Expose as env vars so Vite picks them up via envPrefix during build
+ENV INWORLD_API_KEY=$INWORLD_API_KEY
+ENV VITE_CHANNEL_KEY=$VITE_CHANNEL_KEY
 
 RUN npm run build -w @arena/front-end
 
