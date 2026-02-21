@@ -14,6 +14,11 @@ let ecsServiceResponse: {
   desiredCount: number;
   events: { message: string }[];
 } | null = null;
+let ecsTaskContainers: {
+  name: string;
+  lastStatus: string;
+  healthStatus?: string;
+}[] = [];
 let scanItemsByTable: Record<string, Record<string, unknown>[]> = {};
 let batchDeleteCalls: { table: string; keys: Record<string, unknown>[] }[] = [];
 
@@ -107,6 +112,18 @@ vi.mock("@aws-sdk/client-ecs", () => {
       this.input = input;
     }
   }
+  class ListTasksCommand {
+    input: Record<string, unknown>;
+    constructor(input: Record<string, unknown>) {
+      this.input = input;
+    }
+  }
+  class DescribeTasksCommand {
+    input: Record<string, unknown>;
+    constructor(input: Record<string, unknown>) {
+      this.input = input;
+    }
+  }
 
   const send = vi.fn(async (cmd: unknown) => {
     if (cmd instanceof DescribeServicesCommand) {
@@ -121,6 +138,16 @@ vi.mock("@aws-sdk/client-ecs", () => {
       });
       return {};
     }
+    if (cmd instanceof ListTasksCommand) {
+      return {
+        taskArns: ecsTaskContainers.length > 0 ? ["arn:aws:ecs:us-east-1:123:task/test/abc"] : [],
+      };
+    }
+    if (cmd instanceof DescribeTasksCommand) {
+      return {
+        tasks: [{ containers: ecsTaskContainers }],
+      };
+    }
     return {};
   });
 
@@ -130,6 +157,8 @@ vi.mock("@aws-sdk/client-ecs", () => {
     },
     DescribeServicesCommand,
     UpdateServiceCommand,
+    ListTasksCommand,
+    DescribeTasksCommand,
   };
 });
 
@@ -226,6 +255,7 @@ beforeEach(() => {
   settingsStore.clear();
   ecsUpdateCalls = [];
   ecsServiceResponse = null;
+  ecsTaskContainers = [];
   scanItemsByTable = {};
   batchDeleteCalls = [];
   process.env.SKIP_AUTH = "true";
@@ -295,15 +325,43 @@ describe("serviceStatus query", () => {
       desiredCount: 1,
       events: [{ message: "service reached a steady state." }],
     };
+    ecsTaskContainers = [
+      { name: "arena-app", lastStatus: "RUNNING", healthStatus: "HEALTHY" },
+      { name: "videographer", lastStatus: "RUNNING", healthStatus: "HEALTHY" },
+    ];
     const res = await gql(
-      "{ serviceStatus { status runningCount desiredCount lastEvent } }",
+      "{ serviceStatus { status runningCount desiredCount lastEvent containers { name lastStatus healthStatus } } }",
     );
     expect(res.data!.serviceStatus).toEqual({
       status: "ACTIVE",
       runningCount: 1,
       desiredCount: 1,
       lastEvent: "service reached a steady state.",
+      containers: [
+        { name: "arena-app", lastStatus: "RUNNING", healthStatus: "HEALTHY" },
+        {
+          name: "videographer",
+          lastStatus: "RUNNING",
+          healthStatus: "HEALTHY",
+        },
+      ],
     });
+  });
+
+  it("returns empty containers when service is stopped", async () => {
+    ecsServiceResponse = {
+      status: "ACTIVE",
+      runningCount: 0,
+      desiredCount: 0,
+      events: [{ message: "service reached a steady state." }],
+    };
+    const res = await gql(
+      "{ serviceStatus { status runningCount containers { name } } }",
+    );
+    const status = res.data!.serviceStatus as {
+      containers: unknown[];
+    };
+    expect(status.containers).toEqual([]);
   });
 
   it("returns not-found when ECS returns no services", async () => {
