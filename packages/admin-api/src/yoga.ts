@@ -239,10 +239,18 @@ export const yoga = createYoga<any>({
   schema,
   plugins: [
     {
-      onRequest({ request, fetchAPI }) {
+      async onRequest({ request, fetchAPI }) {
         if (process.env.SKIP_AUTH === "true") return;
         const header = request.headers.get("authorization");
         if (!header?.startsWith("Bearer ")) {
+          return fetchAPI.Response.json(
+            { errors: [{ message: "Unauthorized" }] },
+            { status: 401 },
+          );
+        }
+        try {
+          await verifyToken(header.slice(7));
+        } catch {
           return fetchAPI.Response.json(
             { errors: [{ message: "Unauthorized" }] },
             { status: 401 },
@@ -255,6 +263,7 @@ export const yoga = createYoga<any>({
     if (process.env.SKIP_AUTH === "true") {
       return { user: { sub: "local", email: "local@dev" } };
     }
+    // Token already verified by onRequest plugin
     const token = request.headers.get("authorization")?.slice(7) ?? "";
     const user = await verifyToken(token);
     return { user };
