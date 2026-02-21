@@ -260,7 +260,7 @@ Emitted when a player has analysis (audience-facing commentary). Only emitted if
 | `analysis` | `String!` | Audience-facing commentary |
 | `isApiError` | `Boolean!` | Whether the analysis was generated due to an API error (e.g., agent LLM call failed) |
 
-**Render:** Display the analysis text (e.g., in a speech bubble). Convert to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via OpenAI TTS. The render queue gates the next instruction until TTS playback completes. If `isApiError` is true, display an error indicator.
+**Render:** Display the analysis text (e.g., in a speech bubble). Convert to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via Inworld TTS. The render queue gates the next instruction until TTS playback completes. If `isApiError` is true, display an error indicator.
 
 ### PLAYER_ACTION
 
@@ -348,7 +348,7 @@ Per-player metadata, included in `GAME_START`. Store these for the duration of t
 ```typescript
 {
   id: string            // Player ID
-  ttsVoice: string      // OpenAI TTS voice name (nullable)
+  ttsVoice: string      // Inworld TTS voice ID (nullable)
   avatarUrl: string     // Avatar key or image URL (nullable)
   persona: string       // Poker persona key, e.g., "shark", "fish" (nullable)
 }
@@ -489,29 +489,32 @@ interface UIPlayer {
 
 ## TTS Integration
 
-When a `PLAYER_ANALYSIS` instruction arrives, convert the analysis text to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via OpenAI TTS. The implementation streams raw PCM audio and pipes it directly to Web Audio API for low-latency playback.
+When a `PLAYER_ANALYSIS` instruction arrives, convert the analysis text to speech using the player's `ttsVoice` (from `GAME_START` `playerMeta`) via Inworld TTS. The implementation streams newline-delimited JSON responses containing base64 LINEAR16 PCM audio and pipes it directly to Web Audio API for low-latency playback.
 
 ```typescript
-async function speakOpenAI(text: string, voice: string): Promise<void> {
-  const res = await fetch("https://api.openai.com/v1/audio/speech", {
+async function speakInworld(text: string, voice: string): Promise<void> {
+  const res = await fetch("https://api.inworld.ai/tts/v1/voice:stream", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Basic ${INWORLD_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
-      voice,
-      input: text,
-      response_format: "pcm",
+      text,
+      voice_id: voice,
+      model_id: "inworld-tts-1.5-mini",
+      audio_config: {
+        audio_encoding: "LINEAR16",
+        sample_rate_hertz: 48000,
+      },
     }),
   });
 
   if (!res.ok || !res.body) return;
 
-  const ctx = new AudioContext({ sampleRate: 24000 });
+  const ctx = new AudioContext({ sampleRate: 48000 });
   const reader = res.body.getReader();
-  // Stream PCM chunks → Float32 → AudioBufferSource → scheduled playback
+  // Parse newline-delimited JSON, decode base64 → PCM chunks → Float32 → scheduled playback
   // See src/tts.ts for full implementation
 }
 ```

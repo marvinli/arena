@@ -19,9 +19,9 @@ Design docs live in `docs/`:
 - `proctor-api` — orchestrator + game engines (GraphQL, port 4001). Business logic under `src/services/` (session management at `services/session/`, poker at `services/games/poker/`)
 - `front-end` — React renderer (TTS, animations, no game logic)
 - `videographer` — headless browser capture → Twitch RTMP (Puppeteer + ffmpeg)
-- `admin-api` — admin GraphQL API (health monitoring, start/stop control, Cognito JWT auth)
+- `admin-api` — admin GraphQL API (Lambda, direct DynamoDB/ECS access, Cognito JWT auth)
 - `admin-fe` — admin dashboard SPA (Vite React, Cognito login)
-- `deploy` — AWS CDK infrastructure (DatabaseStack for DynamoDB tables + ArenaStack for VPC, ECS Fargate, ALB, CloudFront, Cognito)
+- `deploy` — AWS CDK infrastructure (DatabaseStack for DynamoDB tables + ArenaStack for VPC, ECS Fargate, Lambda, S3, CloudFront, Cognito)
 
 ## Monorepo Setup
 
@@ -42,7 +42,7 @@ Key variables:
 - `CHANNEL_KEY` / `VITE_CHANNEL_KEY` — isolates game data and the live flag in DynamoDB. Use `local-dev` locally, `poker-stream-1` in production. The live flag is stored as `live:${channelKey}` in the settings table, so different channels never interfere.
 - `TABLE_PREFIX` — DynamoDB table name prefix (default `arena-`)
 
-When adding a new env var, update: root `.env.example`, and if it's needed in production, also `Dockerfile.app` / `Dockerfile.admin` (build args for Vite vars, runtime env for Node vars) and `deploy/lib/arena-stack.ts` (ECS container environment/secrets).
+When adding a new env var, update: root `.env.example`, and if it's needed in production, also `Dockerfile.app` (build args for Vite vars, runtime env for Node vars) and `deploy/lib/arena-stack.ts` (ECS container environment/secrets, or Lambda environment for admin-api).
 
 ## Common Commands
 
@@ -164,7 +164,7 @@ src/
     useCommunityDealAnimation.ts
   graphql/               # GraphQL client + operations + generated types
   styles/                # Global CSS
-  tts.ts                 # OpenAI streaming TTS (gpt-4o-mini-tts, PCM via Web Audio API)
+  tts.ts                 # Inworld streaming TTS (inworld-tts-1.5-mini, NDJSON + base64 LINEAR16 via Web Audio API)
   chips.ts               # Chip formatting utilities
   types.ts               # Core app types (Card, Player, GameState, etc.)
 ```
@@ -185,4 +185,4 @@ The reducer sets `currentView` based on instruction type (e.g. `LEADERBOARD` →
 
 ### TTS
 
-Uses OpenAI streaming TTS (`gpt-4o-mini-tts`) with raw PCM output piped directly to Web Audio API for low-latency playback. Voice IDs are stored per-player from `GAME_START` `playerMeta`.
+Uses Inworld streaming TTS (`inworld-tts-1.5-mini`) with NDJSON streaming of base64 LINEAR16 audio at 48 kHz, decoded and played via Web Audio API. Voice IDs are stored per-player from `GAME_START` `playerMeta`.

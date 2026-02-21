@@ -88,12 +88,12 @@ src/components/
 │   └── PokerLeaderboardPage.module.css
 │
 └── shared/
-    └── ProviderIcon.tsx                   # AI provider brand icons (used by PlayerSeat + SidePanel)
+    └── ProviderIcon.tsx                   # CharacterAvatar component — character images (used by PlayerSeat + SidePanel)
 ```
 
 ### Key Decisions
 
-- **ProviderIcon** lives under `shared/` because it's used across pages (PlayerSeat, SidePanel, and potentially the leaderboard).
+- **CharacterAvatar** (in `shared/ProviderIcon.tsx`) is used across pages (PlayerSeat, SidePanel, and potentially the leaderboard).
 - **CommunityArea** and **BetIndicator** don't have their own CSS modules — they import from `PokerTable.module.css` (their styles are tightly coupled to the table layout). This avoids unnecessary file proliferation.
 - **layout.ts** stays under `PokerTable/` as pure data.
 

@@ -5,17 +5,15 @@ Control plane for the Arena stream. Provides health monitoring and start/stop co
 ## Architecture
 
 ```
-Internet → CloudFront (HTTPS) → ALB (:80) → admin container (Nginx:8080)
-                                                ├── /            → admin-fe static (public, no auth to load)
-                                                └── /graphql     → admin-api (graphql-yoga:3000, Cognito JWT)
+Internet → CloudFront (HTTPS) ──┬── /           → S3 (admin-fe static build)
+                                └── /graphql    → Lambda Function URL (admin-api, Cognito JWT)
 
-Same ECS task (localhost):
+Separate ECS Fargate task (managed by admin-api via ECS API):
   arena-app    → Nginx:80 + proctor-api:4001
   videographer → streaming + health:3001
-  admin        → Nginx:8080 + admin-api:3000
 ```
 
-All three containers share the same Fargate task network namespace and communicate over localhost.
+The admin-api runs as a Lambda function (not in the ECS task). It talks directly to DynamoDB for game data and to the ECS API to start/stop the arena service. The admin-fe is a static S3 website served by CloudFront.
 
 ## Auth Flow
 
@@ -27,34 +25,27 @@ All three containers share the same Fargate task network namespace and communica
 
 No auth is required to load the SPA itself — only API calls are protected.
 
-## Internal Endpoints
+## AWS Resources
 
-### proctor-api (port 4001)
+The admin-api Lambda interacts with these AWS services directly:
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | `{ status: "ok", session: { channelKey, status, handNumber } \| null }` |
-| `query { live(channelKey: String!) }` | Returns `Boolean!` — current live flag value |
-| `mutation { setLive(channelKey: String!, live: Boolean!) }` | Persists to DynamoDB settings table, returns new value |
-
-### videographer (port 3001)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | `{ status: "streaming" \| "idle" \| "starting" \| "error" }` |
-
-These are internal-only REST endpoints. They are not exposed to the internet.
+- **DynamoDB** — reads/writes the `settings` table (live flag), scans/deletes game data tables (`modules`, `instructions`, `channel-state`, `agent-messages`)
+- **ECS** — `DescribeServices` for service status, `UpdateService` to start (desiredCount=1) or stop (desiredCount=0) the arena Fargate service
 
 ## Admin API (`packages/admin-api/`)
 
-graphql-yoga server with Cognito JWT auth. Proxies all operations to proctor-api and videographer internal endpoints. Exposed via CloudFront → ALB at `/graphql`. All operations require a valid Cognito JWT (unless `SKIP_AUTH=true`).
+graphql-yoga server with Cognito JWT auth. Talks directly to DynamoDB and ECS. Deployed as a Lambda function behind a Lambda Function URL, exposed via CloudFront at `/graphql`. All operations require a valid Cognito JWT (unless `SKIP_AUTH=true`).
 
 ### Source Structure
 
 ```
 src/
-  index.ts    # Schema, resolvers, yoga server with JWT context
+  yoga.ts     # Schema, resolvers, yoga server with JWT context (shared)
+  index.ts    # Standalone HTTP server for local dev
+  lambda.ts   # Lambda handler for production (wraps yoga)
   auth.ts     # Cognito JWT verification via jose (JWKS, issuer, audience)
+test/
+  admin-api.test.ts  # Vitest tests with mocked AWS SDK (DynamoDB, ECS, auth)
 ```
 
 ### Auth Implementation
@@ -64,36 +55,38 @@ Uses `jose` to verify JWTs against Cognito's JWKS endpoint. The `verifyToken` fu
 ### Schema
 
 ```graphql
-type ServiceHealth {
+type ServiceStatus {
   status: String!
-}
-
-type Health {
-  proctor: ServiceHealth!
-  videographer: ServiceHealth!
+  runningCount: Int
+  desiredCount: Int
+  lastEvent: String
 }
 
 type Query {
-  health: Health!
   live: Boolean!
+  serviceStatus: ServiceStatus!
 }
 
 type Mutation {
   setLive(live: Boolean!): Boolean!
   resetDatabase: Boolean!
+  startService: Boolean!
+  stopService: Boolean!
 }
 ```
 
 ### Resolvers
 
-- `health` — fetches `GET localhost:4001/health` and `GET localhost:3001/health`, returns aggregate
-- `live` — queries `localhost:4001/graphql` for `{ live(channelKey) }` using `CHANNEL_KEY` from env, returns the boolean
-- `setLive(live)` — calls `mutation { setLive(channelKey, live) }` on `localhost:4001/graphql` using `CHANNEL_KEY` from env, returns new value
-- `resetDatabase` — calls `mutation { resetDatabase(channelKey) }` on `localhost:4001/graphql` using `CHANNEL_KEY` from env
+- `live` — reads `live:${CHANNEL_KEY}` from the DynamoDB settings table
+- `serviceStatus` — calls `DescribeServices` on ECS to get the arena Fargate service status (running count, desired count, last event)
+- `setLive(live)` — writes `live:${CHANNEL_KEY}` to the DynamoDB settings table
+- `resetDatabase` — scans and batch-deletes all items from the modules, instructions, channel-state, and agent-messages DynamoDB tables
+- `startService` — calls `UpdateService` on ECS with `desiredCount: 1`
+- `stopService` — calls `UpdateService` on ECS with `desiredCount: 0`
 
 ## Live Flag Behavior
 
-The `live` flag is persisted in proctor-api's DynamoDB `settings` table (as `live:${channelKey}`). Defaults to `false` on first boot.
+The `live` flag is persisted in the DynamoDB `settings` table (as `live:${channelKey}`), written directly by the admin-api Lambda. Defaults to `false` on first boot.
 
 ### When `live` is set to `false` (stop)
 
@@ -125,11 +118,11 @@ src/
 
 ### Auth Bypass
 
-When no Cognito domain is configured (`VITE_COGNITO_DOMAIN` not set at build time and `COGNITO_DOMAIN` not injected at runtime), the login page is skipped and the Dashboard renders immediately without a token. This is the default behavior in local dev and Docker without Cognito setup. The admin-api must also have `SKIP_AUTH=true` for unauthenticated requests to succeed.
+When no Cognito domain is configured (`VITE_COGNITO_DOMAIN` not set at build time and `cognitoDomain` not present in `window.__ARENA_CONFIG__`), the login page is skipped and the Dashboard renders immediately without a token. This is the default behavior in local dev. The admin-api must also have `SKIP_AUTH=true` for unauthenticated requests to succeed.
 
 ### Runtime Config Injection
 
-Cognito settings can be provided two ways: baked in at build time via `VITE_*` env vars, or injected at runtime via `window.__ARENA_CONFIG__` (written by `entrypoint-admin.sh` from environment variables). Runtime values take precedence.
+Cognito settings can be provided two ways: baked in at build time via `VITE_*` env vars, or injected at runtime via `window.__ARENA_CONFIG__`. In production, CDK deploys a `config.js` file to the S3 bucket containing the resolved Cognito domain and client ID. The SPA loads this script, and runtime values take precedence over build-time env vars.
 
 ### Dev Server
 
@@ -151,13 +144,13 @@ Open `http://localhost:5174`. With no `VITE_COGNITO_DOMAIN` set, the login page 
 
 | Variable | Description |
 |----------|-------------|
-| `PORT` | Server port (default: 3000) |
-| `PROCTOR_URL` | proctor-api base URL (default: `http://localhost:4001`) |
-| `VIDEOGRAPHER_URL` | videographer base URL (default: `http://localhost:3001`) |
-| `CHANNEL_KEY` | Channel key for proctor-api queries (default: `poker-stream-1`) |
+| `PORT` | Server port for local dev (default: 3000) |
+| `CHANNEL_KEY` | Channel key for scoping live flag and data (default: `poker-stream-1`) |
+| `TABLE_PREFIX` | DynamoDB table name prefix (default: `arena-`) |
+| `ECS_CLUSTER_NAME` | ECS cluster name for service management |
+| `ECS_SERVICE_NAME` | ECS service name for start/stop control |
 | `COGNITO_USER_POOL_ID` | Cognito User Pool ID for JWT verification |
 | `COGNITO_CLIENT_ID` | Cognito App Client ID |
-| `COGNITO_DOMAIN` | Cognito Hosted UI domain (injected into admin-fe at runtime via entrypoint) |
 | `AWS_REGION` | AWS region (default: us-east-1) |
 | `SKIP_AUTH` | Set to `"true"` to bypass JWT verification (local dev only) |
 

@@ -22,11 +22,11 @@ npm workspaces monorepo — TypeScript, ESM, strict mode throughout.
 | Package | What it does |
 |---|---|
 | `proctor-api` | Game orchestrator + poker engine. GraphQL API with SSE subscriptions. DynamoDB for persistence. |
-| `front-end` | Pure renderer — subscribes to SSE instructions, animates the table, plays TTS via OpenAI. No game logic. |
+| `front-end` | Pure renderer — subscribes to SSE instructions, animates the table, plays TTS via Inworld. No game logic. |
 | `videographer` | Puppeteer captures the front-end, pipes through ffmpeg to Twitch RTMP (or local file). |
-| `admin-api` | Admin control plane. GraphQL API (graphql-yoga) that proxies to proctor-api and videographer. Cognito JWT auth. |
+| `admin-api` | Admin control plane. GraphQL API (graphql-yoga, Lambda) with direct DynamoDB/ECS access. Cognito JWT auth. |
 | `admin-fe` | Admin dashboard. React SPA — Cognito login, health indicators, start/stop toggle. |
-| `deploy` | AWS CDK infrastructure (DynamoDB, ECS Fargate, ALB, CloudFront, Cognito). |
+| `deploy` | AWS CDK infrastructure (DynamoDB, ECS Fargate, Lambda, S3, CloudFront, Cognito). |
 
 ## Commands
 
@@ -45,11 +45,12 @@ npm run check:fix                # biome auto-fix
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` at the repo root. You need at least one LLM provider key, plus an OpenAI key for TTS:
+Copy `.env.example` to `.env` at the repo root. You need at least one LLM provider key, plus an Inworld key for TTS:
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `OPENAI_API_KEY` | Yes | TTS + GPT agents |
+| `INWORLD_API_KEY` | Yes | TTS (Inworld) |
+| `OPENAI_API_KEY` | For GPT agents | GPT agents |
 | `ANTHROPIC_API_KEY` | For Claude agents | Claude agents |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | For Gemini agents | Gemini agents |
 | `XAI_API_KEY` | For Grok agents | Grok agents |
@@ -83,7 +84,6 @@ npm run docker:down            # stop and remove containers
 | Container | Port | What it runs |
 |---|---|---|
 | `app` | [localhost:8080](http://localhost:8080) | Nginx + proctor-api + front-end |
-| `admin` | [localhost:8081](http://localhost:8081) | Nginx + admin-api + admin dashboard |
 | `videographer` | — | Headless Chrome + ffmpeg (captures app, streams to RTMP) |
 
-Secrets are read from the root `.env` file. See [docs/ADMIN.md](docs/ADMIN.md) for admin service details and auth configuration.
+Secrets are read from the root `.env` file. The admin service runs as Lambda + S3/CloudFront in production (not Docker). See [docs/ADMIN.md](docs/ADMIN.md) for admin service details and auth configuration.

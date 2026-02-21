@@ -22,6 +22,7 @@ All env vars are read from the root `.env` file. Required variables:
 
 | Variable | Description |
 |---|---|
+| `CHANNEL_KEY` | Channel key for live flag polling (must match the proctor's channel key). |
 | `TWITCH_RTMP_URL` | Twitch RTMP ingest URL (e.g. `rtmp://live.twitch.tv/app/KEY`). |
 | `YOUTUBE_RTMP_URL` | YouTube RTMP ingest URL (e.g. `rtmp://a.rtmp.youtube.com/live2/KEY`). |
 | `OUTPUT_FILE` | Local file path for recording (e.g. `recording.mp4`). Used when no RTMP URLs are set. |

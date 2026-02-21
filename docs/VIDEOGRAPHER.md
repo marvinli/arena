@@ -67,7 +67,7 @@ All configuration via environment variables:
 | `CAPTURE_FPS` | `30` | Target framerate |
 | `CHROME_PATH` | auto-detect | Custom Chrome/Chromium path |
 | `HEALTH_PORT` | `3001` | Port for the `/health` endpoint |
-| `CHANNEL_KEY` | `local-dev` | Channel key for live flag polling |
+| `CHANNEL_KEY` | **(required)** | Channel key for live flag polling |
 | `PROCTOR_URL` | `http://localhost:4001` | proctor-api URL (polled for `{ live }` flag) |
 
 At least one of `TWITCH_RTMP_URL`, `YOUTUBE_RTMP_URL`, or `OUTPUT_FILE` must be set. When multiple RTMP URLs are set, ffmpeg uses the `tee` muxer to simulcast to all destinations with a single encode pass (`onfail=ignore` so one failing doesn't kill the others). RTMP URLs take precedence over `OUTPUT_FILE`.
@@ -119,7 +119,7 @@ ffmpeg is a system dependency, not an npm package.
 
 - No game logic. Doesn't know what poker is.
 - No rendering. Doesn't draw cards or chips.
-- No TTS. The front-end handles TTS via OpenAI — the videographer just captures the audio output.
+- No TTS. The front-end handles TTS via Inworld — the videographer just captures the audio output.
 - No instruction processing. Doesn't call `completeInstruction`.
 - No stream management. Doesn't create Twitch channels or manage stream keys.
 

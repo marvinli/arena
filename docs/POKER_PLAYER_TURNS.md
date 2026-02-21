@@ -35,7 +35,7 @@ interface AgentConfig {
   persona: string;
   bio: string;
   avatarUrl?: string;
-  ttsVoices?: { openai?: string; inworld?: string };
+  ttsVoice?: string;
   temperature?: number;
 }
 
@@ -415,7 +415,7 @@ For each player turn, the proctor emits three instructions:
 2. **PLAYER_ANALYSIS** (optional) — front-end renders analysis text, plays TTS with the player's voice
 3. **PLAYER_ACTION** — front-end shows the action animation (chips moving, cards folding, etc.)
 
-Each character's `ttsVoices` config maps to voice names for different TTS providers (OpenAI, Inworld). Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice names are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
+Each character's `ttsVoices` config maps to voice names for different TTS providers (Inworld). Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice names are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
 
 ## Error Handling
 

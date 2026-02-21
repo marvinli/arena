@@ -31,5 +31,5 @@ Vite env vars are read from the root `.env` file. Only `VITE_`-prefixed vars are
 - The entire app lives in a single `App.tsx` file -- no routing, no state management libraries.
 - In dev mode, `/graphql` requests are proxied to `http://localhost:3000` (the admin-api) via Vite's dev server proxy.
 - When `VITE_COGNITO_DOMAIN` is not set, auth is skipped entirely for local development.
-- In production (Dockerfile.admin), the admin-fe static build is served by a lightweight HTTP server alongside the admin-api, with Cognito config injected at runtime via `window.__ARENA_CONFIG__`.
+- In production, the admin-fe static build is deployed to S3 and served via CloudFront. Cognito config is injected at runtime via a `config.js` file (sets `window.__ARENA_CONFIG__`) deployed as a separate S3 object by CDK.
 - Uses the Cognito implicit grant flow: the ID token is extracted from the URL hash fragment after redirect.

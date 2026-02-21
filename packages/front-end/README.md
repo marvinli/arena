@@ -12,7 +12,7 @@ npm run codegen:front-end  # Regenerate GraphQL types from proctor-api schema
 npx tsc --noEmit -p packages/front-end  # Type check
 ```
 
-Env vars are read from the root `.env` file (`envDir: "../../"` in vite.config.ts). Only `VITE_`-prefixed vars plus `OPENAI_`, `INWORLD_`, and `TTS_` prefixes are exposed to client code. Set `VITE_DISABLE_TTS=true` to silence TTS during development.
+Env vars are read from the root `.env` file (`envDir: "../../"` in vite.config.ts). Only `VITE_`-prefixed and `INWORLD_`-prefixed vars are exposed to client code. Set `VITE_DISABLE_TTS=true` to silence TTS during development.
 
 ## Architecture
 
@@ -40,7 +40,7 @@ A single `useReducer` holds all game state (`GameState` in `types.ts`). The redu
 
 ### TTS
 
-Streaming TTS via OpenAI (`gpt-4o-mini-tts`) or InWorld, with raw PCM piped to Web Audio API for low-latency playback. Voice IDs are stored per-player from GAME_START metadata. TTS is coordinated with the render queue so speech completes before the next instruction.
+Streaming TTS via Inworld (`inworld-tts-1.5-mini`), with raw PCM piped to Web Audio API for low-latency playback. Voice IDs are stored per-player from GAME_START metadata. TTS is coordinated with the render queue so speech completes before the next instruction.
 
 ### SSE and Reconnection
 

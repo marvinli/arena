@@ -108,7 +108,7 @@ Each agent is configured server-side in `game-config.ts`, which imports characte
 - **Persona** — poker archetype (shark, fish, maniac, rock, grinder, etc.) that shapes strategy and commentary style
 - **Temperature** — optional creativity setting
 - **Avatar URL** — front-end display key
-- **TTS Voices** — per-provider voice names (OpenAI, Inworld) for spoken analysis
+- **TTS Voices** — per-provider voice names (Inworld) for spoken analysis
 
 On their turn:
 
@@ -145,14 +145,14 @@ Flow:
 3. Calls `startModule(channelKey)` mutation — starts the game loop (idempotent, no-op if already running)
 4. Receives render instructions on subscription — queues them in a render queue
 5. Renders each instruction at its own pace — card animation, chip movement, player action display, etc.
-6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via OpenAI TTS (`gpt-4o-mini-tts` with streaming PCM)
+6. For `PLAYER_ANALYSIS`, renders the analysis text and converts to speech via Inworld TTS (`inworld-tts-1.5-mini` with streaming NDJSON)
 7. Calls `completeInstruction` after each (persists ack; gates on `GAME_START`/`GAME_OVER` to synchronize with the proctor)
 
 The front-end doesn't track turns or game state. It just renders instructions. It can join mid-game via the snapshot from `connect`.
 
 Responsibilities:
 - Render whatever it's told — cards, chips, player actions, leaderboards, transitions
-- For `PLAYER_ANALYSIS`, render analysis text and convert to speech via OpenAI TTS
+- For `PLAYER_ANALYSIS`, render analysis text and convert to speech via Inworld TTS
 - Control pacing via `completeInstruction` — proctor gates on ACKs for `GAME_START` and `GAME_OVER`
 - Handle scene transitions (game → leaderboard → next game) based on instruction type
 
@@ -281,8 +281,9 @@ Eliminates ~270 lines of HTTP client boilerplate per game. Game engines are call
 **Why agents in-process instead of separate processes?**
 Agents run inside the proctor-api process via the `ai` SDK (Vercel AI SDK). The agent runner holds per-agent conversation state in a Map and calls LLM APIs directly. This avoids IPC complexity and makes the system easy to run locally. Each agent uses a different model/provider, but they all run through the same agent runner. Failures are caught and handled (auto-check/fold) without affecting other agents.
 
-## AWS Deployment (Later)
+## AWS Deployment
 
-- **proctor-api** → ECS Fargate (persistent connections for GraphQL subscriptions)
-- **front-end** → S3 + CloudFront
-- **videographer** → ECS task with headless browser + ffmpeg
+- **proctor-api + front-end** → ECS Fargate (single task, Nginx + Node — persistent connections for GraphQL subscriptions)
+- **videographer** → ECS Fargate sidecar container (headless Chrome + ffmpeg)
+- **admin-api** → Lambda (graphql-yoga behind Function URL, CloudFront routes `/graphql`)
+- **admin-fe** → S3 + CloudFront (with runtime `config.js` injection for Cognito settings)
