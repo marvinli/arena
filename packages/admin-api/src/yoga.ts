@@ -237,15 +237,25 @@ async function describeService(): Promise<{
 // biome-ignore lint/suspicious/noExplicitAny: yoga context typing requires any
 export const yoga = createYoga<any>({
   schema,
+  plugins: [
+    {
+      onRequest({ request, fetchAPI }) {
+        if (process.env.SKIP_AUTH === "true") return;
+        const header = request.headers.get("authorization");
+        if (!header?.startsWith("Bearer ")) {
+          return fetchAPI.Response.json(
+            { errors: [{ message: "Unauthorized" }] },
+            { status: 401 },
+          );
+        }
+      },
+    },
+  ],
   context: async ({ request }: { request: Request }) => {
     if (process.env.SKIP_AUTH === "true") {
       return { user: { sub: "local", email: "local@dev" } };
     }
-    const header = request.headers.get("authorization");
-    if (!header?.startsWith("Bearer ")) {
-      throw new Error("Unauthorized");
-    }
-    const token = header.slice(7);
+    const token = request.headers.get("authorization")?.slice(7) ?? "";
     const user = await verifyToken(token);
     return { user };
   },
