@@ -10,7 +10,7 @@ export interface AgentConfig {
   persona: string;
   bio: string;
   avatarUrl?: string;
-  ttsVoices?: { openai?: string; inworld?: string };
+  ttsVoice?: string;
   temperature?: number;
 }
 
@@ -48,7 +48,7 @@ function randomPlayers(count: number): AgentConfig[] {
       bio: c.bio,
       voiceDirective: c.voiceDirective,
       avatarUrl: name,
-      ttsVoices: c.ttsVoices,
+      ttsVoice: c.ttsVoice,
     };
   });
 }

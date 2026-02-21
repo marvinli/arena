@@ -38,8 +38,12 @@ const mockPots: GameState["pots"] = [
 ];
 
 const mockAgentConfigs = [
-  { playerId: "p1", ttsVoices: { openai: "voice-1" }, avatarUrl: null },
-  { playerId: "p2", ttsVoices: undefined, avatarUrl: "https://example.com/bob.png" },
+  { playerId: "p1", ttsVoice: "Dennis", avatarUrl: null },
+  {
+    playerId: "p2",
+    ttsVoice: undefined,
+    avatarUrl: "https://example.com/bob.png",
+  },
 ];
 
 const mockCommunityCards: GameState["communityCards"] = [

@@ -4,7 +4,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   envDir: "../../",
-  envPrefix: ["VITE_", "OPENAI_", "INWORLD_", "TTS_"],
+  envPrefix: ["VITE_", "INWORLD_"],
   server: {
     proxy: {
       "/graphql": {

@@ -1,20 +1,13 @@
-const OPENAI_API_KEY = import.meta.env.OPENAI_API_KEY as string | undefined;
 const INWORLD_API_KEY = import.meta.env.INWORLD_API_KEY as string | undefined;
-const TTS_PROVIDER =
-  (import.meta.env.TTS_PROVIDER as string | undefined) ?? "openai";
 const DISABLE_TTS = import.meta.env.VITE_DISABLE_TTS === "true";
 
 console.log(
   "[TTS] config:",
-  "provider=" + TTS_PROVIDER,
   "inworldKey=" +
     (INWORLD_API_KEY ? `set(${INWORLD_API_KEY.length}chars)` : "MISSING"),
-  "openaiKey=" +
-    (OPENAI_API_KEY ? `set(${OPENAI_API_KEY.length}chars)` : "MISSING"),
   "disabled=" + DISABLE_TTS,
 );
 
-const OPENAI_PCM_SAMPLE_RATE = 24000;
 const INWORLD_PCM_SAMPLE_RATE = 48000;
 
 // ── Shared PCM playback ─────────────────────────────────
@@ -72,60 +65,6 @@ async function waitForPlayback(ctx: AudioContext, nextStartTime: number) {
     await new Promise<void>((resolve) => setTimeout(resolve, remaining * 1000));
   }
   await ctx.close();
-}
-
-// ── OpenAI TTS ──────────────────────────────────────────
-
-/**
- * Stream OpenAI TTS: request raw PCM, pipe chunks to Web Audio API
- * so playback starts as soon as the first chunk arrives.
- */
-async function speakOpenAI(text: string, voice: string): Promise<void> {
-  const res = await fetch("https://api.openai.com/v1/audio/speech", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini-tts",
-      voice,
-      input: text,
-      response_format: "pcm",
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.warn("OpenAI TTS failed:", res.status, res.statusText, body);
-    return;
-  }
-
-  if (!res.body) return;
-
-  const ctx = new AudioContext({ sampleRate: OPENAI_PCM_SAMPLE_RATE });
-  const reader = res.body.getReader();
-
-  let nextStartTime = ctx.currentTime;
-  let leftover: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
-
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    let data: Uint8Array<ArrayBufferLike>;
-    [data, leftover] = alignPcm(leftover, value);
-    if (data.length === 0) continue;
-
-    nextStartTime = schedulePcmChunk(
-      ctx,
-      data,
-      nextStartTime,
-      OPENAI_PCM_SAMPLE_RATE,
-    );
-  }
-
-  await waitForPlayback(ctx, nextStartTime);
 }
 
 // ── InWorld TTS ─────────────────────────────────────────
@@ -242,18 +181,10 @@ export async function speakAnalysis(
     await new Promise((r) => setTimeout(r, 200));
     return;
   }
-  if (TTS_PROVIDER === "inworld" && INWORLD_API_KEY) {
+  if (INWORLD_API_KEY) {
     console.log("[TTS] using inworld, voice=" + voice);
     return speakInworld(text, voice);
   }
-  if (OPENAI_API_KEY) {
-    console.log("[TTS] using openai, voice=" + voice);
-    return speakOpenAI(text, voice);
-  }
-  console.warn(
-    "[TTS] no provider available, skipping. provider=" + TTS_PROVIDER,
-    "inworldKey=" + !!INWORLD_API_KEY,
-    "openaiKey=" + !!OPENAI_API_KEY,
-  );
+  console.warn("[TTS] INWORLD_API_KEY missing, skipping");
   await new Promise((r) => setTimeout(r, 200));
 }

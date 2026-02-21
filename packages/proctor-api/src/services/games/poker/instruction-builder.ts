@@ -56,17 +56,14 @@ export function toCardInfos(cards: GameState["communityCards"]) {
 export function toPlayerMeta(
   players: Array<{
     playerId: string;
-    ttsVoices?: { openai?: string; inworld?: string } | null;
+    ttsVoice?: string | null;
     avatarUrl?: string | null;
   }>,
   personaAssignments?: Map<string, string>,
 ) {
-  const provider = (process.env.TTS_PROVIDER ?? "openai") as
-    | "openai"
-    | "inworld";
   return players.map((p) => ({
     id: p.playerId,
-    ttsVoice: p.ttsVoices?.[provider] ?? null,
+    ttsVoice: p.ttsVoice ?? null,
     avatarUrl: p.avatarUrl ?? null,
     persona: personaAssignments?.get(p.playerId) ?? null,
   }));
@@ -78,7 +75,7 @@ export function buildGameStart(
   config: { smallBlind: number; bigBlind: number },
   agentConfigs: Array<{
     playerId: string;
-    ttsVoices?: { openai?: string; inworld?: string } | null;
+    ttsVoice?: string | null;
     avatarUrl?: string | null;
   }>,
   personaAssignments?: Map<string, string>,

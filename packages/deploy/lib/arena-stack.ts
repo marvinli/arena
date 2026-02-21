@@ -144,9 +144,7 @@ export class ArenaStack extends cdk.Stack {
         file: "Dockerfile.app",
         exclude: ["**/cdk.out"],
         buildArgs: {
-          OPENAI_API_KEY: requireSecret(props.buildSecrets, "OPENAI_API_KEY"),
           INWORLD_API_KEY: requireSecret(props.buildSecrets, "INWORLD_API_KEY"),
-          TTS_PROVIDER: props.buildSecrets.TTS_PROVIDER ?? "inworld",
           VITE_CHANNEL_KEY: "poker-stream-1",
         },
       }),
@@ -171,7 +169,6 @@ export class ArenaStack extends cdk.Stack {
         CHANNEL_KEY: "poker-stream-1",
         NODE_ENV: "production",
         AWS_REGION: this.region,
-        TTS_PROVIDER: "inworld",
         SCHEDULE_START: "18:00",
         SCHEDULE_STOP: "19:00",
         SCHEDULE_TIMEZONE: "America/New_York",
