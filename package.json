@@ -14,6 +14,7 @@
     "codegen:front-end": "npm run codegen --workspace=@arena/front-end",
     "test:front-end": "npm test --workspace=@arena/front-end",
     "test:videographer": "npm test --workspace=@arena/videographer",
+    "test:admin-api": "npm test --workspace=@arena/admin-api",
     "admin-api": "npm run dev --workspace=@arena/admin-api",
     "admin-fe": "npm run dev --workspace=@arena/admin-fe",
     "check": "biome check .",

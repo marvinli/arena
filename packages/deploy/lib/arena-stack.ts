@@ -6,10 +6,12 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
-import * as elbv2 from "aws-cdk-lib/aws-elasticloadbalancingv2";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as s3 from "aws-cdk-lib/aws-s3";
+import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import type { Construct } from "constructs";
 
@@ -169,9 +171,6 @@ export class ArenaStack extends cdk.Stack {
         CHANNEL_KEY: "poker-stream-1",
         NODE_ENV: "production",
         AWS_REGION: this.region,
-        SCHEDULE_START: "18:00",
-        SCHEDULE_STOP: "19:00",
-        SCHEDULE_TIMEZONE: "America/New_York",
       },
       secrets: {
         ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(
@@ -248,23 +247,114 @@ export class ArenaStack extends cdk.Stack {
       condition: ecs.ContainerDependencyCondition.HEALTHY,
     });
 
-    // ── ALB (fronted by CloudFront) ────────────────────────
-    const alb = new elbv2.ApplicationLoadBalancer(this, "AdminAlb", {
-      vpc,
-      internetFacing: true,
+    // ── Fargate service (no load balancer) ───────────────
+    const service = new ecs.FargateService(this, "Service", {
+      cluster,
+      taskDefinition: taskDef,
+      desiredCount: 1,
+      assignPublicIp: true,
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+    });
+
+    // ── S3 bucket for admin-fe static files ──────────────
+    const adminBucket = new s3.Bucket(this, "AdminBucket", {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    });
+
+    // ── Lambda function for admin-api ────────────────────
+    const adminFn = new NodejsFunction(this, "AdminApi", {
+      entry: path.join(REPO_ROOT, "packages/admin-api/src/lambda.ts"),
+      runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64,
+      handler: "handler",
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      bundling: {
+        format: OutputFormat.ESM,
+        target: "node20",
+        externalModules: ["@aws-sdk/*"],
+        banner:
+          "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
+      },
+      environment: {
+        TABLE_PREFIX: props.tablePrefix,
+        CHANNEL_KEY: "poker-stream-1",
+        COGNITO_USER_POOL_ID: "", // placeholder — set below after userPoolClient
+        COGNITO_CLIENT_ID: "", // placeholder — set below after userPoolClient
+        ECS_CLUSTER_NAME: cluster.clusterName,
+        ECS_SERVICE_NAME: service.serviceName,
+      },
+      logRetention: logs.RetentionDays.TWO_WEEKS,
+    });
+
+    // Grant DynamoDB access to the Lambda
+    for (const table of props.tables) {
+      table.grantReadWriteData(adminFn);
+    }
+
+    // Grant ECS service management to the Lambda
+    adminFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ecs:UpdateService", "ecs:DescribeServices"],
+        resources: [service.serviceArn],
+      }),
+    );
+    // DescribeServices also needs cluster-level permission
+    adminFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["ecs:DescribeServices"],
+        resources: ["*"],
+        conditions: {
+          ArnEquals: {
+            "ecs:cluster": cluster.clusterArn,
+          },
+        },
+      }),
+    );
+
+    // Lambda Function URL (auth handled by Cognito JWT in the app)
+    const fnUrl = adminFn.addFunctionUrl({
+      authType: lambda.FunctionUrlAuthType.NONE,
     });
 
     // ── CloudFront ──────────────────────────────────────────
+    const oai = new cloudfront.OriginAccessIdentity(this, "AdminOai");
+    adminBucket.grantRead(oai);
+
     const distribution = new cloudfront.Distribution(this, "AdminCdn", {
       defaultBehavior: {
-        origin: new origins.LoadBalancerV2Origin(alb, {
-          protocolPolicy: cloudfront.OriginProtocolPolicy.HTTP_ONLY,
+        origin: new origins.S3Origin(adminBucket, {
+          originAccessIdentity: oai,
         }),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
       },
+      additionalBehaviors: {
+        "/graphql": {
+          origin: new origins.HttpOrigin(cdk.Fn.parseDomainName(fnUrl.url)),
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy:
+            cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        },
+      },
+      defaultRootObject: "index.html",
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responsePagePath: "/index.html",
+          responseHttpStatus: 200,
+        },
+        {
+          httpStatus: 404,
+          responsePagePath: "/index.html",
+          responseHttpStatus: 200,
+        },
+      ],
     });
 
     const cfUrl = `https://${distribution.distributionDomainName}`;
@@ -282,68 +372,70 @@ export class ArenaStack extends cdk.Stack {
     });
     userPoolClient.node.addDependency(googleProvider);
 
-    // ── admin container (after Cognito so we can reference IDs) ──
-    const adminContainer = taskDef.addContainer("admin", {
-      image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
-        file: "Dockerfile.admin",
-        exclude: ["**/cdk.out"],
-      }),
-      memoryLimitMiB: 512,
-      logging: ecs.LogDrivers.awsLogs({
-        streamPrefix: "admin",
-        logRetention: logs.RetentionDays.TWO_WEEKS,
-      }),
-      healthCheck: {
-        command: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"],
-        interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
-        retries: 3,
-        startPeriod: cdk.Duration.seconds(20),
-      },
-      environment: {
-        PORT: "3000",
-        PROCTOR_URL: "http://localhost:4001",
-        VIDEOGRAPHER_URL: "http://localhost:3001",
-        CHANNEL_KEY: "poker-stream-1",
-        COGNITO_USER_POOL_ID: userPool.userPoolId,
-        COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
-        COGNITO_DOMAIN: cognitoDomainName,
-        AWS_REGION: this.region,
-      },
-    });
+    // Set Cognito env vars on the Lambda (now that userPoolClient exists)
+    adminFn.addEnvironment("COGNITO_USER_POOL_ID", userPool.userPoolId);
+    adminFn.addEnvironment(
+      "COGNITO_CLIENT_ID",
+      userPoolClient.userPoolClientId,
+    );
 
-    adminContainer.addPortMappings({ containerPort: 8080 });
-
-    // ── Fargate service ───────────────────────────────────
-    const service = new ecs.FargateService(this, "Service", {
-      cluster,
-      taskDefinition: taskDef,
-      desiredCount: 1,
-      assignPublicIp: true,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-    });
-
-    const listener = alb.addListener("Http", { port: 80 });
-    listener.addTargets("Admin", {
-      port: 8080,
-      targets: [
-        service.loadBalancerTarget({
-          containerName: "admin",
-          containerPort: 8080,
+    // ── Deploy admin-fe to S3 ───────────────────────────────
+    new s3deploy.BucketDeployment(this, "AdminFeAssets", {
+      sources: [
+        s3deploy.Source.asset(REPO_ROOT, {
+          bundling: {
+            image: cdk.DockerImage.fromRegistry("node:20-slim"),
+            command: [
+              "bash",
+              "-c",
+              [
+                // Copy only package manifests for npm ci (avoids copying node_modules/cdk.out/.git)
+                "mkdir -p /tmp/build/packages/{admin-fe,admin-api,proctor-api,front-end,videographer,deploy}",
+                "cp /asset-input/package.json /asset-input/package-lock.json /asset-input/tsconfig.json /tmp/build/",
+                "for pkg in admin-fe admin-api proctor-api front-end videographer deploy; do cp /asset-input/packages/$pkg/package.json /tmp/build/packages/$pkg/; done",
+                "cd /tmp/build && npm ci",
+                // Copy admin-fe source and build
+                "cp -r /asset-input/packages/admin-fe/. /tmp/build/packages/admin-fe/",
+                "cd /tmp/build && npm run build -w @arena/admin-fe",
+                "cp -r /tmp/build/packages/admin-fe/dist/. /asset-output/",
+              ].join(" && "),
+            ],
+            user: "root",
+          },
+          exclude: ["**/node_modules", "**/cdk.out", "**/dist", "**/.git"],
         }),
       ],
-      healthCheck: {
-        path: "/",
-        port: "8080",
-        interval: cdk.Duration.seconds(30),
-        healthyThresholdCount: 2,
-      },
+      destinationBucket: adminBucket,
+      distribution,
+      distributionPaths: ["/*"],
+    });
+
+    // Deploy runtime config.js with Cognito values (resolved at deploy time)
+    new s3deploy.BucketDeployment(this, "AdminFeConfig", {
+      sources: [
+        s3deploy.Source.data(
+          "config.js",
+          `window.__ARENA_CONFIG__ = ${JSON.stringify({
+            cognitoDomain: cognitoDomainName,
+            cognitoClientId: userPoolClient.userPoolClientId,
+          })};`,
+        ),
+      ],
+      destinationBucket: adminBucket,
+      distribution,
+      distributionPaths: ["/config.js"],
+      prune: false,
     });
 
     // ── Outputs ───────────────────────────────────────────
     new cdk.CfnOutput(this, "AdminUrl", {
       value: cfUrl,
       description: "Admin dashboard URL (CloudFront HTTPS)",
+    });
+
+    new cdk.CfnOutput(this, "AdminApiUrl", {
+      value: fnUrl.url,
+      description: "Admin API Lambda Function URL",
     });
 
     new cdk.CfnOutput(this, "UserPoolId", {
@@ -357,13 +449,18 @@ export class ArenaStack extends cdk.Stack {
     new cdk.CfnOutput(this, "CognitoDomain", {
       value: cognitoDomainName,
     });
+
+    new cdk.CfnOutput(this, "EcsClusterName", {
+      value: cluster.clusterName,
+    });
+
+    new cdk.CfnOutput(this, "EcsServiceName", {
+      value: service.serviceName,
+    });
   }
 }
 
-function requireSecret(
-  secrets: Record<string, string>,
-  key: string,
-): string {
+function requireSecret(secrets: Record<string, string>, key: string): string {
   const value = secrets[key];
   if (!value) {
     throw new Error(
