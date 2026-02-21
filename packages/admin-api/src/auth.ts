@@ -16,9 +16,11 @@ function getJwks() {
   return jwks;
 }
 
+const ALLOWED_EMAILS = ["marvinli@gmail.com"];
+
 export interface AuthUser {
   sub: string;
-  email?: string;
+  email: string;
 }
 
 export async function verifyToken(token: string): Promise<AuthUser> {
@@ -26,8 +28,9 @@ export async function verifyToken(token: string): Promise<AuthUser> {
     issuer,
     audience: clientId,
   });
-  return {
-    sub: payload.sub as string,
-    email: payload.email as string | undefined,
-  };
+  const email = (payload.email as string | undefined)?.toLowerCase();
+  if (!email || !ALLOWED_EMAILS.includes(email)) {
+    throw new Error("Forbidden");
+  }
+  return { sub: payload.sub as string, email };
 }
