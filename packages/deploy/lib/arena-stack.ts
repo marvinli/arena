@@ -314,14 +314,12 @@ export class ArenaStack extends cdk.Stack {
     // Grant ECS service management to the Lambda
     adminFn.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ["ecs:UpdateService", "ecs:DescribeServices"],
-        resources: [service.serviceArn],
-      }),
-    );
-    // DescribeServices also needs cluster-level permission
-    adminFn.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["ecs:DescribeServices"],
+        actions: [
+          "ecs:UpdateService",
+          "ecs:DescribeServices",
+          "ecs:ListTasks",
+          "ecs:DescribeTasks",
+        ],
         resources: ["*"],
         conditions: {
           ArnEquals: {

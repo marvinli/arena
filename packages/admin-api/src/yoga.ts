@@ -1,7 +1,9 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DescribeServicesCommand,
+  DescribeTasksCommand,
   ECSClient,
+  ListTasksCommand,
   UpdateServiceCommand,
 } from "@aws-sdk/client-ecs";
 import {
@@ -34,11 +36,18 @@ const tableNames = {
 
 const schema = createSchema({
   typeDefs: /* GraphQL */ `
+    type ContainerStatus {
+      name: String!
+      lastStatus: String!
+      healthStatus: String
+    }
+
     type ServiceStatus {
       status: String!
       runningCount: Int
       desiredCount: Int
       lastEvent: String
+      containers: [ContainerStatus!]!
     }
 
     type Query {
@@ -151,19 +160,27 @@ const schema = createSchema({
 
 // ── Helpers ──────────────────────────────────────────────
 
+interface ContainerStatus {
+  name: string;
+  lastStatus: string;
+  healthStatus: string | null;
+}
+
 async function describeService(): Promise<{
   status: string;
   runningCount: number | null;
   desiredCount: number | null;
   lastEvent: string | null;
+  containers: ContainerStatus[];
 }> {
+  const empty = {
+    runningCount: null,
+    desiredCount: null,
+    lastEvent: null,
+    containers: [],
+  };
   if (!ECS_CLUSTER_NAME || !ECS_SERVICE_NAME) {
-    return {
-      status: "not-configured",
-      runningCount: null,
-      desiredCount: null,
-      lastEvent: null,
-    };
+    return { status: "not-configured", ...empty };
   }
   try {
     const res = await ecsClient.send(
@@ -173,26 +190,45 @@ async function describeService(): Promise<{
       }),
     );
     const svc = res.services?.[0];
-    if (!svc)
-      return {
-        status: "not-found",
-        runningCount: null,
-        desiredCount: null,
-        lastEvent: null,
-      };
+    if (!svc) return { status: "not-found", ...empty };
+
+    // Fetch container-level status from running tasks
+    let containers: ContainerStatus[] = [];
+    if ((svc.runningCount ?? 0) > 0) {
+      const taskList = await ecsClient.send(
+        new ListTasksCommand({
+          cluster: ECS_CLUSTER_NAME,
+          serviceName: ECS_SERVICE_NAME,
+        }),
+      );
+      const taskArns = taskList.taskArns ?? [];
+      if (taskArns.length > 0) {
+        const tasks = await ecsClient.send(
+          new DescribeTasksCommand({
+            cluster: ECS_CLUSTER_NAME,
+            tasks: taskArns,
+          }),
+        );
+        // Use the first task (service runs desiredCount=1)
+        const task = tasks.tasks?.[0];
+        containers =
+          task?.containers?.map((c) => ({
+            name: c.name ?? "unknown",
+            lastStatus: c.lastStatus ?? "UNKNOWN",
+            healthStatus: c.healthStatus ?? null,
+          })) ?? [];
+      }
+    }
+
     return {
       status: svc.status ?? "unknown",
       runningCount: svc.runningCount ?? null,
       desiredCount: svc.desiredCount ?? null,
       lastEvent: svc.events?.[0]?.message ?? null,
+      containers,
     };
   } catch {
-    return {
-      status: "unreachable",
-      runningCount: null,
-      desiredCount: null,
-      lastEvent: null,
-    };
+    return { status: "unreachable", ...empty };
   }
 }
 

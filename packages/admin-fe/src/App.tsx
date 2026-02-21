@@ -57,11 +57,18 @@ async function gql<T>(
 
 // ── Components ──────────────────────────────────────────
 
+interface ContainerStatus {
+  name: string;
+  lastStatus: string;
+  healthStatus: string | null;
+}
+
 interface ServiceStatus {
   status: string;
   runningCount: number | null;
   desiredCount: number | null;
   lastEvent: string | null;
+  containers: ContainerStatus[];
 }
 
 function StatusDot({ ok }: { ok: boolean }) {
@@ -101,7 +108,7 @@ function Dashboard({ token }: { token: string }) {
       const [s, l] = await Promise.all([
         gql<{ serviceStatus: ServiceStatus }>(
           token,
-          "{ serviceStatus { status runningCount desiredCount lastEvent } }",
+          "{ serviceStatus { status runningCount desiredCount lastEvent containers { name lastStatus healthStatus } } }",
         ),
         gql<{ live: boolean }>(token, "{ live }"),
       ]);
@@ -166,14 +173,25 @@ function Dashboard({ token }: { token: string }) {
     <div style={{ fontFamily: "system-ui", padding: 32, maxWidth: 480 }}>
       <h1 style={{ fontSize: 24, marginBottom: 24 }}>Arena Admin</h1>
 
-      <h2 style={{ fontSize: 16, marginBottom: 12 }}>Service</h2>
+      <h2 style={{ fontSize: 16, marginBottom: 12 }}>Fargate Service</h2>
       {service ? (
         <div style={{ marginBottom: 24 }}>
           <div style={{ marginBottom: 8 }}>
             <StatusDot ok={running} />
-            {service.status} — {service.runningCount ?? 0}/
+            {running ? "Running" : "Stopped"} — {service.runningCount ?? 0}/
             {service.desiredCount ?? 0} tasks
           </div>
+          {running && service.containers.length > 0 && (
+            <div style={{ marginBottom: 12, paddingLeft: 20 }}>
+              {service.containers.map((c) => (
+                <div key={c.name} style={{ marginBottom: 4 }}>
+                  <StatusDot ok={c.healthStatus === "HEALTHY"} />
+                  <strong>{c.name}</strong> — {c.lastStatus}
+                  {c.healthStatus && ` (${c.healthStatus.toLowerCase()})`}
+                </div>
+              ))}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setServiceState(!running)}
@@ -226,8 +244,8 @@ function Dashboard({ token }: { token: string }) {
 // ── App ─────────────────────────────────────────────────
 
 export function App() {
-  const [token, setToken] = useState<string | null>(
-    () => sessionStorage.getItem(TOKEN_KEY),
+  const [token, setToken] = useState<string | null>(() =>
+    sessionStorage.getItem(TOKEN_KEY),
   );
   const authDisabled = !COGNITO_DOMAIN;
 
