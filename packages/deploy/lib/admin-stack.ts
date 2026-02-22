@@ -4,13 +4,14 @@ import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import * as ecs from "aws-cdk-lib/aws-ecs";
+import type * as ecs from "aws-cdk-lib/aws-ecs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction, OutputFormat } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as cr from "aws-cdk-lib/custom-resources";
 import type { Construct } from "constructs";
@@ -155,6 +156,91 @@ export class AdminStack extends cdk.Stack {
         },
       }),
     );
+
+    // ── EventBridge Scheduler (automated stream start/stop) ──
+    const SHOW_HOUR = 18; // 6 PM ET
+    const SHOW_DURATION_MIN = 60;
+    const WARMUP_MIN = 10;
+    const RAMPDOWN_MIN = 5;
+
+    const warmUpHour = SHOW_HOUR - 1;
+    const warmUpMinute = 60 - WARMUP_MIN;
+    const goLiveMinute = 0;
+    const stopLiveHour = SHOW_HOUR + Math.floor(SHOW_DURATION_MIN / 60);
+    const stopLiveMinute = SHOW_DURATION_MIN % 60;
+    const rampDownHour = stopLiveHour;
+    const rampDownMinute = stopLiveMinute + RAMPDOWN_MIN;
+
+    const schedulerRole = new iam.Role(this, "SchedulerRole", {
+      assumedBy: new iam.ServicePrincipal("scheduler.amazonaws.com"),
+      inlinePolicies: {
+        InvokeLambda: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: ["lambda:InvokeFunction"],
+              resources: [adminFn.functionArn],
+            }),
+          ],
+        }),
+      },
+    });
+
+    const scheduleGroup = new scheduler.CfnScheduleGroup(
+      this,
+      "StreamScheduleGroup",
+      { name: "arena-stream" },
+    );
+
+    const schedules: {
+      id: string;
+      name: string;
+      cron: string;
+      action: string;
+    }[] = [
+      {
+        id: "WarmUp",
+        name: "arena-stream-warmup",
+        cron: `cron(${warmUpMinute} ${warmUpHour} ? * * *)`,
+        action: "startService",
+      },
+      {
+        id: "GoLive",
+        name: "arena-stream-golive",
+        cron: `cron(${goLiveMinute} ${SHOW_HOUR} ? * * *)`,
+        action: "setLive",
+      },
+      {
+        id: "StopLive",
+        name: "arena-stream-stoplive",
+        cron: `cron(${stopLiveMinute} ${stopLiveHour} ? * * *)`,
+        action: "setNotLive",
+      },
+      {
+        id: "RampDown",
+        name: "arena-stream-rampdown",
+        cron: `cron(${rampDownMinute} ${rampDownHour} ? * * *)`,
+        action: "stopService",
+      },
+    ];
+
+    for (const s of schedules) {
+      const cfnSchedule = new scheduler.CfnSchedule(this, s.id, {
+        name: s.name,
+        groupName: scheduleGroup.name,
+        scheduleExpression: s.cron,
+        scheduleExpressionTimezone: "America/New_York",
+        flexibleTimeWindow: { mode: "OFF" },
+        target: {
+          arn: adminFn.functionArn,
+          roleArn: schedulerRole.roleArn,
+          input: JSON.stringify({
+            source: "arena-scheduler",
+            action: s.action,
+          }),
+        },
+      });
+      cfnSchedule.addDependency(scheduleGroup);
+    }
 
     // Lambda Function URL (auth handled by Cognito JWT in the app)
     const fnUrl = adminFn.addFunctionUrl({

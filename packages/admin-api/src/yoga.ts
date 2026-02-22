@@ -1,36 +1,27 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DescribeServicesCommand,
   DescribeTasksCommand,
-  ECSClient,
   ListTasksCommand,
-  UpdateServiceCommand,
 } from "@aws-sdk/client-ecs";
 import {
   BatchWriteCommand,
-  DynamoDBDocumentClient,
   GetCommand,
-  PutCommand,
   ScanCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { createSchema, createYoga } from "graphql-yoga";
+import {
+  docClient,
+  ecsClient,
+  setLive,
+  startService,
+  stopService,
+  tableNames,
+} from "./actions.js";
 import { verifyToken } from "./auth.js";
 
 const CHANNEL_KEY = process.env.CHANNEL_KEY ?? "poker-stream-1";
-const TABLE_PREFIX = process.env.TABLE_PREFIX ?? "arena-";
 const ECS_CLUSTER_NAME = process.env.ECS_CLUSTER_NAME ?? "";
 const ECS_SERVICE_NAME = process.env.ECS_SERVICE_NAME ?? "";
-
-const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
-const ecsClient = new ECSClient({});
-
-const tableNames = {
-  modules: `${TABLE_PREFIX}modules`,
-  instructions: `${TABLE_PREFIX}instructions`,
-  channelState: `${TABLE_PREFIX}channel-state`,
-  settings: `${TABLE_PREFIX}settings`,
-  agentMessages: `${TABLE_PREFIX}agent-messages`,
-} as const;
 
 // ── Schema ───────────────────────────────────────────────
 
@@ -79,12 +70,7 @@ const schema = createSchema({
     },
     Mutation: {
       setLive: async (_: unknown, { live }: { live: boolean }) => {
-        await docClient.send(
-          new PutCommand({
-            TableName: tableNames.settings,
-            Item: { key: `live:${CHANNEL_KEY}`, value: String(live) },
-          }),
-        );
+        await setLive(live);
         return live;
       },
       resetDatabase: async () => {
@@ -135,23 +121,11 @@ const schema = createSchema({
         return true;
       },
       startService: async () => {
-        await ecsClient.send(
-          new UpdateServiceCommand({
-            cluster: ECS_CLUSTER_NAME,
-            service: ECS_SERVICE_NAME,
-            desiredCount: 1,
-          }),
-        );
+        await startService();
         return true;
       },
       stopService: async () => {
-        await ecsClient.send(
-          new UpdateServiceCommand({
-            cluster: ECS_CLUSTER_NAME,
-            service: ECS_SERVICE_NAME,
-            desiredCount: 0,
-          }),
-        );
+        await stopService();
         return true;
       },
     },

@@ -140,7 +140,10 @@ vi.mock("@aws-sdk/client-ecs", () => {
     }
     if (cmd instanceof ListTasksCommand) {
       return {
-        taskArns: ecsTaskContainers.length > 0 ? ["arn:aws:ecs:us-east-1:123:task/test/abc"] : [],
+        taskArns:
+          ecsTaskContainers.length > 0
+            ? ["arn:aws:ecs:us-east-1:123:task/test/abc"]
+            : [],
       };
     }
     if (cmd instanceof DescribeTasksCommand) {
@@ -485,5 +488,60 @@ describe("lambda handler", () => {
     const body = JSON.parse(result.body as string);
     expect(body.errors).toBeUndefined();
     expect(body.data.live).toBe(false);
+  });
+});
+
+// ── Scheduler events ─────────────────────────────────────
+
+describe("scheduler events", () => {
+  it("startService action calls ECS UpdateService with desiredCount=1", async () => {
+    const event = { source: "arena-scheduler", action: "startService" };
+    const result = await handler(event as never);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body as string)).toEqual({ ok: true });
+    expect(ecsUpdateCalls).toHaveLength(1);
+    expect(ecsUpdateCalls[0]).toEqual({
+      cluster: "test-cluster",
+      service: "test-service",
+      desiredCount: 1,
+    });
+  });
+
+  it("stopService action calls ECS UpdateService with desiredCount=0", async () => {
+    const event = { source: "arena-scheduler", action: "stopService" };
+    const result = await handler(event as never);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body as string)).toEqual({ ok: true });
+    expect(ecsUpdateCalls).toHaveLength(1);
+    expect(ecsUpdateCalls[0]).toEqual({
+      cluster: "test-cluster",
+      service: "test-service",
+      desiredCount: 0,
+    });
+  });
+
+  it("setLive action sets the live flag to true", async () => {
+    const event = { source: "arena-scheduler", action: "setLive" };
+    const result = await handler(event as never);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body as string)).toEqual({ ok: true });
+    expect(settingsStore.get("live:test-channel")).toBe("true");
+  });
+
+  it("setNotLive action sets the live flag to false", async () => {
+    settingsStore.set("live:test-channel", "true");
+    const event = { source: "arena-scheduler", action: "setNotLive" };
+    const result = await handler(event as never);
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body as string)).toEqual({ ok: true });
+    expect(settingsStore.get("live:test-channel")).toBe("false");
+  });
+
+  it("unknown action returns error", async () => {
+    const event = { source: "arena-scheduler", action: "bogusAction" };
+    const result = await handler(event as never);
+    expect(result.statusCode).toBe(400);
+    const body = JSON.parse(result.body as string);
+    expect(body.error).toMatch(/Unknown scheduler action/);
   });
 });
