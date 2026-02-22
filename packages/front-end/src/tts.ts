@@ -12,12 +12,17 @@ const INWORLD_PCM_SAMPLE_RATE = 48000;
 
 // ── Shared PCM playback ─────────────────────────────────
 
+interface ChunkResult {
+  nextStartTime: number;
+  source: AudioBufferSourceNode;
+}
+
 function schedulePcmChunk(
   ctx: AudioContext,
   data: Uint8Array,
   nextStartTime: number,
   sampleRate: number,
-): number {
+): ChunkResult {
   const int16 = new Int16Array(data.buffer, data.byteOffset, data.length / 2);
   const float32 = new Float32Array(int16.length);
   for (let i = 0; i < int16.length; i++) {
@@ -33,7 +38,7 @@ function schedulePcmChunk(
 
   const startAt = Math.max(nextStartTime, ctx.currentTime);
   source.start(startAt);
-  return startAt + buffer.duration;
+  return { nextStartTime: startAt + buffer.duration, source };
 }
 
 /** Align raw bytes to 16-bit boundary, returning [aligned, leftover]. */
@@ -59,10 +64,14 @@ function alignPcm(
   return [data, new Uint8Array(0)];
 }
 
-async function waitForPlayback(ctx: AudioContext, nextStartTime: number) {
-  const remaining = nextStartTime - ctx.currentTime;
-  if (remaining > 0) {
-    await new Promise<void>((resolve) => setTimeout(resolve, remaining * 1000));
+async function waitForPlayback(
+  ctx: AudioContext,
+  lastSource: AudioBufferSourceNode | null,
+) {
+  if (lastSource) {
+    await new Promise<void>((resolve) => {
+      lastSource.onended = () => resolve();
+    });
   }
   await ctx.close();
 }
@@ -106,6 +115,7 @@ async function speakInworld(text: string, voice: string): Promise<void> {
   const decoder = new TextDecoder();
 
   let nextStartTime = ctx.currentTime;
+  let lastSource: AudioBufferSourceNode | null = null;
   let leftover: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
   let lineBuf = "";
 
@@ -141,12 +151,14 @@ async function speakInworld(text: string, voice: string): Promise<void> {
     [data, leftover] = alignPcm(leftover, pcm);
     if (data.length === 0) return;
 
-    nextStartTime = schedulePcmChunk(
+    const result = schedulePcmChunk(
       ctx,
       data,
       nextStartTime,
       INWORLD_PCM_SAMPLE_RATE,
     );
+    nextStartTime = result.nextStartTime;
+    lastSource = result.source;
   };
 
   for (;;) {
@@ -167,7 +179,7 @@ async function speakInworld(text: string, voice: string): Promise<void> {
     processLine(lineBuf);
   }
 
-  await waitForPlayback(ctx, nextStartTime);
+  await waitForPlayback(ctx, lastSource);
 }
 
 // ── Public API ──────────────────────────────────────────
