@@ -61,6 +61,9 @@ async function detectOrphanedModule(
   }
 }
 
+/** @internal test-only export */
+export const _detectOrphanedModule = detectOrphanedModule;
+
 /** Channels that already have an active programming loop. */
 const activeLoops = new Set<string>();
 

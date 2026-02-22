@@ -318,6 +318,11 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+/** @internal test-only export */
+export const _computeAwards = computeAwards;
+/** @internal test-only export */
+export const _shuffle = shuffle;
+
 export async function runSession(
   session: Session,
   agentRunner: AgentRunner,
