@@ -234,6 +234,7 @@ export const yoga = createYoga<any>({
               { status: 401 },
             ),
           );
+          return;
         }
       },
     },

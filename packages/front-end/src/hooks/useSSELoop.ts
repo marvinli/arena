@@ -29,6 +29,8 @@ export function useSSELoop(dispatch: (action: Action) => void) {
       voiceMap: Map<string, string>,
       onConnected?: () => void,
     ) {
+      let reconnecting = false;
+
       const rq = createRenderQueue({
         dispatch,
         voiceMap,
@@ -58,7 +60,10 @@ export function useSSELoop(dispatch: (action: Action) => void) {
           }
 
           // SSE stream ended normally — reconnect
-          if (!abort.signal.aborted) {
+          if (abort.signal.aborted) return;
+          if (reconnecting) return;
+          reconnecting = true;
+          try {
             const result = await gqlFetch(CONNECT_QUERY, {
               channelKey: CHANNEL_KEY,
             });
@@ -72,10 +77,14 @@ export function useSSELoop(dispatch: (action: Action) => void) {
               dispatch({ type: "RECONNECT", channelState: gs });
             }
             startSSELoop(abort, voiceMap, onConnected);
+          } finally {
+            reconnecting = false;
           }
         } catch (err) {
           if (err instanceof DOMException && err.name === "AbortError") return;
           if (abort.signal.aborted) return;
+          if (reconnecting) return;
+          reconnecting = true;
 
           // SSE dropped — attempt to reconnect
           console.warn("[useSSELoop] SSE dropped, attempting reconnect…");
@@ -100,6 +109,8 @@ export function useSSELoop(dispatch: (action: Action) => void) {
           } catch {
             const message = err instanceof Error ? err.message : String(err);
             dispatch({ type: "ERROR", error: message });
+          } finally {
+            reconnecting = false;
           }
         }
       })();

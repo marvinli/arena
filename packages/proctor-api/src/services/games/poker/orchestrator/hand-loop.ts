@@ -1,4 +1,5 @@
 import type { GameState } from "../../../../types.js";
+import { logError } from "../../../../logger.js";
 import {
   buildDealCommunity,
   buildDealHands,
@@ -53,7 +54,7 @@ async function handleHandResult(
 
   for (const p of advancedState.players) {
     if (p.status === "BUSTED") continue;
-    ctx.agentRunner.injectMessage(
+    await ctx.agentRunner.injectMessage(
       p.id,
       formatHandResult(ctx.session.handNumber, winners, advancedState.players),
     );
@@ -110,7 +111,7 @@ async function handlePhaseTransition(
 
   for (const p of advancedState.players) {
     if (p.status === "BUSTED" || p.status === "FOLDED") continue;
-    ctx.agentRunner.injectMessage(
+    await ctx.agentRunner.injectMessage(
       p.id,
       formatDealCommunity(advancedState.phase, advancedState.communityCards),
     );
@@ -118,92 +119,97 @@ async function handlePhaseTransition(
 }
 
 export async function playHand(ctx: SessionContext): Promise<void> {
-  const { session, moduleId, gameId, agentRunner, signal } = ctx;
-  session.handNumber++;
+  try {
+    const { session, moduleId, gameId, agentRunner, signal } = ctx;
+    session.handNumber++;
 
-  const preHandBustedIds = new Set(
-    session.lastGameState?.players
-      .filter((p) => p.status === "BUSTED")
-      .map((p) => p.id) ?? [],
-  );
+    const preHandBustedIds = new Set(
+      session.lastGameState?.players
+        .filter((p) => p.status === "BUSTED")
+        .map((p) => p.id) ?? [],
+    );
 
-  const handState = poker.startHand(gameId);
-  updateGameState(session, handState);
-  session.button = handState.button ?? null;
+    const handState = poker.startHand(gameId);
+    updateGameState(session, handState);
+    session.button = handState.button ?? null;
 
-  const playerHands: Array<{
-    playerId: string;
-    cards: Array<{ rank: string; suit: string }>;
-  }> = [];
-  for (const player of handState.players) {
-    if (player.status === "BUSTED") continue;
-    const myHand = poker.getMyTurn(gameId, player.id).myHand;
-    playerHands.push({ playerId: player.id, cards: myHand });
-  }
+    const playerHands: Array<{
+      playerId: string;
+      cards: Array<{ rank: string; suit: string }>;
+    }> = [];
+    for (const player of handState.players) {
+      if (player.status === "BUSTED") continue;
+      const myHand = poker.getMyTurn(gameId, player.id).myHand;
+      playerHands.push({ playerId: player.id, cards: myHand });
+    }
 
-  session.currentHands = playerHands;
+    session.currentHands = playerHands;
 
-  await emit(
-    moduleId,
-    session,
-    buildDealHands(session.handNumber, handState, playerHands, {
+    await emit(
+      moduleId,
+      session,
+      buildDealHands(session.handNumber, handState, playerHands, {
+        smallBlind: session.config.smallBlind,
+        bigBlind: session.config.bigBlind,
+      }),
+    );
+
+    const totalPot = handState.pots.reduce((sum, p) => sum + p.size, 0);
+    const blinds = {
       smallBlind: session.config.smallBlind,
       bigBlind: session.config.bigBlind,
-    }),
-  );
-
-  const totalPot = handState.pots.reduce((sum, p) => sum + p.size, 0);
-  const blinds = {
-    smallBlind: session.config.smallBlind,
-    bigBlind: session.config.bigBlind,
-  };
-  const scheduleContext =
-    session.config.blindSchedule && session.config.handsPerLevel
-      ? {
-          schedule: session.config.blindSchedule,
-          handsPerLevel: session.config.handsPerLevel,
-        }
-      : undefined;
-  for (const ph of playerHands) {
-    agentRunner.injectMessage(
-      ph.playerId,
-      formatDealHands(
-        session.handNumber,
-        ph.cards,
-        handState.players,
-        totalPot,
-        blinds,
-        scheduleContext,
-      ),
-    );
-  }
-
-  if (signal.aborted) return;
-
-  let currentState = handState;
-  let previousPhase = currentState.phase;
-
-  while (!signal.aborted) {
-    if (currentState.currentPlayerId) {
-      currentState = await playTurn(ctx, currentState);
-      if (signal.aborted) break;
-      continue;
+    };
+    const scheduleContext =
+      session.config.blindSchedule && session.config.handsPerLevel
+        ? {
+            schedule: session.config.blindSchedule,
+            handsPerLevel: session.config.handsPerLevel,
+          }
+        : undefined;
+    for (const ph of playerHands) {
+      await agentRunner.injectMessage(
+        ph.playerId,
+        formatDealHands(
+          session.handNumber,
+          ph.cards,
+          handState.players,
+          totalPot,
+          blinds,
+          scheduleContext,
+        ),
+      );
     }
 
-    const advancedState = poker.advanceGame(gameId);
-    updateGameState(session, advancedState);
+    if (signal.aborted) return;
 
-    if (advancedState.phase === "WAITING") {
-      await handleHandResult(ctx, advancedState, preHandBustedIds);
-      session.currentHands = [];
-      break;
+    let currentState = handState;
+    let previousPhase = currentState.phase;
+
+    while (!signal.aborted) {
+      if (currentState.currentPlayerId) {
+        currentState = await playTurn(ctx, currentState);
+        if (signal.aborted) break;
+        continue;
+      }
+
+      const advancedState = poker.advanceGame(gameId);
+      updateGameState(session, advancedState);
+
+      if (advancedState.phase === "WAITING") {
+        await handleHandResult(ctx, advancedState, preHandBustedIds);
+        session.currentHands = [];
+        break;
+      }
+
+      if (advancedState.phase !== previousPhase) {
+        await handlePhaseTransition(ctx, advancedState);
+        previousPhase = advancedState.phase;
+      }
+
+      currentState = advancedState;
     }
-
-    if (advancedState.phase !== previousPhase) {
-      await handlePhaseTransition(ctx, advancedState);
-      previousPhase = advancedState.phase;
-    }
-
-    currentState = advancedState;
+  } catch (err) {
+    logError("playHand failed", err);
+    throw err;
   }
 }

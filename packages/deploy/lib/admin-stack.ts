@@ -148,12 +148,10 @@ export class AdminStack extends cdk.Stack {
           "ecs:ListTasks",
           "ecs:DescribeTasks",
         ],
-        resources: ["*"],
-        conditions: {
-          ArnEquals: {
-            "ecs:cluster": props.ecsCluster.clusterArn,
-          },
-        },
+        resources: [
+          props.ecsCluster.clusterArn,
+          `${props.ecsCluster.clusterArn}/*`,
+        ],
       }),
     );
 

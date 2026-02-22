@@ -180,10 +180,16 @@ const playerAnalysisHandler: InstructionHandler = {
     ctx.dispatch({ type: "SPEAK_START", playerId, text: analysis, isApiError });
 
     ctx.state.ttsGate = (
-      voiceId ? speakAnalysis(analysis, voiceId) : Promise.resolve()
+      voiceId ? speakAnalysis(analysis, voiceId) : Promise.resolve(false)
     ).then(
-      () => ctx.dispatch({ type: "SPEAK_END" }),
-      () => ctx.dispatch({ type: "SPEAK_END" }),
+      (ok) => {
+        if (ok === false) console.warn("TTS: audio did not play");
+        ctx.dispatch({ type: "SPEAK_END" });
+      },
+      () => {
+        console.warn("TTS: audio did not play");
+        ctx.dispatch({ type: "SPEAK_END" });
+      },
     );
   },
   async postWait(_inst, ctx) {

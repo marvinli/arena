@@ -70,7 +70,11 @@ export class EcsStack extends cdk.Stack {
           "bedrock:InvokeModel",
           "bedrock:InvokeModelWithResponseStream",
         ],
-        resources: ["*"],
+        resources: [
+          "arn:aws:bedrock:*::foundation-model/anthropic.*",
+          "arn:aws:bedrock:*::foundation-model/amazon.*",
+          "arn:aws:bedrock:*::foundation-model/meta.*",
+        ],
       }),
     );
 

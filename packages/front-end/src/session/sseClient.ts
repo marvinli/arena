@@ -55,11 +55,15 @@ export async function* sseSubscribe(
         } else if (line === "") {
           // End of event
           if (eventType === "next" && dataLines.length > 0) {
-            const json = JSON.parse(dataLines.join("\n")) as {
-              data?: { renderInstructions: GqlInstruction };
-            };
-            if (json.data?.renderInstructions) {
-              yield json.data.renderInstructions;
+            try {
+              const json = JSON.parse(dataLines.join("\n")) as {
+                data?: { renderInstructions: GqlInstruction };
+              };
+              if (json.data?.renderInstructions) {
+                yield json.data.renderInstructions;
+              }
+            } catch {
+              console.warn("SSE: failed to parse event data, skipping");
             }
           } else if (eventType === "complete") {
             return;

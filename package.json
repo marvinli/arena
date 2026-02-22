@@ -2,6 +2,9 @@
   "name": "arena",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "packages/*"
   ],
@@ -17,6 +20,8 @@
     "test:admin-api": "npm test --workspace=@arena/admin-api",
     "admin-api": "npm run dev --workspace=@arena/admin-api",
     "admin-fe": "npm run dev --workspace=@arena/admin-fe",
+    "test": "npm run test:proctor-api && npm run test:front-end && npm run test:videographer && npm run test:admin-api",
+    "codegen": "npm run codegen --workspace=@arena/proctor-api && npm run codegen:front-end",
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "cdk:synth": "npm run synth --workspace=@arena/deploy",

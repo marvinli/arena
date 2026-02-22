@@ -24,6 +24,12 @@ interface ActionResult {
   isApiError?: boolean;
 }
 
+function fallbackAction(
+  validActions: Array<{ type: string }>,
+): "CHECK" | "FOLD" {
+  return validActions.some((a) => a.type === "CHECK") ? "CHECK" : "FOLD";
+}
+
 /**
  * Calls the agent runner with retries. If all attempts fail,
  * returns a fallback check/fold action.
@@ -59,17 +65,14 @@ async function callAgentWithRetries(
   }
 
   // All LLM attempts exhausted — fallback
-  const canCheck = turnData.validActions.some(
-    (a: { type: string }) => a.type === "CHECK",
-  );
-  const fallback = canCheck ? "CHECK" : "FOLD";
+  const fallback = fallbackAction(turnData.validActions);
   logError(
     "orchestrator",
     `Max LLM retries for ${playerId}, auto-${fallback.toLowerCase()}ing`,
   );
   return {
     action: { type: fallback },
-    analysis: canCheck ? fallbackCheckLine() : fallbackFoldLine(),
+    analysis: fallback === "CHECK" ? fallbackCheckLine() : fallbackFoldLine(),
     isApiError: true,
   };
 }
@@ -104,10 +107,7 @@ async function submitActionWithRetries(
 
       if (attempt >= MAX_ACTION_RETRIES) {
         const turnData = poker.getMyTurn(ctx.gameId, playerId);
-        const canCheck = turnData.validActions.some(
-          (a: { type: string }) => a.type === "CHECK",
-        );
-        const fallback = canCheck ? "CHECK" : "FOLD";
+        const fallback = fallbackAction(turnData.validActions);
         logError(
           "orchestrator",
           `Max retries reached for ${playerId}, auto-${fallback.toLowerCase()}ing`,
@@ -122,10 +122,7 @@ async function submitActionWithRetries(
         const retryMsg =
           retryErr instanceof Error ? retryErr.message : String(retryErr);
         const turnData2 = poker.getMyTurn(ctx.gameId, playerId);
-        const canCheck2 = turnData2.validActions.some(
-          (a: { type: string }) => a.type === "CHECK",
-        );
-        const fallback2 = canCheck2 ? "CHECK" : "FOLD";
+        const fallback2 = fallbackAction(turnData2.validActions);
         logError(
           "orchestrator",
           `Agent ${playerId} rejectAction failed, auto-${fallback2.toLowerCase()}ing:`,
@@ -135,7 +132,8 @@ async function submitActionWithRetries(
         return {
           result: {
             action: { type: fallback2 },
-            analysis: canCheck2 ? fallbackCheckLine() : fallbackFoldLine(),
+            analysis:
+              fallback2 === "CHECK" ? fallbackCheckLine() : fallbackFoldLine(),
             isApiError: true,
           },
           state,
@@ -169,57 +167,66 @@ export async function playTurn(
   ctx: SessionContext,
   currentState: GameState,
 ): Promise<GameState> {
-  const playerId = currentState.currentPlayerId as string;
-  const playerName =
-    currentState.players.find((p) => p.id === playerId)?.name ?? playerId;
+  try {
+    const playerId = currentState.currentPlayerId as string;
+    const playerName =
+      currentState.players.find((p) => p.id === playerId)?.name ?? playerId;
 
-  await emit(ctx.moduleId, ctx.session, buildPlayerTurn(playerId, playerName));
-
-  const { result, state } = await resolveAction(ctx, playerId);
-  const isAllIn =
-    state.players.find((p) => p.id === playerId)?.status === "ALL_IN";
-  trackAction(ctx.actionTracker, playerId, result.action.type, isAllIn);
-  if (result.analysis) {
-    trackAnalysis(ctx.actionTracker, playerId, result.analysis.length);
-  }
-  updateGameState(ctx.session, state);
-
-  if (result.analysis) {
     await emit(
       ctx.moduleId,
       ctx.session,
-      buildPlayerAnalysis(
-        playerId,
-        playerName,
-        result.analysis,
-        result.isApiError ?? false,
-      ),
+      buildPlayerTurn(playerId, playerName),
     );
-  }
 
-  await emit(
-    ctx.moduleId,
-    ctx.session,
-    buildPlayerAction(
-      playerId,
-      playerName,
-      result.action.type,
-      result.action.amount,
-      state,
-    ),
-  );
+    const { result, state } = await resolveAction(ctx, playerId);
+    const isAllIn =
+      state.players.find((p) => p.id === playerId)?.status === "ALL_IN";
+    trackAction(ctx.actionTracker, playerId, result.action.type, isAllIn);
+    if (result.analysis) {
+      trackAnalysis(ctx.actionTracker, playerId, result.analysis.length);
+    }
+    updateGameState(ctx.session, state);
 
-  for (const p of state.players) {
-    if (p.id === playerId || p.status === "BUSTED") continue;
-    ctx.agentRunner.injectMessage(
-      p.id,
-      formatOpponentAction(
+    if (result.analysis) {
+      await emit(
+        ctx.moduleId,
+        ctx.session,
+        buildPlayerAnalysis(
+          playerId,
+          playerName,
+          result.analysis,
+          result.isApiError ?? false,
+        ),
+      );
+    }
+
+    await emit(
+      ctx.moduleId,
+      ctx.session,
+      buildPlayerAction(
+        playerId,
         playerName,
         result.action.type,
         result.action.amount,
+        state,
       ),
     );
-  }
 
-  return state;
+    for (const p of state.players) {
+      if (p.id === playerId || p.status === "BUSTED") continue;
+      ctx.agentRunner.injectMessage(
+        p.id,
+        formatOpponentAction(
+          playerName,
+          result.action.type,
+          result.action.amount,
+        ),
+      );
+    }
+
+    return state;
+  } catch (err) {
+    logError("playTurn failed", err);
+    throw err;
+  }
 }

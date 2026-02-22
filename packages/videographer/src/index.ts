@@ -87,28 +87,34 @@ async function startStreaming(): Promise<void> {
 }
 
 async function stopStreaming(): Promise<void> {
+  if (cleaning) return;
+  cleaning = true;
   console.log("[videographer] stopping stream...");
 
-  if (ffmpeg) {
-    ffmpeg.process.kill("SIGTERM");
-    const killTimer = setTimeout(() => ffmpeg?.process.kill("SIGKILL"), 5000);
-    const timeout = new Promise<{ code: null; signal: null }>((r) =>
-      setTimeout(() => r({ code: null, signal: null }), 10_000),
-    );
-    await Promise.race([ffmpeg.done.catch(() => {}), timeout]);
-    clearTimeout(killTimer);
-    ffmpeg = null;
-  }
+  try {
+    if (ffmpeg) {
+      ffmpeg.process.kill("SIGTERM");
+      const killTimer = setTimeout(() => ffmpeg?.process.kill("SIGKILL"), 5000);
+      const timeout = new Promise<{ code: null; signal: null }>((r) =>
+        setTimeout(() => r({ code: null, signal: null }), 10_000),
+      );
+      await Promise.race([ffmpeg.done.catch(() => {}), timeout]);
+      clearTimeout(killTimer);
+      ffmpeg = null;
+    }
 
-  if (capture) {
-    const cleanupPromise = capture.cleanup().catch(() => {});
-    const timeout = new Promise<void>((r) => setTimeout(r, 10_000));
-    await Promise.race([cleanupPromise, timeout]);
-    capture = null;
-  }
+    if (capture) {
+      const cleanupPromise = capture.cleanup().catch(() => {});
+      const timeout = new Promise<void>((r) => setTimeout(r, 10_000));
+      await Promise.race([cleanupPromise, timeout]);
+      capture = null;
+    }
 
-  status = "idle";
-  console.log("[videographer] stream stopped, idle");
+    status = "idle";
+    console.log("[videographer] stream stopped, idle");
+  } finally {
+    cleaning = false;
+  }
 }
 
 // ── Shutdown ─────────────────────────────────────────────

@@ -5,7 +5,7 @@ console.log(
   "[TTS] config:",
   "inworldKey=" +
     (INWORLD_API_KEY ? `set(${INWORLD_API_KEY.length}chars)` : "MISSING"),
-  "disabled=" + DISABLE_TTS,
+  `disabled=${DISABLE_TTS}`,
 );
 
 const INWORLD_PCM_SAMPLE_RATE = 48000;
@@ -70,7 +70,16 @@ async function waitForPlayback(
 ) {
   if (lastSource) {
     await new Promise<void>((resolve) => {
-      lastSource.onended = () => resolve();
+      // If playback already finished, resolve immediately
+      if (lastSource.context.state === "closed") {
+        resolve();
+        return;
+      }
+      const timer = setTimeout(resolve, 30_000); // safety timeout
+      lastSource.onended = () => {
+        clearTimeout(timer);
+        resolve();
+      };
     });
   }
   await ctx.close();
@@ -84,7 +93,7 @@ const RIFF_HEADER_SIZE = 44;
  * Stream InWorld TTS: newline-delimited JSON with base64 LINEAR16 audio.
  * Each line is `{ "result": { "audioContent": "<base64>" } }`.
  */
-async function speakInworld(text: string, voice: string): Promise<void> {
+async function speakInworld(text: string, voice: string): Promise<boolean> {
   const res = await fetch("https://api.inworld.ai/tts/v1/voice:stream", {
     method: "POST",
     headers: {
@@ -105,10 +114,10 @@ async function speakInworld(text: string, voice: string): Promise<void> {
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     console.warn("InWorld TTS failed:", res.status, res.statusText, body);
-    return;
+    return false;
   }
 
-  if (!res.body) return;
+  if (!res.body) return false;
 
   const ctx = new AudioContext({ sampleRate: INWORLD_PCM_SAMPLE_RATE });
   const reader = res.body.getReader();
@@ -180,6 +189,7 @@ async function speakInworld(text: string, voice: string): Promise<void> {
   }
 
   await waitForPlayback(ctx, lastSource);
+  return true;
 }
 
 // ── Public API ──────────────────────────────────────────
@@ -187,16 +197,17 @@ async function speakInworld(text: string, voice: string): Promise<void> {
 export async function speakAnalysis(
   text: string,
   voice: string,
-): Promise<void> {
+): Promise<boolean> {
   if (DISABLE_TTS) {
     console.log("[TTS] disabled, skipping");
     await new Promise((r) => setTimeout(r, 200));
-    return;
+    return false;
   }
   if (INWORLD_API_KEY) {
-    console.log("[TTS] using inworld, voice=" + voice);
+    console.log(`[TTS] using inworld, voice=${voice}`);
     return speakInworld(text, voice);
   }
   console.warn("[TTS] INWORLD_API_KEY missing, skipping");
   await new Promise((r) => setTimeout(r, 200));
+  return false;
 }
