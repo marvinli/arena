@@ -28,7 +28,7 @@ The videographer polls the proctor-api's `{ live }` GraphQL query to decide when
 
 The front-end already produces the complete show: cards, animations, TTS audio via the Web Audio API. We just need to capture that output.
 
-`puppeteer-stream` uses a Chrome extension to capture the active tab's video and audio as a single WebM stream (VP8 video + Opus audio). This avoids the complexity of separate video/audio capture pipelines — everything comes muxed from Chrome.
+`puppeteer-stream` uses a Chrome extension to capture the active tab's video and audio as a single WebM stream (VP8 video at 8 Mbps + Opus audio at 128 kbps). This avoids the complexity of separate video/audio capture pipelines — everything comes muxed from Chrome. The `getStream` handshake can intermittently hang (especially on ARM64 Fargate), so it is retried up to 3 times with a 30-second timeout per attempt.
 
 The WebM stream is piped to ffmpeg, which transcodes to H.264/AAC and pushes to RTMP (for Twitch) or writes to a local MP4 file.
 
@@ -43,14 +43,15 @@ ffmpeg \
   -tune zerolatency \            # Low-latency for RTMP
   -pix_fmt yuv420p \
   -r 30 -g 60 \                  # Framerate + keyframe interval
-  -b:v 4500k -maxrate 4500k \   # 4.5 Mbps video
-  -bufsize 9000k \
-  -c:a aac -b:a 160k -ar 44100 \ # Opus → AAC
+  -b:v 6000k -minrate 4500k \   # 6 Mbps target, 4.5 Mbps floor
+  -maxrate 6000k -bufsize 9000k \
+  -c:a aac -b:a 160k -ar 48000 \ # Opus → AAC at 48 kHz
+  -af aresample=async=1000:min_hard_comp=0.1:first_pts=0 \ # Fill audio gaps with silence
   -f flv \                       # RTMP container
   rtmp://live.twitch.tv/app/{STREAM_KEY}
 ```
 
-For local file recording the same pipeline is used, minus `-tune zerolatency` and `-f flv`.
+For local file recording the same pipeline is used, minus `-tune zerolatency` and `-f flv`. The `aresample` audio filter fills small timestamp gaps with silence to prevent choppiness from discontinuities in the tab-capture WebM stream.
 
 ## Configuration
 
@@ -81,20 +82,27 @@ Chrome is auto-detected on macOS (`/Applications/Google Chrome.app/...`), Linux 
 2. Poll proctor-api { live } query every 5 seconds
 
    When live = true and currently idle:
-     3. Wait for front-end to be reachable (HEAD request, up to 30 attempts)
+     3. Wait for front-end to be reachable (HEAD request, up to 30 attempts, 2s apart)
      4. Launch Chrome in --app mode with fixed viewport
      5. Start puppeteer-stream tab capture → WebM stream
+        (getStream retried up to 3 times with 30s timeout per attempt)
      6. Spawn ffmpeg, pipe WebM to stdin
      7. ffmpeg transcodes and pushes to RTMP (or writes to file)
+     8. Monitor ffmpeg — if it exits unexpectedly, clean up and return to idle
+
+   If start fails:
+     - Clean up partial resources (kill ffmpeg, close browser)
+     - Retry with exponential backoff (2s initial, doubles up to 60s max)
 
    When live = false and currently streaming:
-     8. Stop capture stream, kill ffmpeg, close browser → back to idle
+     9. Stop capture stream, kill ffmpeg, close browser → back to idle
 
    On SIGTERM/SIGINT:
-     9. Stop streaming (if active), close health server, exit
+     10. Stop streaming (if active), close health server, exit
+         (hard exit after 15s if graceful shutdown stalls)
 ```
 
-The process is long-lived. It automatically starts and stops streaming based on the proctor's live flag. If it crashes, restart it — it will resume polling and start streaming when `live` is true again.
+The process is long-lived. It automatically starts and stops streaming based on the proctor's live flag. If starting fails (e.g. Chrome crash, extension hang), partial resources are cleaned up and the service retries with exponential backoff. If ffmpeg exits unexpectedly during streaming, the service cleans up and returns to idle, then starts again on the next poll. If the process itself crashes, restart it — it will resume polling and start streaming when `live` is true again.
 
 ## Package Structure
 
@@ -102,9 +110,13 @@ The process is long-lived. It automatically starts and stops streaming based on 
 packages/videographer/
   src/
     index.ts          # Entry point — health server, live-flag polling, start/stop streaming, graceful shutdown
-    browser.ts        # puppeteer-stream launch + tab capture (WebM VP8+Opus)
-    ffmpeg.ts         # Spawn ffmpeg, pipe WebM stdin → RTMP or file
+    browser.ts        # puppeteer-stream launch + tab capture (WebM VP8+Opus), getStream retry logic
+    ffmpeg.ts         # Spawn ffmpeg, pipe WebM stdin → RTMP or file, input data rate logging
     config.ts         # Env var loading, Chrome auto-detection, validation
+  test/
+    browser.test.ts   # Browser capture tests (mocked puppeteer-stream)
+    ffmpeg.test.ts    # ffmpeg spawn/args tests (mocked child_process)
+    config.test.ts    # Config loading + validation tests
   package.json
   tsconfig.json
 ```

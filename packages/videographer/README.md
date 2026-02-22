@@ -44,6 +44,8 @@ Optional variables:
 - Requires a real Chrome installation (not headless) because `puppeteer-stream` uses a Chrome extension for tab capture.
 - ffmpeg must be installed and available on `PATH`.
 - The service waits up to 60 seconds for the front-end to become reachable before starting capture.
-- Video is transcoded from VP8 to H.264 at 4500 kbps; audio from Opus to AAC at 160 kbps.
+- Video is transcoded from VP8 to H.264 at 6000 kbps (minrate 4500 kbps); audio from Opus to AAC at 160 kbps / 48 kHz. An `aresample` audio filter fills small gaps with silence to prevent choppiness from timestamp discontinuities.
 - When streaming to RTMP, ffmpeg uses `-tune zerolatency` for low-latency output.
+- The `getStream` call (tab capture handshake) is retried up to 3 times with a 30-second timeout per attempt and 5-second delay between retries — the extension can intermittently hang on ARM64 Fargate.
+- If streaming fails to start, the service retries with exponential backoff (2s initial, up to 60s max delay).
 - Graceful shutdown on SIGTERM/SIGINT: stops ffmpeg, closes the browser, then exits.

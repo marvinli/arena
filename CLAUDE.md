@@ -36,7 +36,7 @@ Design docs live in `docs/`:
 All env vars live in a **single root `.env`** file (see `.env.example`). Do not create package-level `.env` files.
 
 - **proctor-api** loads it via `dotenv.config({ path: "../../../.env" })`
-- **front-end** (Vite) reads it via `envDir: "../../"` in `vite.config.ts` — only `VITE_`-prefixed vars are exposed to client code
+- **front-end** (Vite) reads it via `envDir: "../../"` in `vite.config.ts` — `VITE_`-prefixed and `INWORLD_`-prefixed vars are exposed to client code
 
 Key variables:
 - `CHANNEL_KEY` / `VITE_CHANNEL_KEY` — isolates game data and the live flag in DynamoDB. Use `local-dev` locally, `poker-stream-1` in production. The live flag is stored as `live:${channelKey}` in the settings table, so different channels never interfere.
@@ -130,6 +130,7 @@ The front-end is a pure renderer — no game logic. It subscribes to SSE render 
 src/components/
   PokerPage/                         # Poker game page
     index.tsx                        # Page shell (composes PokerTable + SidePanel)
+    ProviderIcon.tsx                 # Re-exports CharacterAvatar from shared/
     PokerTable/
       index.tsx                      # Table scene: seats, community, bets
       PlayerSeat/                    # Individual player seat
@@ -137,10 +138,12 @@ src/components/
       BetIndicator/                  # Bet chip with toward-center positioning
       PlayingCard/                   # Card with 3D flip animation
       ChipStack/                     # Chip icon + formatted amount
-      layout.ts                      # Seat positions + colors (data only)
+      layout.ts                      # Seat positions, colors, bet positioning (data only)
     SidePanel/                       # Speaking player + analysis text
   PokerLeaderboardPage/              # Between-hands leaderboard and endcard
     index.tsx
+  shared/
+    ProviderIcon.tsx                 # CharacterAvatar component (character PNG images)
 ```
 
 ### Other Source
@@ -149,7 +152,7 @@ src/components/
 src/
   session/               # State management
     reducer.ts           # Dispatch table — delegates to handlers/
-    handlers/            # Per-instruction-type state handlers
+    handlers/            # Per-instruction-type state handlers (+ shared.ts for common helpers)
     renderQueue.ts       # Animation gate + TTS coordination
     timing.ts            # Shared animation timing constants
     sseClient.ts         # SSE subscription + channel state fetching
@@ -162,11 +165,16 @@ src/
     useRouteSync.ts      # Syncs GameState.currentView → browser URL
     useDealAnimation.ts  # Staged hole card deal animation
     useCommunityDealAnimation.ts
+    useAnimationStepper.ts  # Shared timer progression for deal animations
   graphql/               # GraphQL client + operations + generated types
   styles/                # Global CSS
   tts.ts                 # Inworld streaming TTS (inworld-tts-1.5-mini, NDJSON + base64 LINEAR16 via Web Audio API)
   chips.ts               # Chip formatting utilities
+  personas.ts            # Persona definitions (shark, maniac, rock, fish, etc.)
+  characterImages.ts     # Vite glob import for character avatar PNGs
+  mockData.ts            # Mock fixture data for visual development
   types.ts               # Core app types (Card, Player, GameState, etc.)
+  assets/characters/     # Character avatar PNG images
 ```
 
 ### Data Flow

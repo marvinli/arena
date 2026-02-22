@@ -62,10 +62,11 @@ src/components/
 ├── PokerPage/
 │   ├── index.tsx                          # Page shell (table + side panel)
 │   ├── PokerPage.module.css               # Page-level layout (wrapper, scene)
+│   ├── ProviderIcon.tsx                   # Re-exports CharacterAvatar from shared/
 │   ├── PokerTable/
 │   │   ├── index.tsx                      # Table: seats + community + bets
 │   │   ├── PokerTable.module.css          # Table-specific styles (community, bets, empty seats)
-│   │   ├── layout.ts                      # Seat positions + colors (data only)
+│   │   ├── layout.ts                      # Seat positions, colors, bet indicator positioning (data only)
 │   │   ├── PlayerSeat/
 │   │   │   ├── index.tsx
 │   │   │   └── PlayerSeat.module.css
@@ -88,12 +89,12 @@ src/components/
 │   └── PokerLeaderboardPage.module.css
 │
 └── shared/
-    └── ProviderIcon.tsx                   # CharacterAvatar component — character images (used by PlayerSeat + SidePanel)
+    └── ProviderIcon.tsx                   # CharacterAvatar component — character images (used by PlayerSeat, SidePanel, PokerLeaderboardPage)
 ```
 
 ### Key Decisions
 
-- **CharacterAvatar** (in `shared/ProviderIcon.tsx`) is used across pages (PlayerSeat, SidePanel, and potentially the leaderboard).
+- **CharacterAvatar** (in `shared/ProviderIcon.tsx`) is used across pages (PlayerSeat, SidePanel, and PokerLeaderboardPage). `PokerPage/ProviderIcon.tsx` re-exports it for convenience.
 - **CommunityArea** and **BetIndicator** don't have their own CSS modules — they import from `PokerTable.module.css` (their styles are tightly coupled to the table layout). This avoids unnecessary file proliferation.
 - **layout.ts** stays under `PokerTable/` as pure data.
 

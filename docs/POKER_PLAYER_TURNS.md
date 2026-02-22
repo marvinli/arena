@@ -11,7 +11,7 @@ interface PlayerConfig {
   id: string;              // Unique identifier (e.g., "agent-1")
   name: string;            // Display name (e.g., "Aaron")
   modelId: string;         // LLM model identifier (e.g., "deepseek-chat")
-  provider: string;        // Model provider ("anthropic", "openai", "google", "deepseek", "xai")
+  provider: string;        // Model provider ("anthropic", "openai", "google", "deepseek", "xai", "bedrock")
   avatarUrl?: string;      // Avatar key for front-end rendering
   temperature?: number;    // Optional creativity setting (default: provider default)
   persona?: string;        // Poker persona key (e.g., "shark", "fish", "maniac")
@@ -24,7 +24,7 @@ The front-end uses `name` and `avatarUrl` for rendering. The agent runner uses `
 
 ### Game config
 
-Game config lives in `game-config.ts`, which imports from `characters.ts`. Each character has a `persona`, `bio`, `voiceDirective`, and `ttsVoices`. The `randomPlayers()` function picks a subset from the full character roster for each session.
+Game config lives in `game-config.ts`, which imports from `characters.ts`. Each character has a `persona`, `bio`, `voiceDirective`, and `ttsVoice`. The `randomPlayers()` function picks a random subset from the full character roster for each session.
 
 ```typescript
 interface AgentConfig {
@@ -266,13 +266,13 @@ for each hand until gameOver or aborted:
             if hand is over:
                 emit HAND_RESULT to front-end
                 inject HAND_RESULT into all agents
+                prompt winners (and loser in heads-up showdown) for reactions
+                if reaction: emit PLAYER_ANALYSIS to front-end
                 break
 
     if game is over:
         emit GAME_OVER
         break
-    else:
-        emit LEADERBOARD
 ```
 
 ### Key design decision: proctor injects messages, not the agent runner
@@ -415,7 +415,7 @@ For each player turn, the proctor emits three instructions:
 2. **PLAYER_ANALYSIS** (optional) — front-end renders analysis text, plays TTS with the player's voice
 3. **PLAYER_ACTION** — front-end shows the action animation (chips moving, cards folding, etc.)
 
-Each character's `ttsVoices` config maps to voice names for different TTS providers (Inworld). Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice names are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
+Each character's `ttsVoice` config specifies a voice name for TTS (Inworld). Each agent gets a distinct voice so viewers can distinguish who is speaking. Voice names are sent to the front-end via `playerMeta` in the `GAME_START` instruction.
 
 ## Error Handling
 
@@ -432,7 +432,7 @@ If the agent calls `submit_action` with an action that isn't in `validActions` (
 If the agent bets an amount outside the valid range, the same reject-and-retry flow applies. The error message includes the valid range.
 
 ### Agent produces no tool call
-If the agent produces only text and no tool call after the LLM response, the agent runner throws and the orchestrator auto-checks or auto-folds.
+If the agent produces only text and no structured tool call, the agent runner first attempts to parse a tool call from the text output (some models like Llama 4 on Bedrock emit tool calls as JSON text instead of structured calls). If parsing also fails, the agent runner throws and the orchestrator auto-checks or auto-folds.
 
 ### All error paths
 Every error path results in a CHECK (if valid) or FOLD. The game always progresses. No error can stall the game loop.

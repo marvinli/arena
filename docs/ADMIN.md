@@ -20,7 +20,7 @@ The admin-api runs as a Lambda function (not in the ECS task). It talks directly
 1. User opens admin dashboard (CloudFront URL)
 2. Clicks "Login" → redirects to Cognito Hosted UI
 3. Cognito authenticates → redirects back with `id_token` in URL hash (implicit grant)
-4. admin-fe stores token in memory, sends `Authorization: Bearer <token>` with every GraphQL request
+4. admin-fe stores token in `sessionStorage`, sends `Authorization: Bearer <token>` with every GraphQL request
 5. admin-api verifies JWT against Cognito JWKS (issuer, audience, signature, expiry)
 
 No auth is required to load the SPA itself — only API calls are protected.
@@ -30,7 +30,8 @@ No auth is required to load the SPA itself — only API calls are protected.
 The admin-api Lambda interacts with these AWS services directly:
 
 - **DynamoDB** — reads/writes the `settings` table (live flag), scans/deletes game data tables (`modules`, `instructions`, `channel-state`, `agent-messages`)
-- **ECS** — `DescribeServices` for service status, `UpdateService` to start (desiredCount=1) or stop (desiredCount=0) the arena Fargate service
+- **ECS** — `DescribeServices`/`ListTasks`/`DescribeTasks` for service and container status, `UpdateService` to start (desiredCount=1) or stop (desiredCount=0) the arena Fargate service
+- **EventBridge Scheduler** — invokes the Lambda with scheduler events for automated start/stop on a schedule
 
 ## Admin API (`packages/admin-api/`)
 
@@ -40,26 +41,35 @@ graphql-yoga server with Cognito JWT auth. Talks directly to DynamoDB and ECS. D
 
 ```
 src/
-  yoga.ts     # Schema, resolvers, yoga server with JWT context (shared)
-  index.ts    # Standalone HTTP server for local dev
-  lambda.ts   # Lambda handler for production (wraps yoga)
-  auth.ts     # Cognito JWT verification via jose (JWKS, issuer, audience)
+  yoga.ts       # Schema, resolvers, yoga server with JWT auth plugin (shared)
+  index.ts      # Standalone HTTP server for local dev
+  lambda.ts     # Lambda handler for production (wraps yoga) + EventBridge Scheduler dispatch
+  auth.ts       # Cognito JWT verification via jose (JWKS, issuer, audience, email allowlist)
+  actions.ts    # Shared DynamoDB/ECS actions (setLive, startService, stopService) + AWS client instances
+  scheduler.ts  # Maps scheduler action strings to action functions
 test/
-  admin-api.test.ts  # Vitest tests with mocked AWS SDK (DynamoDB, ECS, auth)
+  admin-api.test.ts  # Vitest tests with mocked AWS SDK (DynamoDB, ECS, auth, scheduler events)
 ```
 
 ### Auth Implementation
 
-Uses `jose` to verify JWTs against Cognito's JWKS endpoint. The `verifyToken` function checks issuer (`https://cognito-idp.<region>.amazonaws.com/<poolId>`), audience (client ID), signature, and expiry. Returns `{ sub, email }` from the token payload. When `SKIP_AUTH=true`, the context returns a hardcoded local dev user instead.
+Uses `jose` to verify JWTs against Cognito's JWKS endpoint. The `verifyToken` function checks issuer (`https://cognito-idp.<region>.amazonaws.com/<poolId>`), audience (client ID), signature, and expiry, plus an email allowlist. Returns `{ sub, email }` from the token payload. Auth runs as a Yoga `onRequest` plugin (not context function). When `SKIP_AUTH=true`, the plugin is bypassed and the context returns a hardcoded local dev user instead.
 
 ### Schema
 
 ```graphql
+type ContainerStatus {
+  name: String!
+  lastStatus: String!
+  healthStatus: String
+}
+
 type ServiceStatus {
   status: String!
   runningCount: Int
   desiredCount: Int
   lastEvent: String
+  containers: [ContainerStatus!]!
 }
 
 type Query {
@@ -78,7 +88,7 @@ type Mutation {
 ### Resolvers
 
 - `live` — reads `live:${CHANNEL_KEY}` from the DynamoDB settings table
-- `serviceStatus` — calls `DescribeServices` on ECS to get the arena Fargate service status (running count, desired count, last event)
+- `serviceStatus` — calls `DescribeServices` on ECS to get the arena Fargate service status (running count, desired count, last event), plus `ListTasks`/`DescribeTasks` for per-container health (arena-app, videographer)
 - `setLive(live)` — writes `live:${CHANNEL_KEY}` to the DynamoDB settings table
 - `resetDatabase` — scans and batch-deletes all items from the modules, instructions, channel-state, and agent-messages DynamoDB tables
 - `startService` — calls `UpdateService` on ECS with `desiredCount: 1`
@@ -98,6 +108,17 @@ The `live` flag is persisted in the DynamoDB `settings` table (as `live:${channe
 - **proctor-api**: programming loop resumes, starts a new game
 - **videographer**: detects `live=true`, launches browser capture and ffmpeg, begins streaming
 
+## EventBridge Scheduler
+
+The Lambda handler also accepts EventBridge Scheduler events for automated stream start/stop. Events have `source: "arena-scheduler"` and an `action` field. Supported actions:
+
+- `startService` — sets ECS desired count to 1
+- `stopService` — sets ECS desired count to 0
+- `setLive` — sets the live flag to true
+- `setNotLive` — sets the live flag to false
+
+Scheduler events are IAM-invoked (no JWT auth). The shared action functions in `actions.ts` are used by both the GraphQL resolvers and the scheduler.
+
 ## Admin Dashboard (`packages/admin-fe/`)
 
 Bare-bones React SPA (Vite + React 19). No router — single-page with conditional rendering.
@@ -114,7 +135,7 @@ src/
 ### Pages
 
 - **Login page**: single "Login with Cognito" button → Cognito Hosted UI redirect (implicit grant). Shown when a Cognito domain is configured and no token is present.
-- **Dashboard**: health indicators (green/red dots) for proctor and videographer, live/stopped status with start/stop toggle button. Polls `health` and `live` queries every 10 seconds.
+- **Dashboard**: three sections — **Fargate Service** (running/stopped status with per-container health indicators for arena-app and videographer, start/stop service button), **Stream** (live/stopped toggle), and **Database** (reset button with confirmation). Polls `serviceStatus` and `live` queries every 10 seconds.
 
 ### Auth Bypass
 

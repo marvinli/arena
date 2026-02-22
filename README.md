@@ -25,7 +25,7 @@ npm workspaces monorepo — TypeScript, ESM, strict mode throughout.
 | `front-end` | Pure renderer — subscribes to SSE instructions, animates the table, plays TTS via Inworld. No game logic. |
 | `videographer` | Puppeteer captures the front-end, pipes through ffmpeg to Twitch RTMP (or local file). |
 | `admin-api` | Admin control plane. GraphQL API (graphql-yoga, Lambda) with direct DynamoDB/ECS access. Cognito JWT auth. |
-| `admin-fe` | Admin dashboard. React SPA — Cognito login, health indicators, start/stop toggle. |
+| `admin-fe` | Admin dashboard. React SPA — Cognito login, per-container health, service start/stop. |
 | `deploy` | AWS CDK infrastructure (DynamoDB, ECS Fargate, Lambda, S3, CloudFront, Cognito). |
 
 ## Commands
@@ -39,8 +39,13 @@ npm run admin-fe                 # admin dashboard dev server (vite, port 5174)
 npm run run-game                 # CLI game runner (no front-end needed)
 npm run test:proctor-api         # vitest
 npm run test:front-end           # vitest
+npm run test:videographer        # vitest
+npm run test:admin-api           # vitest
 npm run check                    # biome lint + format
 npm run check:fix                # biome auto-fix
+npm run cdk:synth                # synthesize CDK stacks
+npm run cdk:deploy               # deploy CDK stacks
+npm run cdk:diff                 # diff CDK stacks
 ```
 
 ## Environment Variables
@@ -56,6 +61,7 @@ Copy `.env.example` to `.env` at the repo root. You need at least one LLM provid
 | `XAI_API_KEY` | For Grok agents | Grok agents |
 | `DEEPSEEK_API_KEY` | For DeepSeek agents | DeepSeek agents |
 | `AWS_REGION` | For Bedrock agents | AWS region (credentials via standard chain) |
+| `VITE_DISABLE_TTS` | No | Disable TTS in the front-end (set to `true`) |
 
 | `TWITCH_RTMP_URL` | For Twitch streaming | Twitch RTMP ingest URL |
 | `YOUTUBE_RTMP_URL` | For YouTube streaming | YouTube RTMP ingest URL |

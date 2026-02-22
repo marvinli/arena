@@ -18,6 +18,8 @@ packages/
       game-config.ts  # Server-side game configuration (players, blinds, chips)
       characters.ts   # Character roster (persona, bio, voice directive, TTS voices)
       db.ts           # DynamoDB document client + table name constants
+      persistence.ts  # DynamoDB persistence layer (modules, instructions, channel state, settings, agent messages)
+      logger.ts       # Shared logger
       services/
         session/
           session-manager.ts  # Session CRUD, client tracking, completeInstruction acks
@@ -33,15 +35,21 @@ packages/
             instruction-builder.ts # Builds poker-specific RenderInstruction payloads
             message-formatter.ts   # Human-readable game event strings for agent conversations
             prompt-template.ts     # Shared system prompt template for agents
-            prompts/               # Prompt templates (system prompt, hand reactions, personas)
+            prompts/               # Prompt templates
+              system.ts            # System prompt template
+              hand-reaction.ts     # Post-hand winner/loser reaction prompts
+              personas/            # Persona definitions (shark, fish, maniac, rock, grinder, etc.)
             fallback-lines.ts      # Fallback commentary when agent analysis fails
       gql/schema/
-        Game/        # Poker game state queries/mutations
-        Player/      # Player actions, turn data
-        Hand/        # Hand history
-        Channel/     # Session management (start/stop/run)
-        GameState/   # Channel state for front-end reconnection
-        RenderInstruction/  # Subscription + instruction types
+        base.ts              # Shared types (Card, Pot, root Query/Mutation/Subscription)
+        mergedTypeDefs.ts    # Merged SDL from all schema folders
+        mergedResolvers.ts   # Merged resolvers from all schema folders
+        Game/                # Poker game state queries/mutations
+        Player/              # Player actions, turn data
+        Hand/                # Hand history
+        Channel/             # Session management (start/stop/run)
+        GameState/           # Channel state for front-end reconnection
+        RenderInstruction/   # Subscription + instruction types
   front-end/     # Renderer — no game logic, renders instructions from proctor-api, does TTS, controls pacing
   videographer/  # Camera — opens front-end in headless Chrome, captures via puppeteer-stream, streams to Twitch RTMP via ffmpeg
 ```
@@ -108,7 +116,7 @@ Each agent is configured server-side in `game-config.ts`, which imports characte
 - **Persona** — poker archetype (shark, fish, maniac, rock, grinder, etc.) that shapes strategy and commentary style
 - **Temperature** — optional creativity setting
 - **Avatar URL** — front-end display key
-- **TTS Voices** — per-provider voice names (Inworld) for spoken analysis
+- **TTS Voice** — Inworld voice name for spoken analysis
 
 On their turn:
 
@@ -283,7 +291,10 @@ Agents run inside the proctor-api process via the `ai` SDK (Vercel AI SDK). The 
 
 ## AWS Deployment
 
+Three CDK stacks (DatabaseStack → EcsStack → AdminStack):
+
 - **proctor-api + front-end** → ECS Fargate (single task, Nginx + Node — persistent connections for GraphQL subscriptions)
 - **videographer** → ECS Fargate sidecar container (headless Chrome + ffmpeg)
 - **admin-api** → Lambda (graphql-yoga behind Function URL, CloudFront routes `/graphql`)
 - **admin-fe** → S3 + CloudFront (with runtime `config.js` injection for Cognito settings)
+- **EventBridge Scheduler** → automated stream start/stop (warm-up, go-live, stop-live, ramp-down)

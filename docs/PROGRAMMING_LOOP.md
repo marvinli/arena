@@ -18,7 +18,7 @@ Modules are created just-in-time when the loop advances to that slot — never a
 
 ### Module
 
-An instance of a programming entry. Has a **type** (e.g., `"poker"`) and a generated **moduleId** (e.g., `"mod_a1b2c3"`). Each module type maps to an engine under `src/services/games/` that knows how to initialize itself, run, and emit instructions.
+An instance of a programming entry. Has a **type** (e.g., `"poker"`) and a generated **moduleId** (a UUID via `crypto.randomUUID()`). Each module type maps to an engine under `src/services/games/` that knows how to initialize itself, run, and emit instructions.
 
 Modules are stored in the local database.
 
@@ -28,7 +28,7 @@ A discrete, renderable unit emitted by a module. Each instruction has a composit
 
 | Component | Type | Example | Description |
 |-----------|------|---------|-------------|
-| `module_id` | TEXT | `mod_a1b2c3` | Which module this belongs to |
+| `module_id` | TEXT | `550e8400-...` | Which module this belongs to |
 | `timestamp_ms` | INTEGER | `1707580800000` | Millisecond timestamp when emitted |
 
 Instructions are ordered by `timestamp_ms` within a module. Since the proctor emits instructions sequentially (each awaits the previous), millisecond collisions are not possible in practice.
@@ -43,14 +43,15 @@ Per `channelKey` (which identifies the client), the proctor tracks the client's 
 
 | Field | Description |
 |-------|-------------|
-| `channel_key` | Identifies the client |
-| `module_id` | Current module instance |
-| `instruction_ts` | Timestamp of last completed instruction |
-| `state_snapshot` | JSON snapshot of game state at that instruction |
+| `channelKey` | Identifies the client (PK) |
+| `moduleId` | Current module instance |
+| `instructionTs` | Timestamp of last emitted instruction |
+| `stateSnapshot` | JSON snapshot of game state at the last emitted instruction |
+| `ackedInstructionTs` | Timestamp of last client-acked instruction |
 
-This is a bookmark — a pointer into the instruction stream. The proctor does not wait for `completeInstruction` for most instructions. It writes instructions to the DB and pushes them to connected clients via SSE independently. The bookmark records how far the client has rendered, so it can resume from that point after a disconnect. The exceptions are `GAME_START` and `GAME_OVER` — the proctor gates on client ACKs for these instructions via `ack-gate.ts` to synchronize session boundaries.
+The channel state tracks two positions: where the proctor has emitted to (`instructionTs` + `stateSnapshot`, updated on each `emit()`) and where the client has rendered to (`ackedInstructionTs`, updated on each `completeInstruction` call). The proctor does not wait for `completeInstruction` for most instructions. It writes instructions to the DB and pushes them to connected clients via SSE independently. The exceptions are `GAME_START` and `GAME_OVER` — the proctor gates on client ACKs for these instructions via `ack-gate.ts` to synchronize session boundaries.
 
-The snapshot is updated alongside the bookmark on each `completeInstruction` call. This avoids the need to replay instructions to reconstruct state on reconnect — the snapshot is always the front-end's visual state at its last completed instruction.
+On reconnect, the `connect` query returns the game state snapshot from the client's last acked instruction (not the latest emitted), so the front-end resumes from its actual rendering position.
 
 ## Database
 
@@ -59,8 +60,8 @@ All persistence uses **DynamoDB** (via `@aws-sdk/lib-dynamodb`). Table names are
 | Table | Key | Description |
 |---|---|---|
 | `modules` | `moduleId` (PK) | Module instances (type, progIndex, status, createdAt) |
-| `instructions` | `moduleId` (PK) + `timestampMs` (SK) | Render instructions with type and JSON payload |
-| `channel-state` | `channelKey` (PK) | Client bookmark (moduleId, instructionTs, stateSnapshot) |
+| `instructions` | `moduleId` (PK) + `timestampMs` (SK) | Render instructions with type, JSON payload, and stateSnapshot |
+| `channel-state` | `channelKey` (PK) | Proctor bookmark (moduleId, instructionTs, stateSnapshot) + client ack position (ackedInstructionTs) |
 | `agent-messages` | `pk` (PK, format: `moduleId#playerId`) + `seq` (SK) | Per-agent conversation history |
 | `settings` | `key` (PK) | Key-value settings (e.g., live flag as `live:${channelKey}`) |
 
@@ -68,7 +69,7 @@ The `db.ts` module initializes the DynamoDB document client and exports table na
 
 ### Agent Conversation Persistence
 
-The `agent_messages` table stores each agent's full conversation history. The agent runner appends messages as they occur — system prompts, injected game context, agent responses, tool calls and results. On proctor restart, the agent runner loads the conversation history from the DB and resumes with full context.
+The `agent-messages` table stores each agent's conversation history. The agent runner appends messages as they occur — injected game context (user messages), agent responses (assistant messages), and tool calls/results. System prompts are not stored (they are rebuilt from config on recovery). On proctor restart, the agent runner loads the conversation history from the DB and resumes with full context.
 
 This enables cold-start recovery of a game mid-hand without losing agent reasoning history. Each agent picks up exactly where it left off, with the same accumulated knowledge of opponent behavior and game events.
 
@@ -91,7 +92,7 @@ Front-end opens
             │
             ▼
   3. startModule(channelKey) mutation
-     → creates session, starts programming loop
+     → sets live flag to true, starts programming loop
             │
             ▼
   Programming loop creates module from PROGRAMMING[0]:
@@ -122,14 +123,15 @@ Front-end opens
             │
             ▼
   3. startModule(channelKey) mutation
-     → session already running? returns true (no-op)
-     → session not running? starts programming loop
+     → sets live flag to true
+     → programming loop already active? returns immediately (no-op)
+     → not active? starts programming loop (with orphan recovery)
             │
             ▼
   Stream instructions from current game position
 ```
 
-When the client reconnects, the proctor sends the snapshot (the client's last known visual state) and then streams instructions from the game's current position. If the game has moved far ahead, the client jumps to the present — it does not replay missed instructions. The `startModule` call is idempotent — if the game is already running, it's a no-op.
+When the client reconnects, `connect()` returns the game state snapshot at the client's last acked instruction. The client renders this snapshot, subscribes to SSE, then calls `startModule` which is idempotent — if the programming loop is already running, it returns immediately.
 
 ## Instruction Lifecycle
 
@@ -143,7 +145,7 @@ Module engine produces an event (deal, action, etc.)
                 ▼                                  ▼
   Persist instruction to DB               Push to connected
   (moduleId, timestampMs,                 clients via SSE
-   type, payload)                         (if any)
+   type, payload, stateSnapshot)          (if any)
                                                    │
                                                    ▼
                                           Front-end renders
@@ -154,11 +156,11 @@ Module engine produces an event (deal, action, etc.)
                                             moduleId, instructionId)
                                                    │
                                                    ▼
-                                          Update channel state in DB
-                                            (instructionTs, stateSnapshot)
+                                          Update ackedInstructionTs in DB
+                                          Notify ack gate (for GAME_START/GAME_OVER)
 ```
 
-The proctor does **not** wait for `completeInstruction` for most instructions. It writes the instruction to the DB and immediately continues the game loop. The front-end queues instructions and renders them in order at its own pace. `completeInstruction` updates the client's bookmark and notifies the ack gate. The proctor gates on ACKs for `GAME_START` and `GAME_OVER` to synchronize session boundaries.
+The proctor does **not** wait for `completeInstruction` for most instructions. It writes the instruction (with a state snapshot) to the DB and immediately continues the game loop. The front-end queues instructions and renders them in order at its own pace. `completeInstruction` updates the client's acked position and notifies the ack gate. The proctor gates on ACKs for `GAME_START` and `GAME_OVER` to synchronize session boundaries.
 
 ## Module Transitions
 
@@ -175,25 +177,28 @@ There is a brief natural pause between modules (a few seconds while the new modu
 
 ### Client reconnects, proctor still running (common case)
 
-1. Look up channel state → `state_snapshot` + `instruction_ts`
-2. Send `state_snapshot` to front-end (same shape as today's `getChannelState`)
-3. Front-end renders the snapshot and subscribes to SSE
-4. Proctor streams instructions from the game's current position
+1. `connect(channelKey)` → looks up channel state, returns snapshot from client's last acked instruction
+2. Front-end renders the snapshot and subscribes to SSE
+3. `startModule(channelKey)` → programming loop already active, returns immediately
+4. SSE replays unacked instructions from the acked position, then streams live instructions
 5. Front-end processes new instructions normally through the reducer
 
-The client may have missed many instructions while disconnected. It does not replay them — it jumps to the present via the snapshot and picks up the live stream. The snapshot is whatever state the client last acknowledged, which may be behind. If the proctor is mid-hand, the client gets the snapshot (which might show a previous hand) and then quickly receives the current instructions to catch up.
+The client may have missed many instructions while disconnected. It does not replay them — it jumps to its last acked state via the snapshot and picks up the instruction stream from there.
 
 ### Proctor was restarted (cold start)
 
-1. Look up channel state → `(module_id, instruction_ts, state_snapshot)`
+On startup, the proctor checks if the live flag is set. If so, it calls `runProgrammingLoop` which detects orphaned modules:
+
+1. Look up channel state → `(moduleId, stateSnapshot)`
 2. Load module from DB by `moduleId`
 3. If module was `running`:
-   - Reconstruct game engine state from stored instructions
+   - Parse player chip stacks and hand number from `stateSnapshot`
+   - Create a new poker game with the recovered chip stacks
    - Load agent conversation histories from `agent_messages`
-   - Resume the module from where it left off
-4. If module was `completed`:
-   - Advance to the next module in the programming array
-5. Send `state_snapshot` (or fresh state if starting a new module) to client
+   - Resume the module from the recovered hand number
+4. If module was `completed` or no orphaned module exists:
+   - Start the normal programming loop from the next index
+5. Send a new `GAME_START` instruction to the front-end
 6. Resume instruction flow
 
 ### Front-end behavior on reconnect
@@ -242,6 +247,17 @@ mutation completeInstruction(
 - `startSession(channelKey, config)` — proctor manages module lifecycle
 - `runSession(channelKey)` — replaced by `startModule`
 
+### Also Available
+
+```graphql
+query live(channelKey: String!): Boolean!
+query getSession(channelKey: String!): Session
+
+mutation setLive(channelKey: String!, live: Boolean!): Boolean!
+mutation stopSession(channelKey: String!): Boolean!
+mutation resetDatabase(channelKey: String!): Boolean!
+```
+
 ### Unchanged
 
 - SSE subscription for render instructions
@@ -270,14 +286,14 @@ mutation completeInstruction(
 **Why doesn't the proctor wait for `completeInstruction` on most instructions?**
 The proctor runs the game without waiting for the front-end to acknowledge most instructions. This decouples the game loop from the renderer — the game runs at inference speed, the front-end renders at its own pace. The exceptions are `GAME_START` and `GAME_OVER`, where the proctor gates on client ACKs via `ack-gate.ts` to synchronize session boundaries (ensuring the front-end is ready before playing hands, and has rendered the game-over screen before starting the next module).
 
-**Why store a snapshot on channel state instead of replaying instructions?**
-Replaying instructions to derive state requires a server-side reducer per module type — duplicating front-end logic. A snapshot is simpler: the client's visual state is captured on each `completeInstruction` and returned verbatim on reconnect. One column, no replay logic, no divergence risk between server and client reducers.
+**Why store a snapshot with each instruction instead of replaying instructions?**
+Replaying instructions to derive state requires a server-side reducer per module type — duplicating front-end logic. A snapshot is simpler: a full game state snapshot is saved alongside each instruction at emit time. On reconnect, `connect()` reads the snapshot from the instruction at the client's last acked position and returns it verbatim. No replay logic, no divergence risk between server and client reducers.
 
 **Why persist agent conversation history?**
 Agent conversations are the most expensive artifact in the system — each message represents LLM inference time and cost. Losing them on proctor restart means agents lose all accumulated knowledge of opponent behavior, bluffing patterns, and hand history. Persisting conversations enables true cold-start recovery: the proctor restarts, loads conversations from the DB, and agents resume mid-game with full context.
 
 **Why store every instruction in the DB?**
-Instructions are the source of truth for what happened in a module. They enable game engine state reconstruction on cold start, provide a complete audit trail for debugging, and support future features (replay, highlights, stats). They're also needed to reconstruct the poker engine state on proctor restart — the snapshot only captures the front-end's visual state, not the engine's internal state.
+Instructions are the source of truth for what happened in a module. They provide a complete audit trail for debugging and support future features (replay, highlights, stats). Each instruction stores a full game state snapshot alongside it, which enables reconnection at any point in the game.
 
 **Why create modules just-in-time?**
 Each module may trigger LLM inference (agent system prompts, initial decisions). Creating modules ahead of time wastes API calls on content that might never be viewed — e.g., if the proctor restarts or the programming array changes before reaching that slot.
