@@ -4,8 +4,9 @@ import {
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
 import * as cdk from "aws-cdk-lib";
-import { ArenaStack } from "../lib/arena-stack.js";
+import { AdminStack } from "../lib/admin-stack.js";
 import { DatabaseStack } from "../lib/database-stack.js";
+import { EcsStack } from "../lib/ecs-stack.js";
 
 const region = process.env.CDK_DEFAULT_REGION ?? "us-east-1";
 
@@ -30,9 +31,17 @@ const app = new cdk.App();
 
 const db = new DatabaseStack(app, "ArenaDatabaseStack", { env });
 
-new ArenaStack(app, "ArenaStack", {
+const ecsStack = new EcsStack(app, "ArenaEcsStack", {
   env,
   tables: db.tables,
   tablePrefix: db.tablePrefix,
   buildSecrets: secrets,
+});
+
+new AdminStack(app, "ArenaAdminStack", {
+  env,
+  tables: db.tables,
+  tablePrefix: db.tablePrefix,
+  ecsCluster: ecsStack.cluster,
+  ecsService: ecsStack.service,
 });

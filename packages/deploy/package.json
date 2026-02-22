@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc",
     "synth": "cdk synth",
-    "deploy": "cdk deploy",
-    "diff": "cdk diff"
+    "deploy": "cdk deploy --all",
+    "diff": "cdk diff --all"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.991.0",

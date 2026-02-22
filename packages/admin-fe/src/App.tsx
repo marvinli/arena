@@ -48,7 +48,8 @@ async function gql<T>(
   });
   if (res.status === 401) {
     sessionStorage.removeItem(TOKEN_KEY);
-    window.location.reload();
+    window.location.href = getLoginUrl();
+    throw new Error("Unauthorized");
   }
   const json = await res.json();
   if (json.errors) throw new Error(json.errors[0].message);

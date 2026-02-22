@@ -4,7 +4,6 @@ import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import type * as dynamodb from "aws-cdk-lib/aws-dynamodb";
-import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
@@ -19,15 +18,15 @@ import type { Construct } from "constructs";
 /** Root of the monorepo (two levels up from this file). */
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 
-export interface ArenaStackProps extends cdk.StackProps {
+export interface AdminStackProps extends cdk.StackProps {
   tables: dynamodb.ITable[];
   tablePrefix: string;
-  /** Secret values fetched from Secrets Manager at deploy time (for Docker build args). */
-  buildSecrets: Record<string, string>;
+  ecsCluster: ecs.ICluster;
+  ecsService: ecs.IBaseService;
 }
 
-export class ArenaStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props: ArenaStackProps) {
+export class AdminStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props: AdminStackProps) {
     super(scope, id, props);
 
     // ── Cognito ─────────────────────────────────────────────
@@ -101,178 +100,6 @@ export class ArenaStack extends cdk.Stack {
     });
     userPoolClient.node.addDependency(googleProvider);
 
-    // ── VPC ────────────────────────────────────────────────
-    const vpc = new ec2.Vpc(this, "Vpc", {
-      maxAzs: 2,
-      natGateways: 0, // public subnets only — Fargate tasks get public IPs
-      subnetConfiguration: [
-        { name: "Public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
-      ],
-    });
-
-    // ── Secrets ───────────────────────────────────────────
-    // Pre-create this secret in the console / CLI with the JSON keys:
-    //   ANTHROPIC_API_KEY,
-    //   OPENAI_API_KEY,
-    //   GOOGLE_GENERATIVE_AI_API_KEY,
-    //   XAI_API_KEY,
-    //   DEEPSEEK_API_KEY,
-    //   INWORLD_API_KEY,
-    //   TWITCH_RTMP_URL,
-    //   YOUTUBE_RTMP_URL
-    const secret = secretsmanager.Secret.fromSecretNameV2(
-      this,
-      "ApiKeys",
-      "arena/api-keys",
-    );
-
-    // ── ECS cluster ───────────────────────────────────────
-    const cluster = new ecs.Cluster(this, "Cluster", { vpc });
-
-    // ── Task definition (4 vCPU / 8 GB — shared by all containers) ──
-    const taskDef = new ecs.FargateTaskDefinition(this, "Task", {
-      cpu: 4096,
-      memoryLimitMiB: 8192,
-      runtimePlatform: {
-        cpuArchitecture: ecs.CpuArchitecture.ARM64,
-        operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
-      },
-    });
-
-    // Grant Bedrock model invocation to the task role
-    taskDef.taskRole.addToPrincipalPolicy(
-      new iam.PolicyStatement({
-        actions: [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream",
-        ],
-        resources: ["*"],
-      }),
-    );
-
-    // Grant DynamoDB read/write to the task role
-    for (const table of props.tables) {
-      table.grantReadWriteData(taskDef.taskRole);
-    }
-
-    // ── arena-app container ───────────────────────────────
-    const appContainer = taskDef.addContainer("arena-app", {
-      image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
-        file: "Dockerfile.app",
-        exclude: ["**/cdk.out"],
-        buildArgs: {
-          INWORLD_API_KEY: requireSecret(props.buildSecrets, "INWORLD_API_KEY"),
-          VITE_CHANNEL_KEY: "poker-stream-1",
-        },
-      }),
-      memoryLimitMiB: 2048,
-      logging: ecs.LogDrivers.awsLogs({
-        streamPrefix: "arena-app",
-        logRetention: logs.RetentionDays.TWO_WEEKS,
-      }),
-      healthCheck: {
-        command: [
-          "CMD-SHELL",
-          "curl -f http://localhost:4001/health || exit 1",
-        ],
-        interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
-        retries: 3,
-        startPeriod: cdk.Duration.seconds(30),
-      },
-      environment: {
-        PORT: "4001",
-        TABLE_PREFIX: props.tablePrefix,
-        CHANNEL_KEY: "poker-stream-1",
-        NODE_ENV: "production",
-        AWS_REGION: this.region,
-      },
-      secrets: {
-        ANTHROPIC_API_KEY: ecs.Secret.fromSecretsManager(
-          secret,
-          "ANTHROPIC_API_KEY",
-        ),
-        OPENAI_API_KEY: ecs.Secret.fromSecretsManager(secret, "OPENAI_API_KEY"),
-        GOOGLE_GENERATIVE_AI_API_KEY: ecs.Secret.fromSecretsManager(
-          secret,
-          "GOOGLE_GENERATIVE_AI_API_KEY",
-        ),
-        XAI_API_KEY: ecs.Secret.fromSecretsManager(secret, "XAI_API_KEY"),
-        DEEPSEEK_API_KEY: ecs.Secret.fromSecretsManager(
-          secret,
-          "DEEPSEEK_API_KEY",
-        ),
-        INWORLD_API_KEY: ecs.Secret.fromSecretsManager(
-          secret,
-          "INWORLD_API_KEY",
-        ),
-      },
-    });
-
-    appContainer.addPortMappings(
-      { containerPort: 80 },
-      { containerPort: 4001 },
-    );
-
-    // ── videographer container ────────────────────────────
-    const vidContainer = taskDef.addContainer("videographer", {
-      image: ecs.ContainerImage.fromAsset(REPO_ROOT, {
-        file: "Dockerfile.videographer",
-        exclude: ["**/cdk.out"],
-      }),
-      memoryLimitMiB: 4096,
-      logging: ecs.LogDrivers.awsLogs({
-        streamPrefix: "videographer",
-        logRetention: logs.RetentionDays.TWO_WEEKS,
-      }),
-      environment: {
-        FRONTEND_URL: "http://localhost/",
-        CAPTURE_WIDTH: "1920",
-        CAPTURE_HEIGHT: "1080",
-        CAPTURE_FPS: "30",
-        PROCTOR_URL: "http://localhost:4001",
-        CHANNEL_KEY: "poker-stream-1",
-        HEALTH_PORT: "3001",
-      },
-      secrets: {
-        TWITCH_RTMP_URL: ecs.Secret.fromSecretsManager(
-          secret,
-          "TWITCH_RTMP_URL",
-        ),
-        YOUTUBE_RTMP_URL: ecs.Secret.fromSecretsManager(
-          secret,
-          "YOUTUBE_RTMP_URL",
-        ),
-      },
-      healthCheck: {
-        command: [
-          "CMD-SHELL",
-          "curl -f http://localhost:3001/health || exit 1",
-        ],
-        interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
-        retries: 3,
-        startPeriod: cdk.Duration.seconds(60),
-      },
-      essential: false,
-    });
-
-    vidContainer.addContainerDependencies({
-      container: appContainer,
-      condition: ecs.ContainerDependencyCondition.HEALTHY,
-    });
-
-    // ── Fargate service (no load balancer) ───────────────
-    // Construct ID changed from "Service" to force CloudFormation replacement
-    // (the old service had an ALB load balancer that references the removed admin container)
-    const service = new ecs.FargateService(this, "Svc", {
-      cluster,
-      taskDefinition: taskDef,
-      desiredCount: 1,
-      assignPublicIp: true,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-    });
-
     // ── S3 bucket for admin-fe static files ──────────────
     const adminBucket = new s3.Bucket(this, "AdminBucket", {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
@@ -300,8 +127,8 @@ export class ArenaStack extends cdk.Stack {
         CHANNEL_KEY: "poker-stream-1",
         COGNITO_USER_POOL_ID: userPool.userPoolId,
         COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
-        ECS_CLUSTER_NAME: cluster.clusterName,
-        ECS_SERVICE_NAME: service.serviceName,
+        ECS_CLUSTER_NAME: props.ecsCluster.clusterName,
+        ECS_SERVICE_NAME: props.ecsService.serviceName,
       },
       logRetention: logs.RetentionDays.TWO_WEEKS,
     });
@@ -323,7 +150,7 @@ export class ArenaStack extends cdk.Stack {
         resources: ["*"],
         conditions: {
           ArnEquals: {
-            "ecs:cluster": cluster.clusterArn,
+            "ecs:cluster": props.ecsCluster.clusterArn,
           },
         },
       }),
@@ -405,8 +232,12 @@ export class ArenaStack extends cdk.Stack {
       ]),
     });
 
-    // ── Deploy admin-fe to S3 ───────────────────────────────
-    new s3deploy.BucketDeployment(this, "AdminFeAssets", {
+    // ── Deploy admin-fe + runtime config to S3 ──────────────
+    // Two sources merged into one deployment: the Vite build output and a
+    // config.js with Cognito values resolved at deploy time (CDK tokens).
+    // The second source overwrites any config.js from the build, and prune
+    // (default true) safely removes stale files.
+    new s3deploy.BucketDeployment(this, "AdminFeDeploy", {
       sources: [
         s3deploy.Source.asset(REPO_ROOT, {
           bundling: {
@@ -430,15 +261,6 @@ export class ArenaStack extends cdk.Stack {
           },
           exclude: ["**/node_modules", "**/cdk.out", "**/dist", "**/.git"],
         }),
-      ],
-      destinationBucket: adminBucket,
-      distribution,
-      distributionPaths: ["/*"],
-    });
-
-    // Deploy runtime config.js with Cognito values (resolved at deploy time)
-    new s3deploy.BucketDeployment(this, "AdminFeConfig", {
-      sources: [
         s3deploy.Source.data(
           "config.js",
           `window.__ARENA_CONFIG__ = ${JSON.stringify({
@@ -449,8 +271,7 @@ export class ArenaStack extends cdk.Stack {
       ],
       destinationBucket: adminBucket,
       distribution,
-      distributionPaths: ["/config.js"],
-      prune: false,
+      distributionPaths: ["/*"],
     });
 
     // ── Outputs ───────────────────────────────────────────
@@ -475,23 +296,5 @@ export class ArenaStack extends cdk.Stack {
     new cdk.CfnOutput(this, "CognitoDomain", {
       value: cognitoDomainName,
     });
-
-    new cdk.CfnOutput(this, "EcsClusterName", {
-      value: cluster.clusterName,
-    });
-
-    new cdk.CfnOutput(this, "EcsServiceName", {
-      value: service.serviceName,
-    });
   }
-}
-
-function requireSecret(secrets: Record<string, string>, key: string): string {
-  const value = secrets[key];
-  if (!value) {
-    throw new Error(
-      `Missing required secret "${key}" in arena/api-keys (Secrets Manager)`,
-    );
-  }
-  return value;
 }

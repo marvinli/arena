@@ -21,7 +21,7 @@ Design docs live in `docs/`:
 - `videographer` — headless browser capture → Twitch RTMP (Puppeteer + ffmpeg)
 - `admin-api` — admin GraphQL API (Lambda, direct DynamoDB/ECS access, Cognito JWT auth)
 - `admin-fe` — admin dashboard SPA (Vite React, Cognito login)
-- `deploy` — AWS CDK infrastructure (DatabaseStack for DynamoDB tables + ArenaStack for VPC, ECS Fargate, Lambda, S3, CloudFront, Cognito)
+- `deploy` — AWS CDK infrastructure (DatabaseStack for DynamoDB tables, EcsStack for VPC/ECS Fargate, AdminStack for Lambda/S3/CloudFront/Cognito)
 
 ## Monorepo Setup
 
@@ -42,7 +42,7 @@ Key variables:
 - `CHANNEL_KEY` / `VITE_CHANNEL_KEY` — isolates game data and the live flag in DynamoDB. Use `local-dev` locally, `poker-stream-1` in production. The live flag is stored as `live:${channelKey}` in the settings table, so different channels never interfere.
 - `TABLE_PREFIX` — DynamoDB table name prefix (default `arena-`)
 
-When adding a new env var, update: root `.env.example`, and if it's needed in production, also `Dockerfile.app` (build args for Vite vars, runtime env for Node vars) and `deploy/lib/arena-stack.ts` (ECS container environment/secrets, or Lambda environment for admin-api).
+When adding a new env var, update: root `.env.example`, and if it's needed in production, also `Dockerfile.app` (build args for Vite vars, runtime env for Node vars) and `deploy/lib/ecs-stack.ts` (ECS container environment/secrets) or `deploy/lib/admin-stack.ts` (Lambda environment for admin-api).
 
 ## Common Commands
 
