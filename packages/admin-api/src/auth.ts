@@ -16,7 +16,7 @@ function getJwks() {
   return jwks;
 }
 
-const ALLOWED_EMAILS = ["marvinli@gmail.com"];
+const REQUIRED_GROUP = process.env.COGNITO_ADMIN_GROUP ?? "admin";
 
 export interface AuthUser {
   sub: string;
@@ -28,9 +28,10 @@ export async function verifyToken(token: string): Promise<AuthUser> {
     issuer,
     audience: clientId,
   });
-  const email = (payload.email as string | undefined)?.toLowerCase();
-  if (!email || !ALLOWED_EMAILS.includes(email)) {
+  const groups = (payload["cognito:groups"] as string[] | undefined) ?? [];
+  if (!groups.includes(REQUIRED_GROUP)) {
     throw new Error("Forbidden");
   }
+  const email = (payload.email as string | undefined)?.toLowerCase() ?? "";
   return { sub: payload.sub as string, email };
 }

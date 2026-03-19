@@ -31,31 +31,18 @@ export class AdminStack extends cdk.Stack {
     super(scope, id, props);
 
     // ── Cognito ─────────────────────────────────────────────
-    const ALLOWED_EMAILS = ["marvinli@gmail.com"];
-
-    const preSignUpFn = new lambda.Function(this, "PreSignUp", {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: "index.handler",
-      code: lambda.Code.fromInline(`
-        exports.handler = async (event) => {
-          const allowed = process.env.ALLOWED_EMAILS.split(",");
-          const email = (event.request.userAttributes.email || "").toLowerCase();
-          if (!allowed.includes(email)) {
-            throw new Error("Email not authorized");
-          }
-          event.response.autoConfirmUser = true;
-          event.response.autoVerifyEmail = true;
-          return event;
-        };
-      `),
-      environment: { ALLOWED_EMAILS: ALLOWED_EMAILS.join(",") },
-    });
-
     const userPool = new cognito.UserPool(this, "AdminUsers", {
       selfSignUpEnabled: false,
       signInAliases: { email: true },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
-      lambdaTriggers: { preSignUp: preSignUpFn },
+    });
+
+    // "admin" group — add users to this group to grant access.
+    // The admin-api checks for this group in the JWT's cognito:groups claim.
+    new cognito.CfnUserPoolGroup(this, "AdminGroup", {
+      userPoolId: userPool.userPoolId,
+      groupName: "admin",
+      description: "Users with admin dashboard access",
     });
 
     const googleOAuthSecret = secretsmanager.Secret.fromSecretNameV2(
