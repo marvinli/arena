@@ -54,7 +54,7 @@ Copy `.env.example` to `.env` at the repo root. You need at least one LLM provid
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `INWORLD_API_KEY` | Yes | TTS (Inworld) |
+| `INWORLD_API_KEY` | No (unless TTS enabled) | TTS (Inworld). Set `VITE_DISABLE_TTS=true` to run without it. |
 | `OPENAI_API_KEY` | For GPT agents | GPT agents |
 | `ANTHROPIC_API_KEY` | For Claude agents | Claude agents |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | For Gemini agents | Gemini agents |
@@ -93,3 +93,20 @@ npm run docker:down            # stop and remove containers
 | `videographer` | — | Headless Chrome + ffmpeg (captures app, streams to RTMP) |
 
 Secrets are read from the root `.env` file. The admin service runs as Lambda + S3/CloudFront in production (not Docker). See [docs/ADMIN.md](docs/ADMIN.md) for admin service details and auth configuration.
+
+## Admin Access (Cognito)
+
+The admin dashboard is protected by AWS Cognito. Access is controlled via a Cognito user pool group:
+
+1. Deploy the CDK stacks — this creates the Cognito user pool and an `admin` group
+2. Create a user in the Cognito console (or let them sign in via Google OAuth)
+3. Add the user to the `admin` group in the Cognito console:
+   ```sh
+   aws cognito-idp admin-add-user-to-group \
+     --user-pool-id <pool-id> \
+     --username <user-email> \
+     --group-name admin
+   ```
+4. The admin-api checks for the `admin` group in the JWT's `cognito:groups` claim
+
+For local development, set `SKIP_AUTH=true` when running admin-api to bypass auth entirely.

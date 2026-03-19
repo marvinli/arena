@@ -9,7 +9,7 @@ The admin-api does not contain game logic. It exposes a small GraphQL schema tha
 - **Queries**: `live` (reads the live flag from DynamoDB), `serviceStatus` (describes the ECS Fargate service with per-container health)
 - **Mutations**: `setLive` (toggles the stream on/off in DynamoDB), `resetDatabase` (scans and batch-deletes all game tables), `startService` / `stopService` (sets ECS desired count to 1 or 0)
 
-The API talks directly to DynamoDB and ECS — it does not proxy to the proctor-api. Authentication uses Cognito JWT tokens verified via JWKS (using the `jose` library) with an email allowlist. Set `SKIP_AUTH=true` to bypass auth for local development.
+The API talks directly to DynamoDB and ECS — it does not proxy to the proctor-api. Authentication uses Cognito JWT tokens verified via JWKS (using the `jose` library), requiring membership in the `admin` Cognito group. Set `SKIP_AUTH=true` to bypass auth for local development.
 
 The Lambda handler also accepts EventBridge Scheduler events (identified by `source: "arena-scheduler"`) for automated stream start/stop on a schedule. These bypass JWT auth since they are IAM-invoked.
 
@@ -20,7 +20,7 @@ The Lambda handler also accepts EventBridge Scheduler events (identified by `sou
 - `src/lambda.ts` — Lambda handler wrapping `yoga` (production, behind Lambda Function URL) + EventBridge Scheduler event handler
 - `src/actions.ts` — shared DynamoDB/ECS action functions (setLive, startService, stopService) + AWS client instances
 - `src/scheduler.ts` — maps scheduler action strings to action functions
-- `src/auth.ts` — Cognito JWT verification via jose (JWKS, issuer, audience, email allowlist)
+- `src/auth.ts` — Cognito JWT verification via jose (JWKS, issuer, audience, group membership)
 
 ## Commands
 
@@ -51,7 +51,7 @@ All env vars are read from the root `.env` file.
 ## Key Conventions
 
 - GraphQL schema defined inline in `yoga.ts` with `graphql-yoga` and `createSchema`.
-- Auth runs as a Yoga `onRequest` plugin — every request must include a `Bearer` token unless `SKIP_AUTH` is set. Verified tokens are also checked against an email allowlist in `auth.ts`.
+- Auth runs as a Yoga `onRequest` plugin — every request must include a `Bearer` token unless `SKIP_AUTH` is set. Verified tokens are checked for `admin` group membership in `auth.ts`.
 - The `yoga` instance is shared between the local HTTP server and the Lambda handler.
 - DynamoDB/ECS client instances and shared action functions live in `actions.ts`, used by both resolvers and the scheduler.
 - The Lambda handler dispatches EventBridge Scheduler events (with `source: "arena-scheduler"`) to `scheduler.ts` actions, bypassing the yoga/auth path.

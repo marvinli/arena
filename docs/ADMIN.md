@@ -21,7 +21,7 @@ The admin-api runs as a Lambda function (not in the ECS task). It talks directly
 2. Clicks "Login" → redirects to Cognito Hosted UI
 3. Cognito authenticates → redirects back with `id_token` in URL hash (implicit grant)
 4. admin-fe stores token in `sessionStorage`, sends `Authorization: Bearer <token>` with every GraphQL request
-5. admin-api verifies JWT against Cognito JWKS (issuer, audience, signature, expiry)
+5. admin-api verifies JWT against Cognito JWKS (issuer, audience, signature, expiry) and checks that the user belongs to the `admin` Cognito group
 
 No auth is required to load the SPA itself — only API calls are protected.
 
@@ -44,7 +44,7 @@ src/
   yoga.ts       # Schema, resolvers, yoga server with JWT auth plugin (shared)
   index.ts      # Standalone HTTP server for local dev
   lambda.ts     # Lambda handler for production (wraps yoga) + EventBridge Scheduler dispatch
-  auth.ts       # Cognito JWT verification via jose (JWKS, issuer, audience, email allowlist)
+  auth.ts       # Cognito JWT verification via jose (JWKS, issuer, audience, group membership)
   actions.ts    # Shared DynamoDB/ECS actions (setLive, startService, stopService) + AWS client instances
   scheduler.ts  # Maps scheduler action strings to action functions
 test/
@@ -53,7 +53,7 @@ test/
 
 ### Auth Implementation
 
-Uses `jose` to verify JWTs against Cognito's JWKS endpoint. The `verifyToken` function checks issuer (`https://cognito-idp.<region>.amazonaws.com/<poolId>`), audience (client ID), signature, and expiry, plus an email allowlist. Returns `{ sub, email }` from the token payload. Auth runs as a Yoga `onRequest` plugin (not context function). When `SKIP_AUTH=true`, the plugin is bypassed and the context returns a hardcoded local dev user instead.
+Uses `jose` to verify JWTs against Cognito's JWKS endpoint. The `verifyToken` function checks issuer (`https://cognito-idp.<region>.amazonaws.com/<poolId>`), audience (client ID), signature, and expiry, then verifies the user belongs to the `admin` Cognito group (via the `cognito:groups` claim). Returns `{ sub, email }` from the token payload. Auth runs as a Yoga `onRequest` plugin (not context function). When `SKIP_AUTH=true`, the plugin is bypassed and the context returns a hardcoded local dev user instead. The required group name defaults to `"admin"` and can be overridden via the `COGNITO_ADMIN_GROUP` env var.
 
 ### Schema
 

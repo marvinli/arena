@@ -17,7 +17,7 @@ AWS CDK infrastructure for the Arena platform. Defines all cloud resources acros
 
 **AdminStack** (`ArenaAdminStack`): The admin dashboard and automation:
 
-- **Cognito**: User pool with Google OAuth identity provider, pre-signup Lambda to restrict by email allowlist, hosted UI domain.
+- **Cognito**: User pool with Google OAuth identity provider, `admin` group for access control, hosted UI domain.
 - **Admin API (Lambda + Function URL)**: admin-api runs as a Lambda function (Node 20, ARM64, 256 MB) behind a Function URL. Granted DynamoDB read/write and ECS service management permissions.
 - **Admin SPA (S3 + CloudFront)**: admin-fe is built at deploy time and served from S3 via CloudFront. A runtime `config.js` injects Cognito values. CloudFront routes `/graphql` to the Lambda and everything else to S3.
 - **EventBridge Scheduler**: Four scheduled actions (warm-up, go-live, stop-live, ramp-down) that invoke the admin Lambda to automate daily stream start/stop on a configurable schedule (default 6 PM ET, 60-minute show).
